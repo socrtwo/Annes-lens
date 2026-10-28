@@ -1,0 +1,816 @@
+# Anne's Lens classic menu layouts — source file, read by scripts/gen-plan.py.
+# Every entry is a command id from commands-plan.src.txt; the generator fails if an id is unknown.
+#
+#   @layout <key> | <menu-bar name in View ▸ Classic Menu Layout> | <modeled on>
+#   = <Menu>                 starts a top-level menu
+#   > <Submenu>  …  <        a submenu (one level)
+#   ---                      separator
+#   <command id>
+#
+# The "AI" menu is the same in every layout and is appended before Help by the generator.
+# "All viewers combined" is generated: the union of the layouts below, menu by menu, without duplicates.
+
+@layout irfanview | IrfanView style | IrfanView 4.x main window (File, Edit, Image, Options, View, Help)
+= File
+file.open
+file.openRecent
+> Open as
+file.openRawPixels
+file.openHex
+file.openText
+<
+file.openExternal
+file.revealInFolder
+file.newWindow
+---
+browse.thumbnails
+show.settings
+batch.convert
+edit.findFiles
+---
+file.rename
+file.moveTo
+file.copyTo
+file.delete
+---
+file.save
+file.saveAs
+file.saveForWeb
+file.saveSelection
+file.reload
+---
+file.print
+file.printSetup
+file.copyShop
+file.scan
+file.batchScan
+file.selectSource
+---
+file.email
+file.openRepair
+file.exit
+= Edit
+edit.undo
+edit.redo
+---
+edit.paint
+edit.customSelection
+edit.selectMaxAspect
+edit.selectionInfo
+edit.crop
+edit.cut
+edit.cutOutside
+edit.copy
+edit.paste
+> Paste special
+edit.pasteAsNew
+edit.pasteInto
+edit.pasteBeside
+<
+edit.clear
+---
+edit.insertText
+edit.insertOverlay
+edit.border
+edit.canvasSize
+edit.autoCrop
+= Image
+image.info
+---
+image.rotateLeft
+image.rotateRight
+image.rotateCustom
+image.flipV
+image.flipH
+---
+image.resize
+image.histogram
+---
+image.grayscale
+image.negative
+image.decreaseDepth
+image.increaseDepth
+image.swapChannels
+> Palette
+image.paletteEdit
+image.paletteImport
+file.export.palette
+<
+image.replaceColor
+---
+adjust.colorCorrections
+adjust.auto
+adjust.sharpen
+adjust.redEye
+> Effects
+fx.browser
+adjust.blur
+fx.emboss
+fx.oilPaint
+fx.edgeDetect
+fx.median
+fx.explosion
+fx.pixelize
+fx.rain
+fx.solarize
+fx.swirl
+fx.tiles
+fx.fragment
+fx.spread
+fx.shift
+fx.button3d
+fx.radialBlur
+fx.zoomBlur
+fx.fishEye
+fx.wave
+fx.convolution
+<
+fx.plugins8bf
+---
+create.panoramaJoin
+image.losslessJpeg
+= Options
+file.options
+file.wallpaper
+file.associations
+view.language
+---
+browse.sort
+> Multipage images
+pages.next
+pages.previous
+pages.goto
+pages.insert
+pages.delete
+pages.extract
+create.multipage
+<
+create.extractFrames
+create.extractEmbedded
+meta.shiftDate
+file.capture
+---
+tools.ocr
+meta.iptc
+meta.comment
+tools.plugins
+file.exportSettings
+= View
+view.fitWindow
+view.fitLarge
+view.actualSize
+view.fitWidth
+view.fitHeight
+view.zoomLock
+view.zoomIn
+view.zoomOut
+---
+view.next
+view.previous
+view.first
+view.last
+view.random
+---
+view.fullScreen
+view.alwaysOnTop
+view.minimize
+view.center
+view.fitWindowToImage
+---
+view.toolbar
+view.statusBar
+view.pixelInfo
+image.showChannel
+view.background
+meta.exif
+= Help
+help.contents
+help.shortcuts
+help.formats
+help.checkUpdates
+help.about
+
+@layout irfanview-thumbs | IrfanView Thumbnails style | IrfanView 4.x thumbnail window
+= File
+file.open
+browse.recursive
+---
+show.start
+batch.convert
+create.contactSheet
+create.panoramaJoin
+create.webGallery
+---
+file.copyTo
+file.moveTo
+file.rename
+file.delete
+---
+file.print
+file.email
+file.copyName
+file.exit
+= Edit
+edit.selectAll
+edit.selectNone
+edit.selectInvert
+browse.selectPattern
+---
+image.losslessJpeg
+batch.lossless
+meta.iptc
+= Options
+browse.sort
+browse.thumbSize
+browse.viewMode
+browse.showAllFiles
+browse.refresh
+file.options
+= View
+browse.folderTree
+view.statusBar
+browse.favorites
+= Help
+help.contents
+help.about
+
+@layout xnview | XnView style | XnView MP browser and viewer
+= File
+file.open
+file.openFolder
+file.openRecent
+file.recentFolders
+---
+file.save
+file.saveAs
+file.saveForWeb
+file.reload
+---
+browse.newFolder
+file.rename
+batch.rename
+file.copyTo
+file.moveTo
+file.delete
+---
+file.openWith
+file.openExternal
+file.revealInFolder
+---
+file.scan
+file.capture
+file.print
+file.exit
+= Edit
+edit.undo
+edit.redo
+---
+edit.cut
+edit.copy
+edit.paste
+edit.pasteAsNew
+---
+edit.selectAll
+edit.selectNone
+edit.selectInvert
+browse.selectPattern
+---
+browse.rate
+browse.colorLabel
+meta.keywords
+meta.caption
+meta.copyright
+meta.xmp
+meta.iptc
+meta.template
+---
+meta.shiftDate
+file.fileTimeFromExif
+meta.strip
+file.options
+= View
+browse.viewMode
+browse.thumbSize
+browse.sort
+browse.groupBy
+browse.filter
+---
+browse.folderTree
+browse.favorites
+view.infoPane
+view.filmstrip
+view.navigator
+---
+view.fullScreen
+view.zoomIn
+view.zoomOut
+view.actualSize
+view.fitWindow
+view.zoomLock
+view.keepPosition
+---
+view.osd
+view.osdTemplate
+view.histogramOverlay
+view.alphaDisplay
+view.colorManaged
+browse.map
+= Image
+image.rotateLeft
+image.rotateRight
+image.rotateCustom
+image.flipH
+image.flipV
+image.autoRotateExif
+image.losslessJpeg
+image.losslessCrop
+---
+image.resize
+edit.canvasSize
+edit.crop
+edit.autoCrop
+---
+adjust.autoLevels
+adjust.autoContrast
+adjust.autoColor
+adjust.levels
+adjust.curves
+adjust.hsl
+adjust.colorBalance
+adjust.channelMixer
+adjust.equalize
+adjust.normalize
+adjust.posterize
+---
+image.grayscale
+image.negative
+image.decreaseDepth
+image.increaseDepth
+image.convertProfile
+image.assignProfile
+---
+fx.browser
+fx.convolution
+fx.plugins8bf
+= Tools
+batch.convert
+batch.recipe
+batch.rename
+batch.metadata
+---
+browse.findDuplicates
+browse.findSimilar
+view.compare
+---
+file.wallpaper
+file.export.metadataCsv
+tools.external
+tools.plugins
+= Create
+create.contactSheet
+create.imageStrip
+create.webGallery
+create.animation
+create.multipage
+create.panoramaJoin
+= Window
+view.syncWindows
+view.frameless
+view.alwaysOnTop
+= Help
+help.contents
+help.shortcuts
+help.formats
+help.about
+
+@layout faststone | FastStone style | FastStone Image Viewer
+= File
+file.open
+file.openFolder
+file.openRecent
+file.save
+file.saveAs
+file.reload
+---
+file.copyTo
+file.moveTo
+file.rename
+file.delete
+file.quickMove
+---
+file.email
+file.print
+file.printLayouts
+file.wallpaper
+file.capture
+file.scan
+file.exit
+= Edit
+edit.undo
+edit.redo
+edit.copy
+edit.paste
+edit.selectAll
+---
+edit.crop
+edit.cropAspect
+image.resize
+edit.canvasSize
+image.rotateCustom
+image.losslessJpeg
+---
+edit.markup
+paint.clone
+paint.heal
+edit.insertText
+edit.insertOverlay
+edit.border
+= Colors
+adjust.colorCorrections
+adjust.levels
+adjust.curves
+adjust.shadowsHighlights
+adjust.colorBalance
+adjust.hsl
+adjust.autoLevels
+image.grayscale
+image.negative
+adjust.redEye
+adjust.sharpen
+adjust.unsharp
+adjust.blur
+adjust.denoise
+= Effects
+fx.pencilSketch
+fx.cartoon
+fx.dropShadow
+fx.reflection
+fx.roundCorners
+fx.vignetteFrame
+fx.browser
+= Create
+create.contactSheet
+create.imageStrip
+create.panoramaJoin
+create.multipage
+create.movie
+show.exportHtml
+= Tools
+batch.convert
+batch.rename
+batch.watermark
+view.compare
+browse.lightTable
+file.setFileTime
+meta.strip
+= View
+browse.browser
+browse.folderTree
+browse.favorites
+view.fullScreen
+view.loupe
+view.histogramOverlay
+view.osd
+view.fitWindow
+view.actualSize
+show.start
+show.settings
+= Help
+help.contents
+help.shortcuts
+help.about
+
+@layout acdsee | ACDSee style | ACDSee (Manage, View and Edit modes)
+= File
+file.open
+file.openFolder
+file.importCamera
+file.importRules
+file.scan
+---
+file.save
+file.saveAs
+file.saveForWeb
+---
+file.print
+file.email
+file.share
+file.export.pdf
+---
+browse.catalog
+browse.maintenance
+tools.backup
+file.exit
+= Edit
+edit.undo
+edit.redo
+edit.cut
+edit.copy
+edit.paste
+file.rename
+file.delete
+---
+edit.selectAll
+edit.selectInvert
+---
+browse.rate
+browse.colorLabel
+meta.keywords
+meta.caption
+meta.shiftDate
+batch.metadata
+= View
+browse.browser
+browse.viewMode
+browse.filter
+browse.groupBy
+browse.sort
+browse.timeline
+browse.people
+browse.map
+---
+view.fullScreen
+view.filmstrip
+view.infoPane
+view.compare
+show.start
+= Tools
+batch.convert
+batch.rename
+batch.recipe
+browse.findDuplicates
+create.contactSheet
+file.wallpaper
+= Modify
+image.rotateLeft
+image.rotateRight
+edit.crop
+image.resize
+adjust.exposure
+adjust.toneEqualizer
+adjust.whiteBalance
+adjust.colorBalance
+adjust.denoise
+adjust.sharpen
+adjust.redEye
+ai.erase
+fx.browser
+= Help
+help.contents
+help.shortcuts
+help.about
+
+@layout photoviewer | Windows Photo Viewer style | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus)
+= File
+file.open
+file.openWith
+file.saveCopy
+file.print
+file.printLayouts
+file.email
+file.share
+file.wallpaper
+file.lockScreen
+file.revealInFolder
+file.delete
+file.sysProperties
+file.exit
+= Edit
+edit.copy
+edit.cropAspect
+image.rotateLeft
+image.rotateRight
+image.straighten
+adjust.enhance
+adjust.exposure
+adjust.vibrance
+adjust.redEye
+ai.erase
+ai.removeBackground
+ai.blurBackground
+ai.replaceBackground
+ai.upscale
+edit.markup
+adjust.revertOriginal
+= View
+view.zoomIn
+view.zoomOut
+view.actualSize
+view.fitWindow
+view.fullScreen
+view.filmstrip
+view.compare
+view.next
+view.previous
+show.start
+browse.favorite
+browse.albums
+browse.people
+= Help
+help.contents
+help.about
+
+@layout picasa | Picasa style | Picasa 3
+= File
+file.importCamera
+browse.folderManager
+browse.newFolder
+---
+file.saveAs
+file.export.pdf
+create.webGallery
+file.print
+file.email
+---
+file.hide
+file.delete
+file.revealInFolder
+tools.backup
+file.exit
+= Edit
+edit.undo
+edit.redo
+edit.copy
+edit.paste
+edit.selectAll
+meta.caption
+meta.keywords
+= View
+browse.albums
+browse.people
+browse.map
+browse.timeline
+view.fullScreen
+show.start
+browse.thumbSize
+= Folder
+browse.refresh
+browse.sort
+file.revealInFolder
+= Picture
+browse.favorite
+image.rotateLeft
+image.rotateRight
+edit.cropPrint
+image.straighten
+adjust.redEye
+adjust.enhance
+adjust.fillLight
+adjust.warmify
+adjust.tint
+paint.heal
+edit.insertText
+adjust.revertOriginal
+> Effects
+fx.filmGrain
+fx.softFocus
+fx.glow
+fx.focalBW
+fx.graduatedTint
+image.grayscale
+adjust.tint
+adjust.sharpen
+<
+meta.geotag
+= Create
+create.collage
+create.movie
+create.contactSheet
+create.webGallery
+file.wallpaper
+= Tools
+batch.convert
+browse.findDuplicates
+browse.people
+file.options
+= Help
+help.contents
+help.shortcuts
+help.about
+
+@layout preview | Preview style | macOS Preview
+= File
+file.open
+file.openRecent
+file.importCamera
+file.scan
+file.capture
+---
+file.close
+file.save
+file.saveCopy
+file.export.pdf
+file.saveAs
+file.reload
+---
+file.share
+file.print
+= Edit
+edit.undo
+edit.redo
+edit.cut
+edit.copy
+edit.paste
+edit.selectAll
+edit.selectInvert
+edit.signature
+= View
+browse.thumbnails
+create.contactSheet
+view.actualSize
+view.fitWindow
+view.zoomIn
+view.zoomOut
+view.loupe
+view.fullScreen
+show.start
+= Go
+view.next
+view.previous
+view.first
+view.last
+= Tools
+image.info
+meta.exif
+edit.markup
+adjust.colorCorrections
+image.resize
+image.rotateLeft
+image.rotateRight
+image.flipH
+image.flipV
+edit.crop
+ai.removeBackground
+ai.selectSubject
+tools.ocr
+= Window
+view.alwaysOnTop
+= Help
+help.contents
+help.about
+
+@layout digikam | digiKam style | digiKam albums and image editor
+= Album
+browse.albums
+browse.newFolder
+browse.refresh
+browse.smartAlbum
+browse.recursive
+= Tag
+meta.keywords
+meta.regions
+browse.people
+= Import
+file.importCamera
+file.importRules
+file.scan
+= Export
+create.webGallery
+file.export.pdf
+file.email
+tools.backup
+= Item
+file.open
+file.rename
+file.delete
+browse.rate
+browse.colorLabel
+browse.pick
+image.rotateLeft
+image.rotateRight
+meta.geotag
+meta.geotagGpx
+meta.template
+= View
+browse.viewMode
+browse.sort
+browse.groupBy
+browse.filter
+browse.map
+browse.timeline
+view.fullScreen
+show.start
+browse.lightTable
+= Tools
+batch.queue
+batch.recipe
+batch.rename
+browse.findDuplicates
+browse.findSimilar
+browse.searchSketch
+browse.searchColor
+browse.qualitySort
+create.panoramaStitch
+create.hdr
+adjust.curves
+adjust.levels
+adjust.channelMixer
+image.lensCorrection
+image.convertProfile
+= Settings
+browse.maintenance
+meta.sidecarMode
+file.options
+= Help
+help.contents
+help.about

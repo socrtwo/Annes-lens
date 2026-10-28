@@ -1,0 +1,77 @@
+# Roadmap
+
+> **Plan.** Anne's Lens has no code yet. Milestones are ordered by dependency, not by date. Each milestone from M1 on ends with a tagged prerelease built for every platform by the release workflow. Command ids refer to [COMMANDS-PLAN.md](COMMANDS-PLAN.md).
+
+## M0 — Planning (this repository)
+
+- [x] README, feature survey ([INNOVATIONS.md](INNOVATIONS.md)), command inventory ([COMMANDS-PLAN.md](COMMANDS-PLAN.md), generated from [commands-plan.src.txt](commands-plan.src.txt)), classic menu layouts ([MENUS-PLAN.md](MENUS-PLAN.md)), Quick Access Bar plan ([QAT.md](QAT.md)), AI plan ([AI-PLAN.md](AI-PLAN.md)), formats ([FORMATS-PLAN.md](FORMATS-PLAN.md)), recovery ([RECOVERY-PLAN.md](RECOVERY-PLAN.md)), architecture ([ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md)), legal notes, license, contributing guide and issue templates.
+- [x] `scripts/gen-plan.py` validates ids, menu references, origins and shortcut conflicts.
+- [ ] Verify the classic menu arrangements and default keys against installed copies of IrfanView (current 4.x), XnView MP, FastStone, ACDSee, Picasa 3, Windows Photo Viewer/Photos, Preview and digiKam, and correct [menus-plan.src.txt](menus-plan.src.txt).
+- [ ] Collect an openly licensed test corpus: every format in FORMATS-PLAN.md, camera RAW samples with redistribution rights, multipage and animated files, damaged files.
+- [ ] Confirm the license of every on-device model candidate in AI-PLAN.md.
+
+## M1 — Shell and viewer
+
+- Project scaffold: TypeScript, Vite, vitest, Capacitor 8 (Android, iOS), Electron, PWA manifest and service worker; CI and release workflows from the sister apps.
+- Suite shell: command registry, ribbon, Quick Access Bar with **Add All Choices** (`view.qatAddAll`), Customize Tabs and Keyboard, command search, Backstage, preferences, settings import/export (including the IrfanView-style key list), portable mode.
+- **Classic menu bar** with the IrfanView layout (default) and View ▸ Menus.
+- Viewer: open, next/previous with prefetch, zoom and fit modes, full screen, rotate/flip (view and save), information dialog, status bar with pixel info, drag and drop, *Open with* on every platform.
+- Codecs: JPEG, PNG, GIF (animated), WebP, BMP, ICO, TIFF (baseline); platform HEIC/AVIF.
+- A catalog test comparing the registry with `docs/commands-plan.json`.
+
+## M2 — Files, formats and lossless
+
+- File operations with the journal: rename, move, copy, delete, quick move, undo file operation.
+- Save and Save As with options for every writable format; Save for Web; target file size.
+- Lossless JPEG transformations and crop; EXIF auto-rotate.
+- Formats: AVIF, JPEG XL, JPEG 2000, full TIFF, PSD composite, TGA, Netpbm, QOI, PCX, XPM/XBM, WBMP, SVG, PDF pages, EPS previews, WMF/EMF, ICNS, DDS, EXR/HDR, RAW embedded previews, archives as folders.
+- Open RAW Pixel Data, hex view; tolerant decoding and the recovery report; Open and Repair (JPEG, PNG, GIF).
+- Print, print layouts, print at true size; scanning on Windows and macOS; screen capture.
+
+## M3 — Edit, thumbnails and batch
+
+- Edit tab: selections, crop variants, canvas, borders, text, overlays, clipboard paste variants, paint pane, Markup Board, redaction.
+- Image tab: resize/resample with every kernel, color depth and palette, color profiles.
+- Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
+- Batch conversion and rename with steps, recipes, dry run, undo last batch.
+
+## M4 — Adjust, effects and organize
+
+- Adjust tab with the non-destructive edit stack, presets, before/after, copy/paste adjustments, revert to original.
+- Effects tab and Effects Browser; custom convolution.
+- Ratings, labels, favorites, keywords, captions, filter bar, group by; the optional catalog; watch folders and Folder Manager; Cull Mode with RAW previews, focus peaking and clipping warnings.
+- Metadata tab: EXIF/IPTC/XMP editing, templates, date shifting, sidecars, strip metadata, privacy check.
+
+## M5 — Create, compare and slideshow
+
+- Contact sheet, join side by side, image strip, animations, multipage, web gallery, icon set, comparison picture, extraction from documents.
+- Compare up to four, before/after slider, difference overlay, synchronized windows, loupe, measure, rulers and grids.
+- Slideshow with transitions, music, captions, kiosk mode, phone remote, HTML export.
+- Find duplicates and similar pictures; quality sort; stacks.
+- Hand-offs to Anne's Folio, Stage, Pen and Press. Command-line options (desktop).
+
+## M6 — Places, people, scans and records
+
+- Map and geotagging (GPX), place-name lookup; Timeline; Albums and Smart Albums.
+- People (on-device, opt-in).
+- Document Cleanup, Crop Page from Photo, deskew, descreen, dust and scratches, restore faded colors, Restore Old Photo wizard (non-AI steps).
+- OCR (tesseract.js) with OCR to Anne's Pen; QR and barcodes.
+- Source citations, person links, checksums and fixity reports, content-credentials viewer.
+- RAW develop module; HEIC and RAR modules where licensing allows.
+
+## M7 — AI
+
+- AI tab and AI menu: setup wizard with separate text/vision and picture services, adapters listed in AI-PLAN.md, capability-based enabling.
+- On-device models: erase, background, depth, upscale, denoise, colorize, select subject, embeddings for Search by Content.
+- Generate, edit and understand commands; Compare Providers; AI History; Content Credentials on results; Run on Selection with cost caps.
+- Several AIs (master and Quaker consensus) for text commands, shared with the suite.
+
+## M8 — Stretch goals
+
+- 8BF plug-in host (Windows), panorama stitching, focus stacking and exposure merge refinements, content-aware resize, vectorize.
+- Network-synchronized viewing with the suite's relay; shared albums.
+- Stereo and 360° viewing refinements; DICOM and FITS tools.
+
+## Recovery (throughout)
+
+Tolerant decoding comes with each codec. JPEG/PNG/GIF repair arrives in M2, TIFF/WebP/AVIF/HEIC/JPEG XL repair with their codecs, carving (`file.recoverAny`) in M5, fragmented-JPEG recovery in M6. Each method arrives with damaged-file tests.

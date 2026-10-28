@@ -1,0 +1,759 @@
+# Anne's Lens command plan — source file.
+# scripts/gen-plan.py reads this file and writes docs/COMMANDS-PLAN.md, docs/MENUS-PLAN.md and docs/commands-plan.json.
+# Edit this file, not the generated ones.
+#
+# Syntax
+#   @tab <id-prefix> | <Tab name> | <one-line description>
+#   ## <Group>
+#   <Label> | <id> | <shortcut> | <origins> | <notes>
+# Origins are the codes in the legend (ORIGINS below); NEW = an Anne's Lens idea; SUITE = shared with the
+# other Anne's Office apps. A note containing "not in tabs" means the command has no default ribbon place.
+# Shortcuts are planned defaults; every one can be rebound.
+
+@tab file | File | Open, save, export, rename and move files, acquire, print, share, options
+
+## Open
+Open… | file.open | O, Ctrl+O | IV,ALL |
+Open Folder… | file.openFolder | Ctrl+Shift+O | XN,FS,DK |
+Open URL… | file.openUrl | | IV,XN | downloads to the cache, then opens
+Recent Files | file.openRecent | | IV,XN | IrfanView's "Reopen"
+Recent Folders | file.recentFolders | | XN,FS |
+Clear Recent Lists | file.clearRecent | | | not in tabs
+Open in New Window | file.newWindow | Ctrl+N | NM,PRV,IV | IrfanView: start a new instance
+Open RAW Pixel Data… | file.openRawPixels | | IV | headerless dumps: width, height, bits per pixel, channel order, header offset, endianness
+Open as Hex | file.openHex | | IV,XN | read-only hex and ASCII view; jump to marker or chunk
+Open as Text | file.openText | | IV | for text files reached while browsing
+Open with External Editor | file.openExternal | Shift+E | IV,XN | up to nine configured editors, each a command (file.openExternal(1)…(9))
+Open With (system) | file.openWith | | WP,PRV,AG |
+Show in Folder | file.revealInFolder | Ctrl+Shift+E | IV,XN,WP |
+Open and Repair… | file.openRepair | | SUITE | runs every recovery method; see RECOVERY-PLAN.md
+Recover Pictures from Any File… | file.recoverAny | | SUITE,NEW | carves JPEG, PNG, GIF, TIFF, WebP, HEIC and RAW previews out of disk images, caches, documents and damaged archives
+Recovery Report | file.recoveryReport | | SUITE |
+Open Encrypted Picture… | file.openEncrypted | | SUITE | .qlpe
+
+## Save
+Save | file.save | Ctrl+S | IV,ALL | writes back to the same file; lossless where the format allows (see Lossless JPEG)
+Save As… | file.saveAs | S | IV | format options per type (quality, subsampling, progressive, compression, bit depth, transparency, color profile, metadata kept or stripped)
+Save a Copy… | file.saveCopy | | |
+Save Selection As… | file.saveSelection | | IV |
+Save All Changed | file.saveAll | Ctrl+Shift+S | NEW | every open picture with unsaved changes
+Save for Web… | file.saveForWeb | Ctrl+Alt+S | IV,XN | side-by-side original and result, format, quality, size, target width, metadata
+Save to Target File Size… | file.saveTargetSize | | IV,NEW | searches quality (and, if allowed, dimensions) for a given size in KB
+Reload | file.reload | Shift+R | IV | discards unsaved changes
+Encrypt Picture… | file.encrypt | | SUITE,NEW | AES-256 .qlpe package; for scans of IDs, records and other private papers
+
+## Export
+Export as PDF… | file.export.pdf | | IV,PRV | one or many pictures, page size, margins, fit, OCR text layer optional
+Send to Anne's Folio | file.export.folio | | SUITE | opens the PDF in Anne's Folio for further work
+Send to Anne's Stage | file.export.stage | | SUITE | selection becomes a deck, one picture per slide, captions as titles
+Insert into Anne's Pen | file.export.pen | | SUITE | picture with caption and alt text into the open document
+Send to Anne's Press | file.export.press | | SUITE | pictures with captions to a layout
+Export Animation (GIF, WebP, APNG)… | file.export.animation | | XN,NEW |
+Export as Icon (.ico, .icns)… | file.export.icon | | GW,IV | several sizes in one file
+Export Palette… | file.export.palette | | IV | .pal, .act, .gpl, .aco-compatible swatches, CSS variables
+Export Metadata as CSV… | file.export.metadataCsv | | XN,DK |
+
+## Files
+Rename… | file.rename | F2 | IV,ALL |
+Move To… | file.moveTo | F7 | IV |
+Copy To… | file.copyTo | F8 | IV |
+Delete | file.delete | Del | IV,ALL | to the Recycle Bin / Trash where the platform has one
+Delete Permanently | file.deletePermanent | Shift+Del | IV,XN |
+Quick Move to Folder 1–9 | file.quickMove | Alt+1…Alt+9 | FS,XN,FPV | culling: nine target folders set in Options
+Quick Copy to Folder 1–9 | file.quickCopy | Alt+Shift+1…9 | FS,XN,FPV |
+Undo File Operation | file.undoFileOp | Ctrl+Alt+Z | NEW | journal of renames, moves and deletes in this session
+Copy File Name | file.copyName | | IV | not in tabs
+Copy Full Path | file.copyPath | | XN | not in tabs
+Copy as File (for pasting in file managers) | file.copyAsFile | | XN | not in tabs
+Change File Date/Time… | file.setFileTime | | FS,XN |
+File Date from EXIF Date | file.fileTimeFromExif | | XN,IV |
+Hide Picture | file.hide | | PIC,APH,GP | hidden list in the catalog; the file is not changed
+File Properties (system) | file.sysProperties | Alt+Enter | WPV,XN | not in tabs
+
+## Acquire
+Scan… | file.scan | Ctrl+Shift+A | IV,PRV,KI | TWAIN/WIA on Windows, ICA/SANE where available, Android scanner apps and the document camera elsewhere
+Batch Scanning… | file.batchScan | | IV | name pattern, format, auto-crop, deskew, multipage TIFF or PDF output
+Select Scan Source… | file.selectSource | | IV |
+Import from Camera or Phone… | file.importCamera | | PIC,GT,DK,PRV,WP,APH | skip duplicates, rename on import, create dated folders, delete after import (asks)
+Import with Rules… | file.importRules | | DK,LR | saved import presets: folder pattern, rename pattern, metadata template, backup copy
+Screen Capture… | file.capture | C | IV,PRV,FS | whole screen, window, region, scrolling region (desktop), delay, include cursor, auto-save, then edit
+Camera Capture | file.captureCamera | | NEW | takes a picture with the device camera straight into the viewer
+
+## Print
+Print… | file.print | Ctrl+P | IV,ALL | position, size, scale, fit, captions, color management
+Quick Print | file.quickPrint | | |
+Print Preview | file.printPreview | | IV,WP |
+Print Layouts (several per page)… | file.printLayouts | | WPV,WP,PIC,FS | wallet, 4×6, 5×7, 8×10, contact pages, mixed sizes
+Print at True Size… | file.printTrueSize | | NEW | uses the picture's DPI and a one-time printer calibration ruler, so 1 inch prints as 1 inch
+Print Copies and Posters… | file.copyShop | | IV | several copies per page, or one picture tiled across pages with overlap and cut marks
+Print Setup… | file.printSetup | | IV | not in tabs
+
+## Share
+Share… | file.share | | WP,AG,PRV | system share sheet
+Email… | file.email | Ctrl+Shift+M | IV,WPV,PIC,FS | optional resize and metadata stripping before sending; uses Anne's Post when installed
+Set as Wallpaper | file.wallpaper | Ctrl+Shift+W | IV,XN,WPV | arguments: center, tile, stretch, fit, fill
+Set as Lock Screen | file.lockScreen | | WP,AG |
+Set as Contact Photo | file.contactPhoto | | AG | Android
+Cast to Display | file.cast | | GP,AG |
+
+## Close and options
+Close | file.close | Ctrl+W | |
+Close All | file.closeAll | | |
+Exit | file.exit | Esc, Alt+F4 | IV | Esc leaves full screen first (option)
+Options… | file.options | P | IV | IrfanView's "Properties/Settings" key
+Customize Quick Access Bar… | file.customizeQat | | SUITE |
+Customize Tabs… | file.customizeRibbon | | SUITE |
+Customize Menus… | file.customizeMenus | | NEW | edit any classic menu layout or build your own
+Customize Keyboard… | file.customizeKeyboard | | SUITE,IV |
+File Associations… | file.associations | | IV,XN | desktop: register any of the supported types
+Export / Import Settings… | file.exportSettings | | SUITE,IV | one JSON file; IrfanView-style INI import for keys and external editors
+Portable Mode | file.portableMode | | IV,XN | settings beside the program instead of the user profile (desktop)
+Reset All Customizations | file.resetCustomizations | | SUITE |
+
+@tab edit | Edit | Undo, clipboard, selections, crop, text, borders, canvas, paint and markup, find
+
+## Undo
+Undo | edit.undo | Ctrl+Z | IV,ALL |
+Redo | edit.redo | Ctrl+Shift+Z | ALL | Ctrl+Y is Crop Selection, as in IrfanView; rebind if you prefer
+History Panel | edit.history | Ctrl+Alt+H | NEW | every step with a thumbnail; click to go back; branch kept until the next edit
+
+## Clipboard
+Cut | edit.cut | Ctrl+X | IV |
+Cut Outside Selection | edit.cutOutside | Ctrl+Shift+X | IV |
+Copy | edit.copy | Ctrl+C | IV,ALL |
+Paste | edit.paste | Ctrl+V | IV,ALL |
+Paste as New Picture | edit.pasteAsNew | Ctrl+Shift+V | IV,XN |
+Paste into Selection | edit.pasteInto | | IV | scaled to the selection
+Paste Beside | edit.pasteBeside | | IV | arguments: left, right, top, bottom (canvas grows)
+Clear Selection | edit.clear | | IV | fills with the background color or transparency
+Fill Selection… | edit.fill | | IV,XN | color, gradient or pattern
+
+## Select
+Select All | edit.selectAll | Ctrl+A | ALL |
+Select None | edit.selectNone | Ctrl+D | ALL |
+Invert Selection | edit.selectInvert | Ctrl+Shift+I | |
+Custom Selection… | edit.customSelection | Shift+C | IV | exact position and size, aspect presets, saved presets
+Maximize Selection to Aspect Ratio | edit.selectMaxAspect | | IV |
+Selection Information | edit.selectionInfo | | IV | not in tabs
+Rectangle Selection | edit.selectRect | | ALL |
+Ellipse Selection | edit.selectEllipse | | XN |
+Lasso and Polygon Selection | edit.selectLasso | | XN |
+Magic Wand | edit.selectWand | | XN |
+Select by Color Range… | edit.selectColor | | NEW |
+
+## Crop
+Crop Selection | edit.crop | Ctrl+Y | IV |
+Crop to Aspect Ratio… | edit.cropAspect | | WP,PRV,APH | presets and custom; rule-of-thirds and golden-ratio guides
+Crop for Print Size… | edit.cropPrint | | PIC | 4×6, 5×7, 8×10, passport and ID sizes (with head-height guide)
+Auto Crop Borders | edit.autoCrop | Shift+X | IV | trims uniform borders; tolerance
+Crop Page from Photo | edit.cropPage | | NEW | finds a document's corners in a phone photo and flattens it
+
+## Add
+Insert Text… | edit.insertText | Ctrl+T | IV | font, color, outline, shadow, background, rotation, fields (date, EXIF, file name)
+Insert Watermark or Overlay… | edit.insertOverlay | | IV,FS | picture with opacity, position, tiling
+Add Border or Frame… | edit.border | | IV,FS | solid, inner and outer, rounded, frame styles
+Change Canvas Size… | edit.canvasSize | Shift+V | IV | anchor grid, color or transparency
+Signature… | edit.signature | | PRV | drawn, typed or from a picture; stored on the device
+
+## Paint and markup
+Paint Tools | edit.paint | F12 | IV | toggles the paint pane (tools below)
+Markup Board | edit.markup | Ctrl+Shift+D | FS,PRV,WP | arrows, lines, shapes, callouts, numbered steps, highlighter, text; stays editable until flattened
+Redact Region (blur, pixelate, black out) | edit.redact | | FS,NEW | destroys the pixels; never a removable overlay
+Magnifier Callout | edit.callout | | NEW | enlarged inset of a region with a connector
+Brush | paint.brush | | IV | not in tabs
+Pencil | paint.pencil | | IV | not in tabs
+Line | paint.line | | IV | not in tabs
+Arrow | paint.arrow | | IV,FS | not in tabs
+Rectangle | paint.rect | | IV | not in tabs
+Ellipse | paint.ellipse | | IV | not in tabs
+Text Tool | paint.text | | IV | not in tabs
+Eraser | paint.eraser | | IV | not in tabs
+Flood Fill | paint.fill | | IV | not in tabs
+Spray | paint.spray | | IV | not in tabs
+Clone Stamp | paint.clone | | IV,FS | not in tabs
+Healing Brush | paint.heal | | FS,PIC | not in tabs
+Red-Eye Brush | paint.redEye | | IV,PIC | not in tabs
+Color Replacer Brush | paint.colorReplace | | IV | not in tabs
+Color Picker | paint.colorPicker | | IV,IG | not in tabs
+Flatten Markup | edit.flattenMarkup | | NEW |
+
+## Find
+Find Files… | edit.findFiles | Ctrl+F | IV,XN | name, wildcards, date, size, dimensions, metadata, text in captions; recursive
+Go to File by Name | edit.gotoFile | Ctrl+Shift+G | NEW | type-ahead jump in the current folder
+
+@tab image | Image | Information, rotation, resizing, color depth, palette, color profiles, lossless JPEG
+
+## Information
+Picture Information | image.info | I | IV,ALL | file, format, dimensions, DPI, bit depth, colors used, compression, quality estimate, profile, pages/frames, load time
+Histogram | image.histogram | Shift+H | IV,XN,FS | luminance and RGB, logarithmic option, statistics
+Count Unique Colors | image.countColors | | IV |
+Estimate JPEG Quality | image.jpegQuality | | XN,NEW | from the quantization tables; flags resaved and double-compressed files
+Show Channel | image.showChannel | | IV,XN | arguments: red, green, blue, alpha, luminance; not in tabs
+
+## Rotate and flip
+Rotate Left | image.rotateLeft | L | IV,ALL |
+Rotate Right | image.rotateRight | R | IV,ALL |
+Rotate 180° | image.rotate180 | | |
+Custom Rotation… | image.rotateCustom | Ctrl+U | IV | any angle, crop or expand, background
+Straighten | image.straighten | | PIC,WP,APH | draw along the horizon or a vertical
+Auto Straighten | image.autoStraighten | | LR,NEW |
+Flip Horizontal | image.flipH | H | IV |
+Flip Vertical | image.flipV | V | IV |
+Auto-Rotate by EXIF Orientation | image.autoRotateExif | | IV,XN | also an Options setting for display
+Perspective Correction… | image.perspective | | LR,PS | four-corner and guided (draw verticals)
+Lens Correction… | image.lensCorrection | | DK,LR | distortion, vignetting, chromatic aberration; manual sliders plus profiles where openly licensed
+Deskew Scanned Page | image.deskew | | KI,NEW | finds the text baseline angle
+
+## Lossless JPEG
+Lossless JPEG Transformations… | image.losslessJpeg | Shift+J | IV,XN,FS | rotate, flip, transpose, grayscale, crop at block boundaries, optimize, progressive, keep or strip metadata
+Lossless Crop | image.losslessCrop | | IV,XN | selection snapped to the 8- or 16-pixel grid
+Lossless Auto-Rotate by EXIF | image.losslessAutoRotate | | XN,FS | resets the Orientation tag
+
+## Size
+Resize / Resample… | image.resize | Ctrl+R | IV | pixels, percent, print size and DPI; nearest, bilinear, bicubic, Mitchell, Catmull-Rom, Lanczos 2/3, B-spline; gamma-correct; sharpen after; presets
+Half Size | image.halfSize | Shift+- | IV |
+Double Size | image.doubleSize | Shift+= | IV |
+Resize to Screen | image.resizeToScreen | | IV |
+Content-Aware Resize… | image.seamCarve | | NEW | seam carving; protect and remove masks
+Set Print Resolution (DPI)… | image.setDpi | | IV | changes metadata only, no resampling
+
+## Color depth and palette
+Convert to Grayscale | image.grayscale | Ctrl+G | IV |
+Negative | image.negative | Ctrl+Shift+N | IV | per channel option
+Decrease Color Depth… | image.decreaseDepth | | IV | 2, 16, 256 or N colors; optimal, web, grayscale or custom palette; Floyd–Steinberg, Atkinson, ordered or no dithering
+Increase Color Depth | image.increaseDepth | | IV | to 24-bit RGB or 32-bit RGBA
+Black and White (Threshold)… | image.threshold | | IV | fixed, Otsu or adaptive threshold
+Swap Color Channels | image.swapChannels | | IV | arguments: RGB→BGR, RBG, GRB, GBR, BRG
+Edit Palette… | image.paletteEdit | | IV |
+Import Palette… | image.paletteImport | | IV | .pal, .act, .gpl
+Replace Color… | image.replaceColor | | IV | tolerance, preview
+Transparent Color… | image.transparentColor | | IV,GW | for GIF, PNG and ICO output
+Flatten Transparency | image.flatten | | | onto a background color
+Alpha from Mask… | image.alphaFromMask | | NEW | gray picture or selection becomes the alpha channel
+
+## Color management
+Convert to Color Profile… | image.convertProfile | | DK,XN | sRGB, Display P3, wide-gamut working spaces, gray, CMYK from an ICC profile; rendering intent
+Assign Color Profile… | image.assignProfile | | DK |
+Soft Proof… | image.softProof | | LR,NEW | preview on a printer profile, gamut warning overlay
+
+@tab adjust | Adjust | Automatic and manual tone and color adjustments, sharpening, noise, retouching, presets
+
+## Automatic
+Auto-Adjust Colors | adjust.auto | Shift+U | IV |
+One-Click Enhance | adjust.enhance | Ctrl+E | PIC,WP,APH | tone, color and gentle sharpening in one step
+Auto Levels | adjust.autoLevels | | XN,FS |
+Auto Contrast | adjust.autoContrast | | XN |
+Auto Color | adjust.autoColor | | XN |
+Auto White Balance | adjust.autoWhiteBalance | | LR,APH |
+
+## Tone
+Color Corrections… | adjust.colorCorrections | Shift+G | IV | brightness, contrast, gamma, saturation, red/green/blue balance, live preview, apply to all open pictures
+Brightness and Contrast… | adjust.brightnessContrast | | ALL |
+Exposure… | adjust.exposure | | LR,APH |
+Levels… | adjust.levels | Ctrl+L | FS,XN | per channel, eyedroppers for black, gray and white points
+Curves… | adjust.curves | Ctrl+Shift+U | FS,XN,DK | per channel, presets
+Gamma… | adjust.gamma | | IV |
+Shadows and Highlights… | adjust.shadowsHighlights | | FS,LR | FastStone's "Lighting"
+Fill Light | adjust.fillLight | | PIC |
+Tone Equalizer… | adjust.toneEqualizer | | ACD,JV | local contrast by tonal band; JPEGView's local density correction
+Equalize Histogram | adjust.equalize | | XN |
+Normalize | adjust.normalize | | XN |
+Clarity… | adjust.clarity | | APH,LR | mid-tone local contrast
+Dehaze… | adjust.dehaze | | LR |
+Vignette… | adjust.vignette | | APH,LR,FS |
+
+## Color
+White Balance… | adjust.whiteBalance | | LR,APH | eyedropper, temperature and tint
+Hue, Saturation and Lightness… | adjust.hsl | | XN,FS | whole picture or a hue range
+Vibrance… | adjust.vibrance | | LR,APH |
+Color Balance… | adjust.colorBalance | | FS,XN | shadows, midtones, highlights
+Selective Color… | adjust.selectiveColor | | APH |
+Channel Mixer… | adjust.channelMixer | | XN,DK |
+Black-and-White Mixer… | adjust.bwMixer | | LR,APH |
+Tint and Sepia… | adjust.tint | | PIC,XN |
+Warmify | adjust.warmify | | PIC |
+Posterize… | adjust.posterize | | XN |
+Apply LUT… | adjust.lut | | NEW | .cube 3-D lookup tables
+
+## Detail and retouch
+Sharpen | adjust.sharpen | Shift+S | IV |
+Unsharp Mask… | adjust.unsharp | | IV,XN |
+Blur… | adjust.blur | | IV | box, Gaussian, surface
+Noise Reduction… | adjust.denoise | | LR,DK | luminance and color noise
+Despeckle | adjust.despeckle | | XN |
+Red-Eye Reduction | adjust.redEye | Shift+Y | IV,PIC,WP | automatic on a selection
+Remove Dust and Scratches… | adjust.dustScratches | | NEW | scanned prints and slides; radius and threshold, mask preview
+Restore Faded Colors | adjust.restoreFaded | | NEW | per-channel stretch with dye-fade models for old prints and slides
+Descreen (moiré) | adjust.descreen | | NEW | removes halftone patterns from scanned printed pictures
+
+## Presets and history
+Before / After | adjust.beforeAfter | \ | LR,APH | hold to see the original
+Copy Adjustments | adjust.copySettings | Ctrl+Shift+C | LR,APH |
+Paste Adjustments | adjust.pasteSettings | Ctrl+Alt+V | LR,APH | to one picture or the selection
+Save Adjustment Preset… | adjust.savePreset | | LR,FS |
+Apply Preset | adjust.applyPreset | | LR | argument: preset name
+Reset All Adjustments | adjust.resetAll | | APH,PIC | non-destructive edits only
+Revert to Original | adjust.revertOriginal | | APH,WP,PIC | restores the original kept beside an edited file
+
+@tab fx | Effects | Artistic and photographic effects, distortions, frames, plug-in filters
+
+## Browse
+Effects Browser… | fx.browser | | IV | live thumbnails of every effect with its settings
+Repeat Last Effect | fx.repeatLast | Ctrl+Alt+R | NEW |
+Custom Filter (Convolution)… | fx.convolution | | IV,XN | 3×3 to 7×7 kernels, divisor, bias; save and load
+Plug-in Filters (8BF)… | fx.plugins8bf | | IV,XN | Windows desktop only, off by default, each plug-in run in a separate process
+## Artistic
+Emboss | fx.emboss | | IV |
+Oil Paint | fx.oilPaint | | IV |
+Edge Detect | fx.edgeDetect | | IV |
+Median | fx.median | | IV |
+Pencil Sketch | fx.pencilSketch | | FS |
+Watercolor | fx.watercolor | | NEW |
+Cartoon | fx.cartoon | | FS |
+Halftone | fx.halftone | | NEW |
+Mosaic | fx.mosaic | | XN |
+Pixelate | fx.pixelize | | IV |
+Solarize | fx.solarize | | IV |
+Tiles | fx.tiles | | IV |
+3-D Button | fx.button3d | | IV |
+## Photographic
+Film Grain | fx.filmGrain | | PIC |
+Soft Focus | fx.softFocus | | PIC |
+Glow | fx.glow | | PIC |
+Focal Black and White | fx.focalBW | | PIC | color kept inside a circle
+Graduated Tint | fx.graduatedTint | | PIC |
+Orton Glow | fx.orton | | NEW |
+Cross Process | fx.crossProcess | | NEW |
+Toy Camera | fx.toyCamera | | NEW |
+Tilt-Shift Miniature | fx.tiltShift | | NEW |
+Duotone | fx.duotone | | NEW |
+Add Noise | fx.noise | | XN |
+## Distort
+Swirl | fx.swirl | | IV |
+Explosion | fx.explosion | | IV |
+Rain Drops | fx.rain | | IV |
+Fragment | fx.fragment | | IV |
+Spread | fx.spread | | IV |
+Shift Lines | fx.shift | | IV |
+Radial Blur | fx.radialBlur | | IV |
+Zoom Blur | fx.zoomBlur | | IV |
+Fisheye | fx.fishEye | | IV |
+Wave | fx.wave | | IV |
+Glass | fx.glass | | NEW |
+Ripple | fx.ripple | | XN |
+Pinch | fx.pinch | | XN |
+Polar Coordinates | fx.polar | | NEW |
+## Frames and shadows
+Drop Shadow | fx.dropShadow | | FS |
+Reflection | fx.reflection | | FS |
+Round Corners | fx.roundCorners | | FS |
+Instant-Print Frame | fx.instantFrame | | PIC |
+Vignette Frame | fx.vignetteFrame | | FS |
+
+@tab browse | Browse | Thumbnails, folders, catalog, sorting, filtering, ratings, albums, people, places, duplicates, culling
+
+## Views
+Thumbnails | browse.thumbnails | T | IV | thumbnail window for the current folder
+Browser | browse.browser | F3 | XN,FS,ACD | folder tree, thumbnails, preview and info panes
+Folder Tree | browse.folderTree | | XN,FS |
+Favorite Folders | browse.favorites | | XN,FS |
+Include Subfolders | browse.recursive | | IV,XN | toggle
+Thumbnail Size | browse.thumbSize | Ctrl+wheel | IV,XN | argument: small, medium, large, extra large, custom
+View Mode | browse.viewMode | | XN,ACD | arguments: thumbnails, details, list, filmstrip, justified grid
+Sort By | browse.sort | | IV,XN | arguments: name, natural name, file date, date taken, size, type, dimensions, rating, label, random; ascending or descending
+Group By | browse.groupBy | | XN,DK | arguments: none, date, folder, camera, lens, rating, label, keyword
+Filter Bar | browse.filter | Ctrl+Shift+F | XN,LR | type, rating, label, keyword, text, date range, camera, has location, orientation
+Show All Files | browse.showAllFiles | | XN | toggle: non-picture files too
+Open Archive as Folder | browse.openArchive | | HV,XN | ZIP, 7z, TAR, CBZ, CB7, EPUB pictures
+Timeline | browse.timeline | | PIC,DK,ACD | year, month, day
+Map | browse.map | | PIC,DK,XN,APH | geotagged pictures; OpenStreetMap tiles online, offline basemap optional
+People | browse.people | | PIC,DK,APH,GP,ACD,WLPG | on-device face detection and grouping; off until you turn it on
+Albums | browse.albums | | PIC,DK,GT,GQ |
+Smart Albums | browse.smartAlbum | | APH,DK,LR | saved searches that update themselves
+Add to Album… | browse.addToAlbum | Ctrl+Shift+K | PIC,DK |
+
+## Rate and label
+Rating | browse.rate | Ctrl+0…Ctrl+5 | XN,LR,ACD | argument: 0–5 stars; stored in XMP
+Color Label | browse.colorLabel | Ctrl+6…Ctrl+9 | XN,LR,ACD | argument: red, yellow, green, blue, purple, none
+Favorite | browse.favorite | Ctrl+Shift+8 | PIC,APH,GP | heart/star toggle
+Pick | browse.pick | | LR,FPV | in Cull mode: P
+Reject | browse.reject | | LR,FPV | in Cull mode: X
+Unflag | browse.unflag | | LR | in Cull mode: U
+Select by Pattern… | browse.selectPattern | | XN |
+Select Rejected | browse.selectRejected | | LR | then Delete or Move
+
+## Find and compare
+Find Duplicates… | browse.findDuplicates | | XN,DK,GT,TP | byte-identical, same pixels, same picture at another size
+Find Similar Pictures… | browse.findSimilar | | XN,DK,GQ | perceptual hash with a similarity threshold
+Search by Sketch | browse.searchSketch | | DK |
+Search by Color | browse.searchColor | | DK,NEW |
+Sort by Quality | browse.qualitySort | | DK | blur, noise, exposure and compression scores
+Cull Mode | browse.cull | Ctrl+Alt+C | NEW,FPV,LR | full-screen keep/reject with one key per decision, burst groups, auto-advance
+Stack Bursts and Versions | browse.stacks | | LR,APH,NEW | RAW+JPEG pairs, bursts by time, edited versions
+Light Table | browse.lightTable | | FS,DK | gathers selected pictures for side-by-side review
+
+## Catalog
+Use Catalog | browse.catalog | | ACD,DK,XN | toggle: a local database for fast search; plain folders still work without it
+Watch Folder… | browse.watchFolder | | NEW | new files in a folder are imported, renamed or run through a batch recipe
+Folder Manager… | browse.folderManager | | PIC | which folders the catalog watches
+Catalog Maintenance… | browse.maintenance | | DK,ACD | rebuild thumbnails, re-read metadata, remove missing, find orphaned sidecars
+New Folder | browse.newFolder | | XN | not in tabs
+Refresh | browse.refresh | F5 | XN,IV |
+
+@tab meta | Metadata | EXIF, IPTC, XMP, captions, dates, locations, privacy, provenance, integrity, citations
+
+## View and edit
+EXIF Information | meta.exif | E | IV,ALL | grouped, searchable, copyable; maker notes decoded where documented
+IPTC Information… | meta.iptc | | IV,XN | edit and save
+XMP… | meta.xmp | | XN,DK | edit; raw XML view
+Comment… | meta.comment | | IV | JPEG COM and PNG text chunks
+Title and Caption… | meta.caption | Ctrl+Shift+T | PIC,DK,APH |
+Keywords… | meta.keywords | Ctrl+K | DK,XN,LR | hierarchical keywords, autocomplete
+Creator and Copyright… | meta.copyright | | XN,DK |
+Region Tags… | meta.regions | | DK,PIC | named regions (people, objects) in the standard XMP region format
+Metadata Template… | meta.template | | DK,LR,XN | apply saved fields to one or many pictures
+Copy Metadata From… | meta.copyFrom | | XN |
+Compare Metadata | meta.diff | | NEW | two pictures side by side, differences highlighted
+Write Sidecar or Embed | meta.sidecarMode | | DK,LR | argument: embed, sidecar, both
+
+## Date and place
+Change Date Taken… | meta.shiftDate | | IV,XN,DK | shift by an offset (per camera), set a fixed date, fix time zones
+Set Location… | meta.geotag | | PIC,DK,XN | pick on a map or paste coordinates
+Geotag from GPS Track… | meta.geotagGpx | | DK,GQ | GPX, KML; time offset
+Look Up Place Names | meta.reverseGeocode | | APH,NEW | offline place-name table; writes city, region, country
+Remove Location | meta.removeGps | | WP,NEW |
+
+## Privacy and integrity
+Strip Metadata… | meta.strip | | XN,FS | choose what to keep (copyright, orientation, color profile)
+Privacy Check | meta.privacyCheck | | NEW | before sharing: location, serial numbers, faces of people, names in captions, thumbnails that differ from the picture
+Content Credentials | meta.provenance | | NEW | reads C2PA manifests and IPTC digital-source-type; shows whether a picture says it was made or edited with AI
+Checksum… | meta.checksum | | NEW | SHA-256 (and MD5/SHA-1 for older manifests); copy or verify
+Fixity Report… | meta.fixity | | NEW | folder manifest for archives; later runs report changed, missing and new files
+
+## Records and genealogy
+Source Citation… | meta.citation | | RECS,NEW | repository, collection, call number, item, page, date accessed, citation text; stored in XMP; copied to Anne's Pen with the picture
+Link Person… | meta.personLink | | RECS,NEW | ties a region to a person record (name, dates, a GEDCOM or FamilySearch-style ID you supply)
+Export Metadata as CSV… | meta.exportCsv | | XN,DK |
+Import Metadata from CSV… | meta.importCsv | | NEW | match by file name; preview changes
+
+@tab batch | Batch | Batch conversion and renaming, recipes, queues
+
+## Batch
+Batch Conversion and Rename… | batch.convert | B | IV | input list, output format and options, folder, name pattern, advanced steps
+Batch Rename… | batch.rename | Ctrl+B | IV,XN,FS | patterns with counters, EXIF and IPTC fields, dates, case, find/replace, regular expressions; live preview
+Batch Steps… | batch.actions | | IV,XN | resize, crop, rotate, canvas, color, sharpen, watermark, text, metadata, convert profile… in order
+Recipe Editor… | batch.recipe | | XN,DK | saved, named step lists; a recipe is also a command for the QAT and macros
+Batch Queue | batch.queue | | DK | background jobs with progress, pause, cancel
+Batch Metadata… | batch.metadata | | XN,DK |
+Batch Lossless JPEG… | batch.lossless | | IV,XN |
+Batch Watermark… | batch.watermark | | FS,XN |
+Web and Email Sizes… | batch.webPresets | | WPV,PIC | presets for long edge, quality and metadata
+Batch Multipage… | batch.multipage | | IV | split multipage TIFF/PDF to pictures or join pictures into one file
+Optimize Files… | batch.optimize | | IV,NEW | lossless recompression of PNG and JPEG; reports bytes saved
+Preview Batch (Dry Run) | batch.dryRun | | NEW | shows output names, sizes and conflicts before writing
+Undo Last Batch | batch.undo | | NEW | moves outputs to the Trash and restores renamed originals from the journal
+
+@tab create | Create | Contact sheets, panoramas, collages, animations, galleries, merges, extraction
+
+## Create
+Contact Sheet… | create.contactSheet | | IV,XN,FS,PRV | grid, captions from file name and metadata, page size, to picture or PDF
+Join Side by Side… | create.panoramaJoin | | IV,FS | IrfanView's "Create panorama": horizontal or vertical, spacing, alignment
+Stitch Panorama… | create.panoramaStitch | | WLPG,DK | feature matching and blending
+Image Strip… | create.imageStrip | | XN,FS |
+Collage… | create.collage | | PIC,WLPG,GP | grid, mosaic, scattered, frames
+Slideshow Video… | create.movie | | PIC,GP,WP | transitions, pan and zoom, music, titles; WebM, or MP4 where the platform has an encoder
+Animation from Pictures… | create.animation | | XN,NEW | GIF, WebP, APNG; per-frame delay; optimize
+Multipage TIFF or PDF… | create.multipage | | IV |
+Web Gallery… | create.webGallery | | XN,GT,DK,IV | static HTML: thumbnails, lightbox, captions; ready for Anne's Loom
+Calendar Page… | create.calendar | | PS,NEW |
+Photo Book in Anne's Press | create.photoBook | | SUITE |
+Focus Stack… | create.focusStack | | NEW | merges a focus bracket into one sharp picture
+Exposure Merge (HDR)… | create.hdr | | DK,LR | exposure fusion, no tone-mapping artifacts
+Icon Set… | create.icon | | NEW | app icon, favicon and touch-icon sizes from one picture, with manifest snippet
+Comparison Picture… | create.comparison | | NEW | two to four pictures side by side with labels, for reports
+Extract All Frames… | create.extractFrames | | IV | animated GIF/WebP/APNG, multipage files, video frames at an interval
+Extract Embedded Pictures… | create.extractEmbedded | | IV,NEW | icons from programs (IrfanView), pictures from .docx, .pptx, .xlsx, .odt, .epub, .pdf and e-mail files
+
+@tab pages | Pages and Frames | Multipage files and animations (contextual)
+
+## Pages
+Next Page | pages.next | Ctrl+PgDn | IV |
+Previous Page | pages.previous | Ctrl+PgUp | IV |
+Go to Page… | pages.goto | | IV |
+Insert Pages… | pages.insert | | IV |
+Delete Page | pages.delete | | IV |
+Extract Pages… | pages.extract | | IV |
+Reorder Pages… | pages.reorder | | IV |
+## Frames
+Play / Pause Animation | frames.play | Ctrl+Space | IV,XN |
+Next Frame | frames.next | . | XN |
+Previous Frame | frames.previous | , | XN |
+Frame Editor… | frames.editor | | XN,NEW | reorder, delete, duplicate, per-frame delay
+Animation Speed | frames.speed | | NEW | argument: 0.25×–4×
+Reverse Frames | frames.reverse | | NEW |
+Loop Count… | frames.loopCount | | XN |
+Optimize Animation | frames.optimize | | NEW | frame differencing and palette optimization
+
+@tab raw | RAW | Camera RAW files (contextual)
+
+## RAW
+Show Embedded Preview | raw.preview | | IV,XN,FS | instant view from the JPEG inside the RAW file
+Develop RAW… | raw.develop | | XN,DK,LR | as-shot or custom white balance, exposure, highlight recovery, demosaic quality, profile
+Use Embedded Preview by Default | raw.preferPreview | | IV,FS | toggle; fast culling
+Extract Embedded Preview | raw.extractPreview | | NEW | saves the camera's JPEG without re-encoding
+
+@tab view | View | Zoom, navigation, full screen, panes, overlays, comparison, display options, interface
+
+## Zoom
+Zoom In | view.zoomIn | +, Ctrl+wheel | IV,ALL |
+Zoom Out | view.zoomOut | - | IV,ALL |
+Original Size | view.actualSize | Ctrl+H | IV | 100%
+Fit to Window | view.fitWindow | Shift+F | IV |
+Fit Only Large Pictures | view.fitLarge | | IV |
+Fit Width | view.fitWidth | | IV |
+Fit Height | view.fitHeight | | IV |
+Fill Window | view.fill | | IG |
+Lock Zoom | view.zoomLock | | IV,XN | keep the zoom when changing pictures
+Keep Position | view.keepPosition | | XN,NEW | keep the panned position too, for comparing a series
+Fit Window to Picture | view.fitWindowToImage | | IV | desktop
+Center Picture | view.center | | IV |
+
+## Navigate
+Next Picture | view.next | Space, PgDn, Right | IV,ALL |
+Previous Picture | view.previous | Backspace, PgUp, Left | IV,ALL |
+First Picture | view.first | Home | IV |
+Last Picture | view.last | End | IV |
+Random Picture | view.random | | XN,IV |
+Go to Picture Number… | view.gotoIndex | Ctrl+Shift+J | NEW |
+Next Folder | view.nextFolder | Ctrl+Right | XN,HV |
+Previous Folder | view.previousFolder | Ctrl+Left | XN,HV |
+Wrap Around at Ends | view.wrap | | IV,XN | toggle
+
+## Window
+Full Screen | view.fullScreen | Enter, F11 | IV,ALL |
+Full Screen on Another Display | view.fullScreenDisplay | | NEW | desktop
+Always on Top | view.alwaysOnTop | | IV,XN |
+Frameless Window | view.frameless | | NM,IG |
+Menus | view.menuMode | | SUITE | arguments: ribbon, classic menu bar, both (as in Anne's Loom)
+Classic Menu Layout | view.menuLayout | | NEW | arguments: see MENUS-PLAN.md
+Toolbar | view.toolbar | | IV | toggle (classic menu mode)
+Status Bar | view.statusBar | | IV | toggle
+Collapse the Ribbon | view.collapseRibbon | Ctrl+F1 | SUITE |
+Minimize | view.minimize | M | IV | desktop
+Filmstrip | view.filmstrip | Ctrl+Shift+B | XN,FS,WP |
+Navigator | view.navigator | | XN,IG | mini-map of the whole picture
+Info Pane | view.infoPane | Ctrl+I | XN,FS,PRV | EXIF summary, histogram, location
+Touch/Mouse Mode | view.touchMode | | SUITE |
+Theme | view.theme | | | arguments: system, light, dark, black (OLED)
+Language… | view.language | | IV |
+
+## Inspect
+Loupe | view.loupe | Z | FS,PRV,LR | magnifier that follows the pointer
+Pixel Grid | view.pixelGrid | | NEW | grid lines at 800% and above
+Pixel Information | view.pixelInfo | | IV,IG | position, RGB/HSL/hex, alpha under the pointer, in the status bar
+Copy Color Under Pointer | view.copyColor | Ctrl+Shift+P | IG,IV | hex, rgb(), hsl() or name
+Histogram Overlay | view.histogramOverlay | Shift+O | FS,XN |
+Clipping Warnings | view.clipping | J | LR | lost highlights in red, lost shadows in blue
+Focus Peaking | view.focusPeaking | | FRV | outlines the sharpest edges
+Information Overlay | view.osd | Ctrl+Alt+O | IG,FS,XN | file and EXIF text on the picture
+Overlay Template… | view.osdTemplate | | XN |
+Rulers | view.rulers | | NEW | pixels, inches, centimeters at the picture's DPI
+Grid and Guides | view.grid | | NEW | rule of thirds, golden ratio, square grid
+Measure | view.measure | | NEW | distance, angle and area; scale set from a known length (maps, documents, specimens)
+
+## Display
+Transparency Display | view.alphaDisplay | | XN,IG | arguments: checkerboard, white, black, custom color
+Background Color… | view.background | | IV |
+Color-Managed Display | view.colorManaged | | XN,DK | toggle: use the picture's and the display's profiles
+Display Adjustments | view.displayAdjust | | JV,NEW | brightness, contrast and gamma for viewing only; nothing is saved
+Grayscale Preview | view.grayscalePreview | | NEW |
+Color-Blindness Simulation | view.colorBlindSim | | NEW | arguments: protanopia, deuteranopia, tritanopia, achromatopsia
+Stereo View | view.stereo | | GQ | MPO and side-by-side pairs: anaglyph, cross-eye, parallel
+360° View | view.sphere | | GP | equirectangular panoramas and photo spheres
+Two-Page View | view.twoPage | | HV | comics and scanned books
+Right-to-Left Reading | view.rtl | | HV | toggle
+
+## Compare
+Compare Pictures | view.compare | Ctrl+Shift+Y | FS,XN,NM,DK | two to four panes, synchronized zoom and pan
+Before/After Slider | view.compareSplit | | NEW | one divider over two pictures or two versions
+Difference Overlay | view.diffOverlay | | NEW | highlights changed pixels; threshold
+Synchronize Windows | view.syncWindows | | NM | several windows follow the same zoom, pan and navigation
+
+## Media
+Play / Pause | view.mediaPlay | K | IV,WP | video and audio files met while browsing
+Save Current Frame | view.mediaFrame | | IV,WP |
+Motion Photo | view.motionPhoto | | APH,GP | plays the clip inside a motion or live photo
+
+## Quick Access Bar and search
+Search Commands | view.cmdSearch | Alt+Q | SUITE |
+Add All Choices to Quick Access Bar | view.qatAddAll | | SUITE |
+Quick Access Bar Position | view.qatPosition | | SUITE |
+Quick Access Bar Labels | view.qatLabels | | SUITE |
+Hide Quick Access Bar | view.qatHide | | SUITE |
+Show Quick Access Bar | view.qatShow | | SUITE | not in tabs
+
+@tab show | Slideshow | Slideshows
+
+## Slideshow
+Start Slideshow | show.start | Ctrl+F5 | IV,ALL |
+Start from Current | show.fromCurrent | Shift+F5 | |
+Slideshow Settings… | show.settings | W | IV | IrfanView's "W": source list, timing, order, loop, text, transitions, music
+Transition | show.transition | | FS,PIC,GP | arguments: none, fade, wipe, slide, zoom, pan and zoom, random
+Timing | show.timing | | IV | seconds per picture, or manual
+Loop | show.loop | | IV |
+Random Order | show.random | | IV |
+Background Music… | show.music | | FS,PIC |
+Captions | show.captions | | IV,XN | file name, title, date, EXIF fields
+Pause / Resume | show.pause | Space | ALL |
+Kiosk Mode | show.kiosk | | NEW | locked full-screen loop for displays
+Phone Remote | show.remote | | SUITE | as in Anne's Stage
+Export as HTML Slideshow… | show.exportHtml | | FS,IV | self-contained page (replaces executable and screensaver exports, which are not offered)
+
+@tab tools | Tools | OCR, document cleanup, codes, colors, vectors, preflight, plug-ins, external tools
+
+## Text and codes
+Recognize Text (OCR) | tools.ocr | Ctrl+Shift+R | IV,PRV,WP,GP | on-device; select text on the picture, copy, search
+OCR to Anne's Pen | tools.ocrToPen | | SUITE |
+Read QR Code or Barcode | tools.readCode | | GP,NEW |
+Make QR Code… | tools.makeQr | | NEW |
+## Documents and print
+Document Cleanup… | tools.docCleanup | | NEW | crop to page, deskew, flatten lighting, whiten paper, despeckle, black-and-white
+Restore Old Photo… | tools.restoreWizard | | NEW | guided: dust and scratches, faded colors, tears, optional AI colorize and repair (labeled as AI)
+Print Check… | tools.preflight | | NEW | effective DPI at a print size, color mode, profile, out-of-gamut areas, tiny text in scans
+Print Size Calculator | tools.printCalc | | NEW | pixels ↔ inches/cm at a DPI; largest good print size
+## Color and vector
+Extract Palette… | tools.paletteExtract | | NEW | dominant colors to swatches, CSS or a palette file
+Trace to Vector (SVG)… | tools.vectorize | | NEW | logos and line art
+## Organize
+Compare Folders… | tools.compareFolders | | NEW | pictures missing, changed or duplicated between two folders
+Back Up Library… | tools.backup | | PIC,DK | pictures, sidecars, catalog and settings to a folder or drive
+## Extend
+Plug-ins… | tools.plugins | | IV,XN | installed format and tool plug-ins, versions, enable/disable
+External Tools… | tools.external | | XN,IV | configure programs to send pictures to; each is a command
+
+@tab ai | AI | Generate and edit pictures, select, understand, search, provenance, providers
+
+## Generate
+Generate Picture… | ai.generate | Ctrl+Alt+G | GENAI | prompt, size and aspect, count, style, seed and negative prompt where the provider supports them
+Variations | ai.variations | | GENAI | new pictures like the current one
+Sketch to Picture… | ai.sketchToImage | | GENAI | from a drawing on the Markup Board or a scanned sketch
+Generate with References… | ai.generateWithRefs | | GENAI | style and subject references from the selection
+Generate Background… | ai.generateBackground | | WP,GENAI | new scene behind a cut-out subject
+Generate Vector… | ai.generateVector | | GENAI | SVG from providers that return vectors; otherwise generate and trace
+Seamless Pattern… | ai.generateTile | | GENAI | tileable textures and backgrounds
+Picture to Prompt | ai.imageToPrompt | | GENAI | describes the picture as a reusable prompt
+Compare Providers… | ai.generateCompare | | NEW | one prompt to several image services; results on a contact sheet; keep the best
+Prompt Library… | ai.promptLibrary | | SUITE | saved prompts with inputs and outputs, shared format with the sister apps
+
+## Edit
+Edit by Instruction… | ai.editInstruction | Ctrl+Alt+E | GENAI | "make it a winter evening"; whole picture or selection
+Generative Fill… | ai.fill | | GENAI | selection plus prompt
+Erase Object | ai.erase | Ctrl+Alt+X | WP,GP,APH | brush or select; runs on the device
+Expand Picture… | ai.expand | | GENAI | extends the canvas with generated content
+Replace Object… | ai.replace | | GENAI | "replace the red car with a bicycle"
+Remove Background | ai.removeBackground | Ctrl+Alt+B | WP,PRV,APH | on-device; refine edge brush
+Replace Background… | ai.replaceBackground | | WP | color, blur, picture or generated
+Blur Background | ai.blurBackground | | WP,GP | depth-based
+Relight… | ai.relight | | GP | direction and strength of a new light
+Recolor Object… | ai.recolor | | GENAI |
+Restyle… | ai.restyle | | WP,GENAI | painting, drawing and photographic styles from a prompt or a reference
+Upscale | ai.upscale | Ctrl+Alt+U | WP,GENAI | 2× or 4×; on-device model or provider
+Unblur | ai.deblur | | GP |
+AI Noise Reduction | ai.denoise | | LR,GENAI |
+Colorize | ai.colorize | | RECS,GENAI | black-and-white photos; result marked as AI-colorized in its metadata
+Repair Damage | ai.repairDamage | | RECS,GENAI | tears, creases, stains, missing corners
+Remove Glare and Reflections | ai.removeReflection | | GENAI |
+Translate Text in Picture… | ai.translateText | | GP | signs, labels and menus; result as overlay or new picture
+Combine Group Shots… | ai.combineGroupShots | | WLPG,GP | best expression of each person from a burst of the same group
+Smart Crop | ai.smartCrop | | GENAI | subject-aware crop to an aspect ratio
+
+## Select
+Select Subject | ai.selectSubject | | APH,PRV | on-device
+Select by Description… | ai.selectByPrompt | | GENAI | "the dog", "the sky"
+Depth Map | ai.depth | | GENAI | as a picture or a selection by distance
+
+## Understand
+Describe | ai.describe | | GENAI |
+Alt Text | ai.altText | | SUITE | written to XMP and used by Anne's Pen, Stage, Loom and Press
+Ask About This Picture… | ai.ask | | GENAI | chat pane with the picture as context
+Suggest Keywords | ai.autoTag | | DK,GENAI | review before saving
+Write Caption | ai.caption | | GENAI | archive, social or plain style
+Transcribe Handwriting | ai.transcribe | | RECS | letters, records, postcards; text to the caption or Anne's Pen
+Identify | ai.identify | | GP,APH | plants, animals, landmarks, objects, artworks
+Estimate Date | ai.estimateDate | | RECS | era of an old photograph from clothing, process and print; clearly labeled as an estimate
+Culling Assistant | ai.cullAssist | | LR,GENAI | picks the sharpest frame with open eyes in each burst; you confirm
+Search by Content… | ai.searchContent | Ctrl+Alt+F | GP,APH | on-device index: "beach at sunset", "Grandma's kitchen"
+Find Similar by Content | ai.findSimilarSemantic | | GP,GENAI |
+Run on Selection… | ai.batch | | NEW | any AI command over many pictures, with a cost estimate first
+
+## Provenance
+Content Credentials on AI Results | ai.contentCredentials | | GENAI | toggle, on by default: C2PA manifest and IPTC digital-source-type written to generated and AI-edited pictures
+AI History | ai.history | | NEW | what was sent, to which service, the prompt and the result
+
+## Providers
+Set Up AI… | ai.setup | | SUITE | wizard: on device, your computer, free tier, paid; text and picture services
+Providers and Models… | ai.providers | | SUITE |
+Active AI | ai.active | | SUITE | separate choices for text and picture services
+AI and Privacy | ai.privacy | | SUITE |
+Several AIs | ai.ensembleMode | | SUITE | Single, Master Combines Answers, Quaker Consensus (text commands)
+Choose AIs… | ai.ensembleMembers | | SUITE |
+Show AI Discussion | ai.showDeliberation | | SUITE |
+Stop AI | ai.stop | Esc | SUITE |
+Delete Downloaded Models | ai.deleteModels | | SUITE |
+
+@tab dev | Developer | Macros, scripts, command line
+
+## Developer
+Record Macro | dev.recordMacro | | SUITE |
+Stop Recording | dev.stopRecording | | SUITE |
+Macros… | dev.macros | Alt+F8 | SUITE |
+Macro Editor… | dev.macroEditor | Alt+F11 | SUITE | JavaScript with a picture and folder API
+Script Console | dev.console | | NEW |
+Command-Line Help | dev.cliHelp | | IV | desktop: open, convert, resize, rotate, capture, slideshow and batch options from the command line, in the spirit of IrfanView's switches
+Export Command List (JSON) | dev.exportCommands | | SUITE |
+
+@tab help | Help | Help, shortcuts, menu map, about
+
+## Help
+Help | help.contents | F1 | ALL |
+Keyboard Shortcuts | help.shortcuts | Ctrl+/ | IV |
+Menu Map | help.menuMap | | SUITE | where each command is in every menu layout and on the ribbon
+Supported Formats | help.formats | | IV,XN |
+What's New | help.whatsNew | | |
+Report a Problem | help.reportIssue | | |
+Check for Updates | help.checkUpdates | | IV | desktop and APK builds; opens the release page
+About Anne's Lens | help.about | | IV |
+
+# ORIGINS
+# code | name | kind
+ALL | Most picture viewers | -
+IV | IrfanView | Windows viewer, 1996–
+XN | XnView Classic and XnView MP | Windows/cross-platform viewer and organizer
+FS | FastStone Image Viewer | Windows viewer
+ACD | ACDSee | Windows viewer and organizer, 1994–
+WPV | Windows Photo Viewer and Windows Picture and Fax Viewer | Windows built-in, 2001–
+WP | Microsoft Photos | Windows built-in, 2015–
+WLPG | Windows Live Photo Gallery | Windows, 2007–2017
+PIC | Picasa | Google, 2004–2016
+GP | Google Photos | web and mobile
+AG | Android gallery apps | mobile
+PRV | Preview | macOS built-in
+APH | Apple Photos and iPhoto | macOS and iOS
+DK | digiKam | KDE, cross-platform
+NM | nomacs | cross-platform viewer
+GT | gThumb | GNOME
+GQ | Geeqie (GQview) | Linux
+IG | ImageGlass | Windows viewer
+HV | Honeyview | Windows viewer
+JV | JPEGView | Windows viewer
+FPV | FastPictureViewer | Windows culling viewer
+LR | Lightroom Classic (Library and Develop) | cross-platform organizer
+PS | PhotoScape | Windows
+TP | ThumbsPlus | Windows organizer, 1990s–
+GW | Graphic Workshop | DOS/Windows, 1990s
+KI | Kodak/Wang Imaging for Windows | Windows 95–2000
+FRV | FastRawViewer | Windows/macOS RAW culling viewer
+GENAI | Generative-AI picture services and editors | 2022–
+RECS | Archive and genealogy tools (handwriting transcription, photo dating, restoration) | web
+NEW | Anne's Lens | not found in the viewers surveyed here; may exist elsewhere
+SUITE | Anne's Office suite | shared with the sister apps
