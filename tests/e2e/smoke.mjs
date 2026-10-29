@@ -135,6 +135,22 @@ try {
   check('own formats', own, [['d.tga', 'tga', 'tga', 12, 8], ['e.qoi', 'qoi', 'qoi', 6, 5], ['f.ppm', 'pnm', 'pnm', 7, 3], ['g.psd', 'psd', 'psd', 2, 1]]);
   check('psd pixel', await p.evaluate(async () => { const pic = await qn.tab.loader.get(qn.folder.entries[3]); const d = pic.frameCanvas().getContext('2d').getImageData(0, 0, 2, 1).data; return [...d]; }), [255, 0, 0, 255, 0, 255, 0, 255]);
 
+  // Open as Hex dumps the bytes (the TGA just written) with landmarks; the Recovery Report describes the picture.
+  await p.evaluate(() => qn.folder.select(0));
+  await p.waitForTimeout(400);
+  check('hex subject', await p.evaluate(() => qn.picture.name), 'd.tga');
+  await p.evaluate(() => { void qn.exec('file.openHex'); });
+  await p.waitForSelector('.ql-hex');
+  check('hex dump', await p.evaluate(() => document.querySelector('.ql-hex').textContent.startsWith('000000  00 00 02 00')), true);
+  check('hex landmarks', await p.evaluate(() => [...document.querySelectorAll('.ql-dialog select option')].some((o) => /End of file/.test(o.textContent))), true);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+  await p.evaluate(() => { void qn.exec('file.recoveryReport'); });
+  await p.waitForSelector('.ql-dialog table');
+  check('recovery report', await p.evaluate(() => [...document.querySelectorAll('.ql-dialog table tr')].map((r) => r.children[0].textContent)).then((k) => k.includes('Condition') && k.includes('Recognized as')), true);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

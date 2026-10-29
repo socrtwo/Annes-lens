@@ -67,6 +67,8 @@ export interface Prefs {
   defaultSaveFormat: string;
   /** Save As: run-length encode TGA files. */
   tgaRle: boolean;
+  /** Print at True Size: measured ÷ expected length from the calibration ruler (1 = the printer is exact). */
+  printScale: number;
   /** Sort order for folders */
   sort: 'name' | 'natural' | 'date' | 'size' | 'type';
   sortDescending: boolean;
@@ -108,7 +110,7 @@ export function defaultPrefs(): Prefs {
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
-    jpegQuality: 90, defaultSaveFormat: 'png', tgaRle: true,
+    jpegQuality: 90, defaultSaveFormat: 'png', tgaRle: true, printScale: 1,
     sort: 'natural', sortDescending: false,
   };
 }

@@ -213,16 +213,18 @@ def([
 
 // Print, share ----------------------------------------------------------------------------------
 
-async function printPicture(app: App, opts: { fit: 'page' | 'actual'; title?: boolean } = { fit: 'page' }): Promise<void> {
+/** Prints the active picture: fitted to the page, or at `dpi` (the file's, or given) times the calibration `scale`. */
+export async function printPicture(app: App, opts: { fit: 'page' | 'actual'; title?: boolean; dpi?: number; scale?: number; extra?: HTMLElement } = { fit: 'page' }): Promise<void> {
   const pic = app.picture;
   if (!pic) return;
   const blob = await encodeCanvas(pic.frameCanvas(), 'png');
   const url = URL.createObjectURL(blob);
   const root = document.getElementById('ql-print-root') || document.body.appendChild(h('div', { id: 'ql-print-root' }));
   root.innerHTML = '';
-  const dpi = pic.current.dpi?.[0] || 96;
-  const img = h('img', { src: url, alt: pic.name, style: opts.fit === 'actual' ? `width:${(pic.width / dpi).toFixed(3)}in;height:auto` : 'max-width:100%;max-height:95vh;object-fit:contain' });
-  root.appendChild(h('div', { class: 'ql-print-page' }, img, opts.title ? h('div', { style: 'font:11px sans-serif;margin-top:4px' }, pic.name) : null));
+  const dpi = opts.dpi || pic.current.dpi?.[0] || 96;
+  const scale = opts.scale || 1;
+  const img = h('img', { src: url, alt: pic.name, style: opts.fit === 'actual' ? `width:${((pic.width / dpi) * scale).toFixed(4)}in;height:auto;max-width:none` : 'max-width:100%;max-height:95vh;object-fit:contain' });
+  root.appendChild(h('div', { class: 'ql-print-page' }, img, opts.title ? h('div', { style: 'font:11px sans-serif;margin-top:4px' }, pic.name) : null, opts.extra || null));
   await new Promise((r) => { img.onload = () => r(null); img.onerror = () => r(null); });
   document.body.classList.add('ql-printing');
   try { await printDocument(pic.name); } finally { setTimeout(() => { document.body.classList.remove('ql-printing'); root.innerHTML = ''; URL.revokeObjectURL(url); }, 1000); }
