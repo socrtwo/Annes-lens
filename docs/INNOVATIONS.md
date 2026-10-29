@@ -1,6 +1,6 @@
 # Innovations survey
 
-> **Plan.** Anne's Lens has no code yet. This document surveys picture viewers and organizers, past and present, records what each one brought to the job, and names the Anne's Lens feature and command ids that adopt the idea, or says why it is skipped. Command ids match [COMMANDS-PLAN.md](COMMANDS-PLAN.md); milestones (M1–M8) match [ROADMAP.md](ROADMAP.md). Product names are used nominatively, to say where an idea came from; see [LEGAL.md](LEGAL.md).
+> **Plan.** This document surveys picture viewers and organizers, past and present, records what each one brought to the job, and names the Anne's Lens feature and command ids that adopt the idea, or says why it is skipped. Command ids match [COMMANDS-PLAN.md](COMMANDS-PLAN.md); milestones (M1–M8) match [ROADMAP.md](ROADMAP.md). Product names are used nominatively, to say where an idea came from; see [LEGAL.md](LEGAL.md).
 
 Dates are given to the year where they are well established and as decades or "later versions" where sources differ. Corrections are welcome.
 

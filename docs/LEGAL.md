@@ -1,6 +1,6 @@
 # Clean-room, trademark and licensing notes
 
-This file records how Anne's Lens will provide the complete command set of the major picture viewers while avoiding other vendors' trademarks and copyrights. It summarizes the practice the other Anne's Office apps follow; it is not legal advice. Anne's Lens has no code yet, so this file states the rules the code will be written under.
+This file records how Anne's Lens will provide the complete command set of the major picture viewers while avoiding other vendors' trademarks and copyrights. It summarizes the practice the other Anne's Office apps follow; it is not legal advice. Milestone 1 is built under these rules; this file states them for the rest of the plan.
 
 ## What is reproduced, and why it is safe
 

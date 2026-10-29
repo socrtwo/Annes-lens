@@ -1,6 +1,6 @@
 # Quick Access Bar plan
 
-> **Plan.** Anne's Lens has no code yet. This document fixes what the Quick Access Bar (QAT) will offer. It follows the implementation already shipped in the sister apps (`QAT_STANDARD`, `QAT_EXTRAS`, `addAllQatChoices` in the shared shell).
+> **Plan.** This document fixes what the Quick Access Bar (QAT) will offer. It follows the implementation already shipped in the sister apps (`QAT_STANDARD`, `QAT_EXTRAS`, `addAllQatChoices` in the shared shell).
 
 ## Principles
 

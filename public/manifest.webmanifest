@@ -1,0 +1,37 @@
+{
+  "name": "Anne's Lens",
+  "short_name": "Anne's Lens",
+  "description": "An open-source picture viewer, organizer and converter in the tradition of IrfanView, with a complete, customizable command library.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#3a3f4a",
+  "theme_color": "#6A3FA8",
+  "categories": ["photo", "graphics", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "name": "Picture",
+      "accept": {
+        "image/jpeg": [".jpg", ".jpeg", ".jpe", ".jfif"],
+        "image/png": [".png", ".apng"],
+        "image/gif": [".gif"],
+        "image/webp": [".webp"],
+        "image/avif": [".avif"],
+        "image/heic": [".heic", ".heif"],
+        "image/bmp": [".bmp", ".dib"],
+        "image/x-icon": [".ico", ".cur"],
+        "image/tiff": [".tif", ".tiff"],
+        "image/svg+xml": [".svg"]
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **This is a plan, not a description of existing code.** Anne's Lens has no code yet. The design mirrors what the sister apps already ship (Anne's Pen, Anne's Grid, Anne's Stage, Anne's Folio), so that the suite shares one shell and one set of conventions. Details will change as the code is written; this file will then be replaced by `docs/ARCHITECTURE.md`.
+> **This is the plan; milestone 1 follows it.** What exists after M1: `src/main.ts`, `src/app.ts`, `src/prefs.ts`, `src/commands/` (registry plus the file, edit, image, view, pages, meta, dev and help modules), `src/ui/` (shell, ribbon layout and classic menus generated from the plan, customize dialogs, backstage, viewer), `src/picture/` (folder, model, loader with prefetch), `src/codecs/` (sniffing, platform decoding, GIF, TIFF, BMP, ICO, container info), `src/meta/exif.ts`, `src/platform/native.ts`, the Electron main process and the Android plugin. The design mirrors what the sister apps already ship (Anne's Pen, Anne's Grid, Anne's Stage, Anne's Folio), so that the suite shares one shell and one set of conventions. Details change as the code is written; this file will be replaced by `docs/ARCHITECTURE.md` once the layout settles.
 
 ## Summary
 

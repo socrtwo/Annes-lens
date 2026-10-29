@@ -1,0 +1,353 @@
+/**
+ * The picture surface of one window: a canvas the current frame is drawn on at the chosen zoom, with
+ * fit modes, panning, wheel and pinch zoom, keyboard navigation, animation playback, pixel info under
+ * the pointer, drag and drop, and a message when nothing is open. Pictures are drawn with drawImage
+ * from the decoded bitmap; only the visible part is drawn, so panning a large picture stays smooth.
+ */
+import type { App, PictureTab } from '../app';
+import { h, clear, icon } from './dom';
+import type { ZoomMode } from '../prefs';
+
+const MIN_ZOOM = 0.01, MAX_ZOOM = 64;
+
+export class Viewer {
+  el: HTMLElement;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private empty: HTMLElement;
+  private note: HTMLElement;
+  private _zoom = 1;
+  /** The fit mode in force until the user zooms by hand (then null = free zoom). */
+  mode: ZoomMode | null;
+  /** Picture point shown at the center of the view (picture pixels). */
+  private cx = 0;
+  private cy = 0;
+  private drawQueued = false;
+  private animTimer: any = null;
+  playing = true;
+  private pointer: { x: number; y: number } | null = null;
+  private dragging: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
+  private pinch: { d: number; z: number } | null = null;
+  private pixelCanvas: HTMLCanvasElement | null = null;
+  private pixelKey = '';
+  private destroyed = false;
+  private ro: ResizeObserver;
+  onPointer: ((info: { x: number; y: number; rgba: [number, number, number, number] } | null) => void) | null = null;
+
+  constructor(public app: App, public tab: PictureTab) {
+    this.mode = app.prefs.zoomMode;
+    this.canvas = h('canvas', { class: 'qn-canvas' }) as HTMLCanvasElement;
+    this.ctx = this.canvas.getContext('2d', { alpha: true })!;
+    this.empty = h('div', { class: 'qn-empty' },
+      icon('image', 'qn-empty-icon'),
+      h('p', null, 'Open a picture, drop files here, or paste one.'),
+      h('div', { class: 'ql-row' },
+        h('button', { class: 'ql-btn ql-primary', onclick: () => app.exec('file.open') }, icon('folder_open'), ' Open…'),
+        h('button', { class: 'ql-btn', onclick: () => app.exec('file.openFolder') }, icon('folder'), ' Open Folder…'),
+        h('button', { class: 'ql-btn', onclick: () => app.exec('edit.pasteAsNew') }, icon('content_paste'), ' Paste')),
+      h('p', { class: 'ql-help' }, 'O opens, Space and Backspace move through the folder, Enter is full screen, Alt+Q finds any command.'));
+    this.note = h('div', { class: 'qn-note', 'aria-live': 'polite' });
+    this.el = h('div', { class: 'qn-viewer', tabindex: '0', role: 'img' }, this.canvas, this.empty, this.note);
+    this.ro = new ResizeObserver(() => this.layout());
+    this.ro.observe(this.el);
+    this.bind();
+  }
+
+  get zoom(): number { return this._zoom; }
+  get picture() { return this.tab.picture; }
+
+  // ----------------------------------------------------------------------------------------
+  // Layout and drawing
+
+  layout(): void {
+    const r = this.el.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = Math.max(1, Math.round(r.width * dpr)), hgt = Math.max(1, Math.round(r.height * dpr));
+    if (this.canvas.width !== w || this.canvas.height !== hgt) { this.canvas.width = w; this.canvas.height = hgt; }
+    this.canvas.style.width = `${r.width}px`; this.canvas.style.height = `${r.height}px`;
+    if (this.mode) this.applyMode();
+    this.draw();
+  }
+
+  /** Called by the tab when the picture, page or frame changed. `fresh`: a different file. */
+  pictureChanged(fresh = false): void {
+    const p = this.picture;
+    this.stopAnimation();
+    this.pixelCanvas = null; this.pixelKey = '';
+    this.empty.style.display = p ? 'none' : '';
+    this.el.classList.toggle('qn-has-picture', !!p);
+    if (this.tab.error) { clear(this.empty); this.empty.append(icon('broken_image', 'qn-empty-icon'), h('p', null, this.tab.error), h('button', { class: 'ql-btn', onclick: () => this.app.exec('file.open') }, 'Open another…')); this.empty.style.display = ''; }
+    if (p) {
+      if (fresh) {
+        const prefs = this.app.prefs;
+        if (!prefs.zoomLock) this.mode = prefs.zoomMode;
+        if (!prefs.keepPosition || !prefs.zoomLock) { this.cx = p.width / 2; this.cy = p.height / 2; }
+      } else { this.cx = Math.min(this.cx, p.width); this.cy = Math.min(this.cy, p.height); }
+      if (this.mode) this.applyMode();
+      if (p.animated && this.playing) this.startAnimation();
+    }
+    this.draw();
+  }
+
+  private fitZoom(mode: ZoomMode, pw: number, ph: number): number {
+    const vw = this.el.clientWidth || 1, vh = this.el.clientHeight || 1;
+    switch (mode) {
+      case 'fit': return Math.min(vw / pw, vh / ph);
+      case 'fit-large': return Math.min(1, vw / pw, vh / ph);
+      case 'fit-width': return vw / pw;
+      case 'fit-height': return vh / ph;
+      case 'fill': return Math.max(vw / pw, vh / ph);
+      default: return 1;
+    }
+  }
+
+  private applyMode(): void {
+    const p = this.picture;
+    if (!p || !this.mode) return;
+    this._zoom = this.clamp(this.fitZoom(this.mode, p.width, p.height));
+    if (this.mode !== 'fit-width' && this.mode !== 'fit-height' && this.mode !== 'fill') { this.cx = p.width / 2; this.cy = p.height / 2; }
+    else this.clampCenter();
+  }
+
+  private clamp(z: number): number { return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); }
+
+  /** Keeps the picture from being panned out of view (a small picture stays centered). */
+  private clampCenter(): void {
+    const p = this.picture;
+    if (!p) return;
+    const vw = this.el.clientWidth / this._zoom, vh = this.el.clientHeight / this._zoom;
+    this.cx = p.width <= vw ? p.width / 2 : Math.min(p.width - vw / 2, Math.max(vw / 2, this.cx));
+    this.cy = p.height <= vh ? p.height / 2 : Math.min(p.height - vh / 2, Math.max(vh / 2, this.cy));
+  }
+
+  setZoom(z: number | ZoomMode, anchor?: { x: number; y: number }): void {
+    const p = this.picture;
+    if (!p) return;
+    if (typeof z === 'string') { this.mode = z; this.applyMode(); }
+    else {
+      const nz = this.clamp(z);
+      if (anchor) {
+        // Keep the picture point under the anchor (view coordinates) where it is.
+        const before = this.toPicture(anchor.x, anchor.y);
+        this._zoom = nz;
+        const after = this.toPicture(anchor.x, anchor.y);
+        this.cx += before.x - after.x; this.cy += before.y - after.y;
+      } else this._zoom = nz;
+      this.mode = null;
+      this.clampCenter();
+    }
+    this.draw();
+    this.app.refresh();
+  }
+
+  center(): void { const p = this.picture; if (!p) return; this.cx = p.width / 2; this.cy = p.height / 2; this.draw(); }
+
+  /** View coordinates (CSS px inside the element) → picture pixels. */
+  toPicture(x: number, y: number): { x: number; y: number } {
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    return { x: this.cx + (x - vw / 2) / this._zoom, y: this.cy + (y - vh / 2) / this._zoom };
+  }
+
+  /** The picture's rectangle inside the element (CSS px). */
+  pictureRect(): { x: number; y: number; w: number; h: number } | null {
+    const p = this.picture;
+    if (!p) return null;
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    return { x: vw / 2 - this.cx * this._zoom, y: vh / 2 - this.cy * this._zoom, w: p.width * this._zoom, h: p.height * this._zoom };
+  }
+
+  draw(): void {
+    if (this.drawQueued || this.destroyed) return;
+    this.drawQueued = true;
+    requestAnimationFrame(() => { this.drawQueued = false; this.paint(); });
+  }
+
+  private paint(): void {
+    const ctx = this.ctx;
+    const dpr = this.canvas.width / Math.max(1, this.el.clientWidth);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const p = this.picture;
+    if (!p) return;
+    const r = this.pictureRect()!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const prefs = this.app.prefs;
+    // Transparent pixels show the chosen backdrop.
+    if (p.current.hasAlpha && prefs.alphaDisplay !== 'checkerboard') {
+      ctx.fillStyle = prefs.alphaDisplay === 'white' ? '#fff' : prefs.alphaDisplay === 'black' ? '#000' : prefs.alphaColor;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    } else if (p.current.hasAlpha) {
+      this.checkerboard(ctx, r);
+    }
+    const frame = p.currentFrame;
+    // Only the visible part of the picture is drawn (source rectangle), which keeps very large pictures fast.
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    const sx = Math.max(0, Math.floor((0 - r.x) / this._zoom)), sy = Math.max(0, Math.floor((0 - r.y) / this._zoom));
+    const ex = Math.min(frame.width, Math.ceil((vw - r.x) / this._zoom)), ey = Math.min(frame.height, Math.ceil((vh - r.y) / this._zoom));
+    if (ex <= sx || ey <= sy) return;
+    ctx.imageSmoothingEnabled = this._zoom < 1 || prefs.smoothZoom;
+    ctx.imageSmoothingQuality = 'high';
+    try {
+      ctx.drawImage(frame.image as CanvasImageSource, sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
+    } catch (e) { /* a closed bitmap after a quick navigation */ }
+    if (this._zoom >= 8 && (this.app as any).pixelGrid) this.grid(ctx, r, sx, sy, ex, ey);
+  }
+
+  private checkerboard(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }): void {
+    const size = 12;
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    const x0 = Math.max(0, r.x), y0 = Math.max(0, r.y), x1 = Math.min(vw, r.x + r.w), y1 = Math.min(vh, r.y + r.h);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.clip();
+    ctx.fillStyle = '#d0d0d0'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = '#f4f4f4';
+    for (let y = Math.floor(y0 / size) * size; y < y1; y += size) for (let x = Math.floor(x0 / size) * size + ((Math.floor(y / size) & 1) ? size : 0); x < x1; x += size * 2) ctx.fillRect(x, y, size, size);
+    ctx.restore();
+  }
+
+  private grid(ctx: CanvasRenderingContext2D, r: { x: number; y: number }, sx: number, sy: number, ex: number, ey: number): void {
+    ctx.strokeStyle = 'rgba(128,128,128,.45)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = sx; x <= ex; x++) { const px = Math.round(r.x + x * this._zoom) + 0.5; ctx.moveTo(px, r.y + sy * this._zoom); ctx.lineTo(px, r.y + ey * this._zoom); }
+    for (let y = sy; y <= ey; y++) { const py = Math.round(r.y + y * this._zoom) + 0.5; ctx.moveTo(r.x + sx * this._zoom, py); ctx.lineTo(r.x + ex * this._zoom, py); }
+    ctx.stroke();
+  }
+
+  // ----------------------------------------------------------------------------------------
+  // Animation
+
+  startAnimation(): void {
+    this.stopAnimation();
+    const p = this.picture;
+    if (!p || !p.animated) return;
+    let loops = 0;
+    const tick = () => {
+      const pic = this.picture;
+      if (!pic || !pic.animated || !this.playing) return;
+      const page = pic.current;
+      let next = pic.frame + 1;
+      if (next >= page.frames.length) { loops++; if (page.loops && loops >= page.loops) { this.animTimer = null; return; } next = 0; }
+      pic.frame = next;
+      this.draw();
+      this.app.refresh();
+      this.animTimer = setTimeout(tick, page.frames[next].delay || 100);
+    };
+    this.animTimer = setTimeout(tick, p.currentFrame.delay || 100);
+  }
+  stopAnimation(): void { if (this.animTimer) { clearTimeout(this.animTimer); this.animTimer = null; } }
+  togglePlay(): void { this.playing = !this.playing; if (this.playing) this.startAnimation(); else this.stopAnimation(); this.app.refresh(); }
+
+  // ----------------------------------------------------------------------------------------
+  // Pixel info
+
+  pixelAt(x: number, y: number): [number, number, number, number] | null {
+    const p = this.picture;
+    if (!p || x < 0 || y < 0 || x >= p.width || y >= p.height) return null;
+    const key = `${p.version}:${p.page}:${p.frame}`;
+    if (!this.pixelCanvas || this.pixelKey !== key) { this.pixelCanvas = p.frameCanvas(); this.pixelKey = key; }
+    const d = this.pixelCanvas.getContext('2d', { willReadFrequently: true })!.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+    return [d[0], d[1], d[2], d[3]];
+  }
+
+  private reportPointer(): void {
+    if (!this.onPointer) return;
+    if (!this.pointer || !this.picture || !this.app.prefs.pixelInfo) { this.onPointer(null); return; }
+    const q = this.toPicture(this.pointer.x, this.pointer.y);
+    const x = Math.floor(q.x), y = Math.floor(q.y);
+    const rgba = this.pixelAt(x, y);
+    this.onPointer(rgba ? { x, y, rgba } : null);
+  }
+
+  // ----------------------------------------------------------------------------------------
+  // Input
+
+  private bind(): void {
+    const el = this.el;
+    el.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const anchor = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (e.ctrlKey || e.metaKey || this.app.prefs.wheel === 'zoom') { this.setZoom(this._zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), anchor); return; }
+      const pr = this.pictureRect();
+      const overflow = pr && (pr.h > el.clientHeight + 1 || pr.w > el.clientWidth + 1);
+      if (this.app.prefs.wheel === 'scroll' || (overflow && !e.shiftKey)) {
+        if (!pr) return;
+        this.cx += (e.shiftKey ? e.deltaY : e.deltaX) / this._zoom; this.cy += (e.shiftKey ? 0 : e.deltaY) / this._zoom;
+        this.clampCenter(); this.draw(); this.reportPointer();
+        return;
+      }
+      if (Math.abs(e.deltaY) > 2) this.app.exec(e.deltaY > 0 ? 'view.next' : 'view.previous');
+    }, { passive: false });
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      el.focus();
+      this.dragging = { x: e.clientX, y: e.clientY, cx: this.cx, cy: this.cy, moved: false };
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      const r = el.getBoundingClientRect();
+      this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (this.dragging && !this.pinch) {
+        const dx = e.clientX - this.dragging.x, dy = e.clientY - this.dragging.y;
+        if (Math.abs(dx) + Math.abs(dy) > 3) this.dragging.moved = true;
+        if (this.dragging.moved) { this.cx = this.dragging.cx - dx / this._zoom; this.cy = this.dragging.cy - dy / this._zoom; this.clampCenter(); this.draw(); }
+      }
+      this.reportPointer();
+    });
+    const up = (e: PointerEvent) => {
+      if (!this.dragging) return;
+      const d = this.dragging; this.dragging = null;
+      if (!d.moved && e.pointerType === 'touch' && this.picture) {
+        // Tap on the left or right third moves through the folder when the picture fits the view.
+        const pr = this.pictureRect();
+        if (pr && pr.w <= el.clientWidth + 1 && pr.h <= el.clientHeight + 1) { const x = e.clientX - el.getBoundingClientRect().left; if (x < el.clientWidth / 4) this.app.exec('view.previous'); else if (x > el.clientWidth * 3 / 4) this.app.exec('view.next'); }
+      }
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', () => { this.dragging = null; });
+    el.addEventListener('pointerleave', () => { this.pointer = null; this.reportPointer(); });
+    el.addEventListener('dblclick', (e) => {
+      if (!this.picture) return;
+      const r = el.getBoundingClientRect();
+      const anchor = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (this.mode === 'fit' || this.mode === 'fit-large' || this.mode === null && this._zoom < 1) this.setZoom(1, anchor); else this.setZoom('fit');
+    });
+    el.addEventListener('touchstart', (e) => { if (e.touches.length === 2) { this.pinch = { d: dist(e), z: this._zoom }; } }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && this.pinch) {
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const mid = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top };
+        this.setZoom(this.pinch.z * (dist(e) / this.pinch.d), mid);
+      }
+    }, { passive: false });
+    el.addEventListener('touchend', (e) => { if (e.touches.length < 2) this.pinch = null; });
+    el.addEventListener('contextmenu', (e) => { e.preventDefault(); this.app.ui.pictureContextMenu(e.clientX, e.clientY); });
+    el.addEventListener('keydown', (e) => {
+      if (!this.picture) return;
+      const step = 40 / this._zoom;
+      const pr = this.pictureRect();
+      const overflow = pr && (pr.h > el.clientHeight + 1 || pr.w > el.clientWidth + 1);
+      if (overflow && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const map: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+        if (map[e.key]) { e.preventDefault(); e.stopPropagation(); this.cx += map[e.key][0]; this.cy += map[e.key][1]; this.clampCenter(); this.draw(); }
+      }
+    });
+    el.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) { e.preventDefault(); el.classList.add('qn-dropping'); } });
+    el.addEventListener('dragleave', () => el.classList.remove('qn-dropping'));
+    el.addEventListener('drop', () => el.classList.remove('qn-dropping'));
+  }
+
+  /** A short message over the picture (file name on navigation in full screen, warnings). */
+  flash(text: string, ms = 1500): void {
+    this.note.textContent = text;
+    this.note.classList.add('qn-show');
+    clearTimeout((this as any).noteTimer);
+    (this as any).noteTimer = setTimeout(() => this.note.classList.remove('qn-show'), ms);
+  }
+
+  focus(): void { this.el.focus({ preventScroll: true }); }
+  destroy(): void { this.destroyed = true; this.stopAnimation(); this.ro.disconnect(); }
+}
+
+function dist(e: TouchEvent): number { return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }

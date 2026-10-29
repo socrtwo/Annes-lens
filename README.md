@@ -4,7 +4,15 @@
 
 An original, open-source picture viewer, organizer and converter for Android, iOS, Windows, macOS, Linux, ChromeOS and the web, in the tradition of IrfanView: fast, keyboard-driven, and able to open almost anything. Its goal is the same as the rest of the Anne's Office suite: **no missing commands**. Anne's Lens gathers the commands of the major picture viewers past and present (IrfanView first, then XnView, FastStone, ACDSee, Picasa, Windows Photo Viewer and Photos, Preview and Apple Photos, Google Photos, digiKam and the open-source viewers), adds ideas of its own, and has an **AI** tab and menu for generating and editing pictures. Every feature is a command, and every command can be put on the Quick Access Bar, on your own tab, in any classic menu layout, on a keyboard shortcut, in a macro or a batch recipe, and found with command search. When a picture is damaged, Anne's Lens shows what it can recover instead of refusing to open it.
 
-> **Status: planning — no code yet.** This repository holds the plan: the feature survey, the command inventory, the classic menu layouts, the AI plan, the intended architecture and the roadmap. Nothing here is built or released. Issues and discussion about the plan are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Status: milestone 1 (0.1.0) — shell and viewer.** The app builds for the web, Android, iOS and desktop with the same CI and release workflows as the sister apps. What works today:
+>
+> - **The suite shell:** command registry, ribbon, Quick Access Bar with Add All Choices, Customize Tabs and Keyboard, command search (Alt+Q), Backstage, Options, settings export/import (JSON shared with the suite, or an IrfanView-style key list), portable mode on the desktop, macros.
+> - **Classic menus:** View ▸ Menus shows the ribbon, a classic menu bar or both; the bar follows the IrfanView layout by default and can follow IrfanView Thumbnails, XnView, FastStone, ACDSee, Windows Photo Viewer, Picasa, Preview, digiKam, all viewers combined, or the complete layout. Help ▸ Menu Map shows where any command lives.
+> - **Viewing:** open files, folders, recent pictures, dropped or pasted pictures, and pictures handed over with *Open with* or *Share to* on every platform; next/previous through the folder with the neighbors decoded ahead of time; fit and zoom modes, pan, wheel and pinch zoom, full screen; rotate and flip with undo; Picture Information, EXIF, histogram, unique colors; pixel position and color in the status bar; animated GIF/APNG/WebP playback; multipage TIFF and every size of an ICO as pages.
+> - **Formats:** JPEG, PNG, GIF, WebP, BMP, ICO/CUR, baseline TIFF (own readers for GIF, TIFF, BMP, ICO; the platform for the rest), plus HEIC, AVIF, JPEG XL and SVG where the platform decodes them; Save As to PNG, JPEG, WebP and BMP.
+> - **104 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
+>
+> Everything else below is still the plan: see [docs/ROADMAP.md](docs/ROADMAP.md) for the milestones. Issues and discussion are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## The plan in brief
 
@@ -23,9 +31,9 @@ An original, open-source picture viewer, organizer and converter for Android, iO
 - **Corrupt-file recovery:** truncated and damaged JPEG, PNG, GIF, TIFF and other files open with everything readable; embedded previews are used when the main picture is gone; **Recover Pictures from Any File** carves pictures out of disk images, caches, documents and broken archives. See [docs/RECOVERY-PLAN.md](docs/RECOVERY-PLAN.md).
 - **Ideas new to picture viewers** are listed in [docs/INNOVATIONS.md](docs/INNOVATIONS.md#8-new-in-annes-lens): before/after slider and difference overlay, print at true size, privacy check before sharing, content-credentials viewer, measure with scale, color-blindness simulation, and more.
 
-## Platforms (planned)
+## Platforms
 
-Each release will have builds for **Android** (APK and AAB), **iOS/iPadOS** (an unsigned .ipa you sign with your Apple ID), **Windows** (installer for x64 or ARM, or portable), **macOS** (universal), **Linux** (AppImage or .deb for x64, arm64 and armv7l, which covers **Raspberry Pi OS**), **ChromeOS** (Android app, Linux app or web app) and the **web** (static files; offline-capable and installable). On Android, Anne's Lens will register for *Open with* and *Share to* on every supported picture type. CI and release workflows will match the sister apps. See [docs/ARCHITECTURE-PLAN.md](docs/ARCHITECTURE-PLAN.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+Each release has builds for **Android** (APK and AAB), **iOS/iPadOS** (an unsigned .ipa you sign with your Apple ID), **Windows** (installer for x64 or ARM, or portable), **macOS** (universal), **Linux** (AppImage or .deb for x64, arm64 and armv7l, which covers **Raspberry Pi OS**), **ChromeOS** (Android app, Linux app or web app) and the **web** (static files; offline-capable and installable). On Android, Anne's Lens registers for *Open with* and *Share to* on every supported picture type; the desktop apps register the picture extensions, the web app is a PWA file handler, and iOS lists the picture types. CI and release workflows match the sister apps. See [docs/ARCHITECTURE-PLAN.md](docs/ARCHITECTURE-PLAN.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The Anne's Office suite
 
@@ -49,7 +57,8 @@ The apps share one application shell: command registry, Quick Access Bar, custom
 | [docs/INNOVATIONS.md](docs/INNOVATIONS.md) | Survey of picture viewers and organizers, past and present, and what Anne's Lens adopts from each |
 | [docs/COMMANDS-PLAN.md](docs/COMMANDS-PLAN.md) | The planned command inventory, tab by tab, with ids, shortcuts and origins (generated) |
 | [docs/MENUS-PLAN.md](docs/MENUS-PLAN.md) | The classic menu layouts and the ribbon's Home tab (generated) |
-| [docs/commands-plan.json](docs/commands-plan.json) | The same data as JSON, for the future catalog test (generated) |
+| [docs/commands-plan.json](docs/commands-plan.json) | The same data as JSON; `scripts/gen-plan-ts.mjs` turns it into `src/plan.generated.ts`, which the registry, the ribbon and the classic menus are built from, and the catalog test checks the registry against it (generated) |
+| [docs/COMMANDS.md](docs/COMMANDS.md) | What is built so far and what is still planned, from the live registry (generated by `npm run catalog`) |
 | [docs/QAT.md](docs/QAT.md) | The Quick Access Bar plan |
 | [docs/AI-PLAN.md](docs/AI-PLAN.md) | The AI tab: services, on-device models, provenance, privacy and limits |
 | [docs/FORMATS-PLAN.md](docs/FORMATS-PLAN.md) | Every format to open and save, current and historical, with fidelity and licensing notes |
@@ -59,7 +68,22 @@ The apps share one application shell: command registry, Quick Access Bar, custom
 | [docs/ENSEMBLE.md](docs/ENSEMBLE.md) | Several AIs on one request: master synthesis or Quaker consensus |
 | [docs/LEGAL.md](docs/LEGAL.md) | Clean-room, trademark and licensing notes |
 
-The command and menu plans are generated: edit [docs/commands-plan.src.txt](docs/commands-plan.src.txt) or [docs/menus-plan.src.txt](docs/menus-plan.src.txt) and run `python3 scripts/gen-plan.py` (it also checks ids, menu references and shortcut conflicts).
+The command and menu plans are generated: edit [docs/commands-plan.src.txt](docs/commands-plan.src.txt) or [docs/menus-plan.src.txt](docs/menus-plan.src.txt) and run `npm run plan` (`python3 scripts/gen-plan.py`, which checks ids, menu references and shortcut conflicts, then `node scripts/gen-plan-ts.mjs`).
+
+## Building
+
+```bash
+npm ci
+npm run dev        # web app at http://localhost:5173
+npm run typecheck
+npm test           # unit tests (vitest): codecs, EXIF, settings, the catalog against the plan
+npm run build      # dist/ (PWA)
+npm run e2e        # browser smoke test against dist/ (Playwright)
+npm run desktop    # Electron app from dist/
+npm run android:build   # APK (Android SDK required); scripts/termux-build.sh builds on a phone
+```
+
+The release workflow (`.github/workflows/release.yml`) builds every platform from a `v*` tag, a manual run or a `[release]` commit.
 
 ## Project language
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs><linearGradient id="glens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8458C6"/><stop offset="1" stop-color="#4A2877"/></linearGradient></defs>
+  <rect width="512" height="512" rx="116" fill="url(#glens)"/><rect x="84" y="150" width="288" height="216" rx="24" fill="#fff"/>
+  <rect x="108" y="174" width="240" height="168" rx="12" fill="#6A3FA8" opacity=".14"/>
+  <circle cx="150" cy="212" r="20" fill="#6A3FA8" opacity=".85"/>
+  <path d="M108 342 L196 246 L240 292 L270 262 L348 342 L348 342 L108 342 Z" fill="#6A3FA8"/><g>
+    <path d="M436 70 C 376 84 316 140 290 214 C 274 260 268 300 270 338 C 300 300 330 280 360 262 C 330 262 312 262 300 258 C 336 240 368 218 392 188 C 368 190 350 190 336 186 C 378 160 410 120 436 70 Z" fill="#fff" stroke="#4A2877" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M430 78 C 360 150 300 250 262 380" fill="none" stroke="#4A2877" stroke-width="9" stroke-linecap="round"/>
+    <path d="M262 380 L252 420 L276 392 Z" fill="#4A2877"/>
+  </g></svg>

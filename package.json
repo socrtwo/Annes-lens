@@ -1,0 +1,49 @@
+{
+  "name": "quilllens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Anne's Lens: an original open-source picture viewer, organizer and converter in the tradition of IrfanView, with a complete, customizable command library.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "predev": "node scripts/gen-plan-ts.mjs",
+    "prebuild": "node scripts/gen-plan-ts.mjs && node scripts/gen-notices.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pretypecheck": "node scripts/gen-plan-ts.mjs",
+    "typecheck": "tsc --noEmit",
+    "pretest": "node scripts/gen-plan-ts.mjs",
+    "test": "vitest run",
+    "e2e": "node tests/e2e/smoke.mjs",
+    "plan": "python3 scripts/gen-plan.py && node scripts/gen-plan-ts.mjs",
+    "catalog": "vite-node scripts/gen-catalog.ts",
+    "notices": "node scripts/gen-notices.mjs",
+    "cap:sync": "npx cap sync android",
+    "android:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "desktop": "npm run build && node scripts/prepare-desktop.mjs && electron build/desktop-app",
+    "desktop:dist": "npm run build && node scripts/prepare-desktop.mjs && electron-builder --config electron-builder.config.cjs",
+    "icons": "node resources/gen-icon.mjs && node scripts/gen-android-icons.mjs && node scripts/gen-platform-icons.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/share": "^8.0.3",
+    "material-symbols": "^0.48.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "electron": "^43.7.7",
+    "electron-builder": "^26.17.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.64.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vite-node": "^6.0.0",
+    "vitest": "^5.0.5"
+  }
+}
