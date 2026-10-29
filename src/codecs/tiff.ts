@@ -111,6 +111,7 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
   if (![1, 2, 3, 4, 8, 16].includes(bits)) throw new Error(`${bits}-bit samples are not supported yet`);
   if (sampleFormat === 3) throw new Error('floating-point samples are not supported yet');
   const compressionName: Record<number, string> = { 1: 'uncompressed', 2: 'CCITT RLE', 3: 'CCITT G3', 4: 'CCITT G4', 5: 'LZW', 6: 'old JPEG', 7: 'JPEG', 8: 'Deflate', 32773: 'PackBits', 32946: 'Deflate', 34712: 'JPEG 2000', 50000: 'ZSTD' };
+  if (comp === 7 || comp === 6) return decodeJpegPage(u8, tags, w, h, spp, photo, extra, warnings, pageNo, g);
   if (![1, 5, 8, 32773, 32946].includes(comp)) throw new Error(`${compressionName[comp] || 'compression ' + comp} is not supported yet`);
   const rowBytes = Math.ceil((w * spp * bits) / 8);
   const raw = new Uint8Array(rowBytes * h);
@@ -197,6 +198,47 @@ function undoPredictor(dec: Uint8Array, pred: number, bits: number, spp: number,
   } else if (bits === 16) {
     for (let y = 0; y < rows; y++) { const r = y * rowBytes; for (let x = spp; x < w * spp; x++) { const i = r + x * 2, j = r + (x - spp) * 2; if (i + 1 >= dec.length) break; const v = (dec[i] | (dec[i + 1] << 8)) + (dec[j] | (dec[j + 1] << 8)); dec[i] = v & 255; dec[i + 1] = (v >> 8) & 255; } }
   }
+}
+
+/** JPEG in TIFF (compression 7, and the old style 6 where each strip is a whole JPEG): every strip or tile is a JPEG, decoded by the platform, with the JPEGTables segments inserted after its SOI. */
+async function decodeJpegPage(u8: Uint8Array, tags: Map<number, IfdEntry>, w: number, h: number, spp: number, photo: number, extra: number[], warnings: string[], pageNo: number, g: (t: number, d: number) => number): Promise<DecodedPage> {
+  if (typeof document === 'undefined') throw new Error('JPEG-compressed TIFF needs the platform decoder');
+  const tables = tags.get(347)?.values;
+  let tableSegs: Uint8Array | null = null;
+  if (tables && tables.length > 4) { const t = Uint8Array.from(tables); tableSegs = t.subarray(2, t.length - 2); } // between SOI and EOI
+  const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const tiled = tags.has(324);
+  const offsets = (tiled ? tags.get(324) : tags.get(273))?.values || [], counts = (tiled ? tags.get(325) : tags.get(279))?.values || [];
+  if (!offsets.length) throw new Error('no strips');
+  const tw = tiled ? g(322, w) : w, th = tiled ? g(323, h) : Math.min(g(278, h), h);
+  const across = tiled ? Math.ceil(w / tw) : 1;
+  let decoded = 0;
+  for (let i = 0; i < offsets.length; i++) {
+    const x = (i % across) * tw, y = Math.floor(i / across) * th;
+    if (y >= h) break;
+    const cnt = counts[i] ?? u8.length - offsets[i];
+    let strip = u8.subarray(offsets[i], Math.min(u8.length, offsets[i] + cnt));
+    if (strip.length < 4 || strip[0] !== 0xff || strip[1] !== 0xd8) { warnings.push(`Page ${pageNo}: ${tiled ? 'tile' : 'strip'} ${i + 1} is not a JPEG stream`); continue; }
+    if (tableSegs) { const merged = new Uint8Array(2 + tableSegs.length + strip.length - 2); merged.set(strip.subarray(0, 2)); merged.set(tableSegs, 2); merged.set(strip.subarray(2), 2 + tableSegs.length); strip = merged; }
+    try {
+      const bmp = await createImageBitmap(new Blob([strip as BlobPart], { type: 'image/jpeg' }), { imageOrientation: 'none' as any, premultiplyAlpha: 'none' as any });
+      ctx.drawImage(bmp, x, y);
+      bmp.close();
+      decoded++;
+    } catch (e: any) { warnings.push(`Page ${pageNo}: ${tiled ? 'tile' : 'strip'} ${i + 1} could not be decoded (${e?.message || e})`); }
+  }
+  if (!decoded) throw new Error('no JPEG strip could be decoded');
+  const id = ctx.getImageData(0, 0, w, h);
+  const hasAlpha = extra.includes(1) || extra.includes(2);
+  return { width: w, height: h, frames: [{ raster: { width: w, height: h, data: id.data as Uint8ClampedArray<ArrayBuffer> }, delay: 0 }], loops: 0, bitDepth: 8 * spp, hasAlpha, dpi: dpiOf(tags), notes: [`JPEG-compressed ${tiled ? 'tiles' : 'strips'} (${decoded} of ${offsets.length})`, photo === 6 ? 'YCbCr' : photo === 5 ? 'CMYK' : photo === 2 ? 'RGB' : 'grayscale'] };
+}
+
+function dpiOf(tags: Map<number, IfdEntry>): [number, number] | undefined {
+  const unit = tags.get(296)?.values[0] ?? 2, xr = tags.get(282)?.values[0], yr = tags.get(283)?.values[0];
+  if (!xr || unit === 1) return undefined;
+  const y = yr || xr;
+  return unit === 3 ? [Math.round(xr * 2.54), Math.round(y * 2.54)] : [Math.round(xr), Math.round(y)];
 }
 
 async function inflateChunk(src: Uint8Array, comp: number, want: number): Promise<Uint8Array> {

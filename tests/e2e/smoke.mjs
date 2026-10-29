@@ -2,7 +2,7 @@
 // walks the folder, zooms, rotates, undoes, reads pixel info, switches menus and saves a copy.
 // Usage: npm run build && npm run e2e   (set QN_URL to test an already-running server instead)
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const PORT = 4192;
@@ -200,6 +200,35 @@ try {
   check('cut jpeg pixel', damaged.out[0] && damaged.out[0][4] && damaged.out[0][4].every((v, i) => Math.abs(v - damaged.want[i]) <= 4), true);
   check('cut png', damaged.out[1] && damaged.out[1].slice(0, 4), ['cut.png', 'png (tolerant)', 64, true]);
   check('cut png pixel', damaged.out[1] && damaged.out[1][4] && damaged.out[1][4][0] === 204 && damaged.out[1][4][1] === 102, true);
+
+  // JPEG-compressed TIFF (Pillow) decodes through the platform per strip; a CBZ opens as a folder of its pages.
+  const tiffBytes = [...readFileSync('tests/fixtures/tiff/jpeg-strips.tif')];
+  const tiffJpeg = await p.evaluate(async (bytes) => {
+    const f = new File([Uint8Array.from(bytes)], 'jpeg-strips.tif');
+    await qn.exec('file.openDropped', [f]);
+    await new Promise((r) => setTimeout(r, 800));
+    const pic = qn.picture;
+    const d = pic.frameCanvas().getContext('2d').getImageData(60, 50, 1, 1).data;
+    return [pic.format.id, pic.decoder, pic.width, pic.height, pic.warnings.length, pic.current.notes[0], [...d].slice(0, 3)];
+  }, tiffBytes);
+  check('tiff jpeg', tiffJpeg.slice(0, 5), ['tiff', 'tiff', 203, 112, 0]);
+  check('tiff jpeg note', /JPEG-compressed strips/.test(tiffJpeg[5]), true);
+  check('tiff jpeg pixel (inside the blue ellipse)', tiffJpeg[6][2] > 150 && tiffJpeg[6][0] < 90, true);
+  const cbz = await p.evaluate(async () => {
+    const { encodeCanvas } = await window.__qnCodecs();
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); return c; };
+    const pages = [['p10.png', await (await encodeCanvas(mk(8, 8, '#f00'), 'png')).arrayBuffer()], ['p2.png', await (await encodeCanvas(mk(9, 7, '#0f0'), 'png')).arrayBuffer()]];
+    // Stored-method zip written by hand (local headers + central directory).
+    const le16 = (v) => [v & 255, (v >> 8) & 255], le32 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+    const parts = [], central = [];
+    for (const [name, buf] of pages) { const data = new Uint8Array(buf); const nm = [...new TextEncoder().encode(name)]; const off = parts.length; const common = [...le16(20), ...le16(0), ...le16(0), ...le16(0), ...le16(0), ...le32(0), ...le32(data.length), ...le32(data.length), ...le16(nm.length)]; parts.push(...le32(0x04034b50), ...common, ...le16(0), ...nm, ...data); central.push(...le32(0x02014b50), ...le16(20), ...common, ...le16(0), ...le16(0), ...le16(0), ...le16(0), ...le32(0), ...le32(off), ...nm); }
+    const eocd = [...le32(0x06054b50), ...le16(0), ...le16(0), ...le16(2), ...le16(2), ...le32(central.length), ...le32(parts.length), ...le16(0)];
+    const zip = Uint8Array.from([...parts, ...central, ...eocd]);
+    await qn.exec('file.openDropped', [new File([zip], 'book.cbz')]);
+    await new Promise((r) => setTimeout(r, 800));
+    return [qn.folder.name, qn.folder.entries.map((e) => e.name), qn.picture?.name, qn.picture?.width];
+  });
+  check('cbz as folder', cbz, ['book.cbz', ['p2.png', 'p10.png'], 'p2.png', 9]);
 
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');

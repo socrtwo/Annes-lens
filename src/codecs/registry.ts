@@ -25,6 +25,8 @@ import { decodeHdr, isHdr } from './hdr';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
+import { isEps, epsPreview } from './eps';
+import { isZip } from './zip';
 import { readExif } from '../meta/exif';
 import type { DecodedPage, Raster } from './raster';
 
@@ -66,6 +68,8 @@ export const FORMATS: FormatInfo[] = [
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; development needs the RAW module' },
+  { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
+  { id: 'zip', label: 'ZIP archive / comic book', mime: 'application/zip', extensions: ['zip', 'cbz', 'epub'], decoder: 'own', save: false, notes: 'opened as a folder of the pictures inside (stored and deflate entries)' },
 ];
 
 export function formatById(id: string): FormatInfo | undefined { return FORMATS.find((f) => f.id === id); }
@@ -86,6 +90,8 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isHdr(u8)) return formatById('hdr')!;
   if (isPnm(u8)) return formatById('pnm')!;
   if (isDcx(u8)) return formatById('pcx')!;
+  if (isZip(u8)) return formatById('zip')!;
+  if (isEps(u8)) return formatById('eps')!;
   if (u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) return formatById('jpeg')!;
   if (at(u8, 0, '\x89PNG\r\n\x1a\n')) { return pngInfo(u8).animated ? formatById('apng')! : formatById('png')!; }
   if (isGif(u8)) return formatById('gif')!;
@@ -140,6 +146,8 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'hdr') decoded = fromOwn(decodeHdr(u8), 'hdr');
   else if (fmt.id === 'icns') decoded = await decodeIcnsFile(u8);
   else if (fmt.id === 'raw') decoded = await decodeRawPreview(u8, entry.name);
+  else if (fmt.id === 'eps') decoded = await decodeEpsFile(u8);
+  else if (fmt.id === 'zip') throw new Error('This is an archive: open it to browse the pictures inside (File ▸ Open)');
   else if (fmt.id === 'bmp') {
     try { decoded = await fromPlatform(u8, fmt, null); } catch { decoded = fromOwn(decodeBmp(u8), 'bmp'); }
   } else {
@@ -212,6 +220,14 @@ async function decodeIcnsFile(u8: Uint8Array) {
   if (!out.length) throw new Error(warnings[0] || 'No readable icon element');
   out.sort((a, b) => b.size - a.size);
   return { pages: out.map((x) => x.page), info: { elements: elements.map((e) => e.type).join(', ') }, warnings, decoder: 'icns' };
+}
+
+async function decodeEpsFile(u8: Uint8Array) {
+  const pv = epsPreview(u8);
+  if (pv.kind === 'tiff' && pv.bytes) { const r = fromOwn(await decodeTiff(pv.bytes), 'eps preview (tiff)'); r.pages[0].notes.unshift('EPS preview (TIFF)'); return { ...r, info: { ...pv.info, ...r.info }, warnings: [...pv.warnings, ...r.warnings] }; }
+  if (pv.kind === 'raster' && pv.raster) return fromOwn(pv.raster, 'eps preview');
+  if (pv.kind === 'wmf') throw new Error('This EPS file has only a WMF preview, which Anne\'s Lens cannot render yet (planned with the WMF/EMF reader)');
+  throw new Error('This PostScript file has no embedded preview, and PostScript itself is not interpreted (see FORMATS-PLAN.md)');
 }
 
 async function decodeRawPreview(u8: Uint8Array, name: string) {

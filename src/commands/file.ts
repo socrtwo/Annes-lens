@@ -11,9 +11,31 @@ import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 
-/** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder. */
+/** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
+export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
+  const u8 = new Uint8Array(data);
+  const { isZip, readZip, readZipEntry } = await import('../codecs/zip');
+  if (!isZip(u8)) return null;
+  const { entries, warnings } = readZip(u8);
+  const pics = entries.filter((e) => isPictureName(e.name) && !/(^|\/)(__MACOSX|\.)/.test(e.name));
+  if (!pics.length) { toast(`${name} holds no pictures Anne's Lens can open${warnings.length ? ` (${warnings[0]})` : ''}.`); return null; }
+  const list: Entry[] = pics.map((e) => ({
+    name: e.name.split('/').pop() || e.name, uri: null, size: e.size, mtime: e.mtime,
+    read: async () => { const b = readZipEntry(u8, e); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer; },
+  }));
+  const folder = new Folder(list, name);
+  folder.sort('natural');
+  if (warnings.length) toast(`${name}: ${warnings[0]}`, { ms: 6000 });
+  return folder;
+}
+
+/** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder; an archive opens as a folder. */
 export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow?: boolean } = {}): Promise<void> {
   if (!files.length) return;
+  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name) || (files.length === 1 && new Uint8Array(files[0].data, 0, 4).join(',') === '80,75,3,4')) {
+    const folder = await archiveFolder(files[0].name, files[0].data);
+    if (folder) { await app.openFolder(folder, 0, opts); return; }
+  }
   const entries = files.map((f) => entryFromBytes(f.name, f.data, f.uri));
   let folder = new Folder(entries, files.length === 1 ? 'Opened file' : `${files.length} files`);
   let index = 0;
@@ -33,6 +55,7 @@ export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow
 }
 
 export async function openDroppedFiles(app: App, files: File[]): Promise<void> {
+  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name)) { const folder = await archiveFolder(files[0].name, await files[0].arrayBuffer()); if (folder) await app.openFolder(folder, 0); return; }
   const list = files.filter((f) => isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name));
   if (!list.length) { toast('None of the dropped files is a picture Anne\'s Lens can open.'); return; }
   const folder = new Folder(list.map(entryFromFile), list.length === 1 ? list[0].name : `${list.length} dropped files`);

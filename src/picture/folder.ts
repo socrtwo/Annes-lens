@@ -15,7 +15,7 @@ export interface Entry {
   read(): Promise<ArrayBuffer>;
 }
 
-const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|rle|ico|cur|tiff?|svgz?|jxl|psd|psb|tga|tpic|icb|vda|vst|pnm|ppm|pgm|pbm|pam|pfm|qoi|pcx|dcx|xpm|xbm|wbmp|icns|dds|hdr|pic|rgbe|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|dng|3fr|fff|iiq|x3f|srw|mrw|erf|mef|mos|kdc|dcr|raw)$/i;
+const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|rle|ico|cur|tiff?|svgz?|jxl|psd|psb|tga|tpic|icb|vda|vst|pnm|ppm|pgm|pbm|pam|pfm|qoi|pcx|dcx|xpm|xbm|wbmp|icns|dds|hdr|pic|rgbe|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|dng|3fr|fff|iiq|x3f|srw|mrw|erf|mef|mos|kdc|dcr|raw|eps|epsf|ai)$/i;
 
 export function isPictureName(name: string): boolean { return PICTURE_EXT.test(name); }
 
