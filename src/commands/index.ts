@@ -1,6 +1,7 @@
 /** Registers every command module. */
 import './file';
 import './fileTools';
+import './fileOps';
 import './edit';
 import './image';
 import './view';

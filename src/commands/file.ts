@@ -329,6 +329,8 @@ def([
         { key: 'statusBar', label: 'Status bar', type: 'checkbox', value: p.statusBar, half: true },
         { key: 'escExits', label: 'Esc closes the app (IrfanView habit; desktop)', type: 'checkbox', value: p.escExits, half: true },
         { key: 'confirmClose', label: 'Ask to save when leaving an edited picture', type: 'checkbox', value: p.confirmClose, half: true },
+        { key: 'confirmDelete', label: 'Ask before deleting a file (Del)', type: 'checkbox', value: p.confirmDelete, half: true },
+        { key: 'bqf', type: 'button', label: 'Quick Move / Quick Copy folders (Alt+1…9)…', onClick: () => app.exec('file.quickMove', 'setup') },
         { key: 'h4', type: 'heading', label: 'Saving' },
         { key: 'jpegQuality', label: 'JPEG / WebP quality', type: 'range', min: 1, max: 100, value: p.jpegQuality, half: true },
         { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: SAVE_OPTIONS, value: p.defaultSaveFormat, half: true },
@@ -344,7 +346,7 @@ def([
         zoomMode: r.zoomMode, wheel: r.wheel, zoomLock: r.zoomLock, keepPosition: r.keepPosition, wrap: r.wrap, autoRotateExif: r.autoRotateExif, smoothZoom: r.smoothZoom, pixelInfo: r.pixelInfo, prefetch: Math.max(0, Math.min(8, +r.prefetch || 0)),
         alphaDisplay: r.alphaDisplay, alphaColor: r.alphaColor, background: String(r.background || '').trim(), fullScreenBackground: r.fullScreenBackground,
         sort: r.sort, sortDescending: r.sortDescending,
-        theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose,
+        theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose, confirmDelete: r.confirmDelete,
         jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat,
       } satisfies Partial<Prefs>);
       app.savePrefs();

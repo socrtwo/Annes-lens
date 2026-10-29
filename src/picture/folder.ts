@@ -41,9 +41,11 @@ export function entryFromUri(e: FolderEntry): Entry {
 }
 export function entryFromHandle(name: string, handle: any): Entry {
   let uri: string | null = null;
+  const id = async () => { if (!uri) { const { handleId } = await import('../platform/native'); uri = 'fsa:' + (await handleId(handle)); } return uri; };
+  void id();
   return {
     name, get uri() { return uri; }, set uri(v) { uri = v; },
-    read: async () => { const f: File = await handle.getFile(); if (!uri) { const { handleId } = await import('../platform/native'); uri = 'fsa:' + (await handleId(handle)); } return f.arrayBuffer(); },
+    read: async () => { const f: File = await handle.getFile(); await id(); return f.arrayBuffer(); },
   } as Entry;
 }
 
@@ -53,7 +55,7 @@ export class Folder {
   entries: Entry[] = [];
   index = -1;
   name = '';
-  /** Platform address of the folder itself, when known. */
+  /** Platform address of the folder itself, when known (file: URL, Android tree URI, fsadir: handle id). */
   uri: string | null = null;
   private listeners = new Set<() => void>();
 

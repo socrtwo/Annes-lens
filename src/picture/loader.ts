@@ -47,6 +47,14 @@ export class Loader {
     void run();
   }
 
+  /** The entry was renamed: the decoded picture stays cached under its new entry. */
+  rekey(from: Entry, to: Entry): void {
+    const p = this.cache.get(from);
+    if (!p) return;
+    this.cache.delete(from); this.cache.set(to, p);
+    this.order = this.order.map((x) => (x === from ? to : x));
+  }
+
   /** The picture is being replaced (after a save or reload): forget the cached decode. */
   invalidate(e: Entry): void { this.drop(e); }
 

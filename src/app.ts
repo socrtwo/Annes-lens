@@ -12,6 +12,7 @@ import type { Viewer } from './ui/viewer';
 import { Folder, type Entry } from './picture/folder';
 import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
+import { Journal } from './picture/journal';
 
 let tabCounter = 0;
 
@@ -133,6 +134,8 @@ export class App {
   keyIndex = new Map<string, string>();
   /** Copied picture (for Paste as New Picture when the system clipboard is not readable). */
   clip: Picture | null = null;
+  /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
+  journal = new Journal();
 
   constructor(public host: HTMLElement) { this.rebuildKeyIndex(); }
 

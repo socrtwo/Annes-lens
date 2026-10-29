@@ -552,7 +552,12 @@ export class Shell {
     const t = e.target as HTMLElement;
     const inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     const id = this.app.keyIndex.get(canonicalKey(k));
-    if (!id) return;
+    if (!id) {
+      // The plan's Alt+1…Alt+9 (Quick Move) and Alt+Shift+1…9 (Quick Copy): one command, nine slots.
+      const q = canonicalKey(k).match(/^Alt-(Shift-)?([1-9])$/);
+      if (q && !inField && this.app.picture) { e.preventDefault(); this.app.exec(q[1] ? 'file.quickCopy' : 'file.quickMove', +q[2]); }
+      return;
+    }
     if (inField) { if (!/^(file\.|view\.cmdSearch)/.test(id) || !(e.ctrlKey || e.metaKey || /^F\d+$/.test(e.key))) return; }
     const c = getCommand(id);
     if (c?.isEnabled && !c.isEnabled(this.app)) return;

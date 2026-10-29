@@ -15,6 +15,7 @@ import android.net.Uri;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
+import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
@@ -61,6 +62,10 @@ import java.util.concurrent.Executors;
  *   <li>readClipboard() -> {text} / writeClipboard({text, sensitive})</li>
  *   <li>openInApp({packageName, name, mime, data}) -> {opened: true} | {opened: false, reason: "not-installed"}:
  *       hands a picture to a sibling Anne's Office app (Anne's Pen, Anne's Stage, Anne's Folio, Anne's Press) with ACTION_VIEW</li>
+ *   <li>renameDocument({uri, name}) -> {uri, name}; deleteDocument({uri}) -> {ok: true} (Storage Access Framework)</li>
+ *   <li>pickFolder({title}) -> {uri, name} | {canceled: true}: ACTION_OPEN_DOCUMENT_TREE with a persisted permission</li>
+ *   <li>listFolder({uri}) -> {uri, name, entries: [{uri, name, size, mtime}]}: the pictures in a picked folder</li>
+ *   <li>createInFolder({dirUri, name, mime, data}) -> {uri, name}: a new file in a picked folder (replaces a same-named file)</li>
  * </ul>
  */
 @CapacitorPlugin(name = "QuillNative")
@@ -284,6 +289,236 @@ public class QuillNativePlugin extends Plugin {
                 call.reject("Could not read document: " + e.getMessage(), asException(e));
             }
         });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // File operations (Storage Access Framework)
+    // ---------------------------------------------------------------------------------------------
+
+    private static final String[] PICTURE_EXTENSIONS = {
+        "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "avif", "heic", "heif", "hif", "bmp", "dib", "ico", "cur", "tif", "tiff",
+        "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
+        "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr"
+    };
+
+    private static boolean isPictureName(String name) {
+        if (name == null) {
+            return false;
+        }
+        int dot = name.lastIndexOf('.');
+        if (dot < 0) {
+            return false;
+        }
+        String ext = name.substring(dot + 1).toLowerCase(Locale.ROOT);
+        for (String e : PICTURE_EXTENSIONS) {
+            if (e.equals(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @PluginMethod
+    public void renameDocument(PluginCall call) {
+        final String uriString = call.getString("uri");
+        final String name = call.getString("name");
+        if (uriString == null || uriString.isEmpty() || name == null || name.trim().isEmpty()) {
+            call.reject("renameDocument requires 'uri' and 'name'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Uri uri = Uri.parse(uriString);
+                Uri renamed = DocumentsContract.renameDocument(getContext().getContentResolver(), uri, name.trim());
+                if (renamed == null) {
+                    throw new IOException("The storage provider refused to rename the file");
+                }
+                takePersistablePermission(renamed);
+                String newName = queryDisplayName(renamed);
+                JSObject ret = new JSObject();
+                ret.put("uri", renamed.toString());
+                ret.put("name", newName != null ? newName : name.trim());
+                call.resolve(ret);
+            } catch (Throwable e) {
+                call.reject("Could not rename: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void deleteDocument(PluginCall call) {
+        final String uriString = call.getString("uri");
+        if (uriString == null || uriString.isEmpty()) {
+            call.reject("deleteDocument requires 'uri'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                boolean ok = DocumentsContract.deleteDocument(getContext().getContentResolver(), Uri.parse(uriString));
+                if (!ok) {
+                    throw new IOException("The storage provider refused to delete the file");
+                }
+                JSObject ret = new JSObject();
+                ret.put("ok", true);
+                ret.put("trashed", false);
+                call.resolve(ret);
+            } catch (Throwable e) {
+                call.reject("Could not delete: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void pickFolder(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(call, intent, "pickFolderResult");
+        } catch (ActivityNotFoundException e) {
+            call.reject("No folder picker is available on this device", e);
+        }
+    }
+
+    @ActivityCallback
+    private void pickFolderResult(PluginCall call, ActivityResult result) {
+        if (call == null) {
+            return;
+        }
+        Uri tree = resultUri(result);
+        if (tree == null) {
+            resolveCanceled(call);
+            return;
+        }
+        takePersistablePermission(tree);
+        JSObject ret = new JSObject();
+        ret.put("uri", tree.toString());
+        String name = null;
+        try {
+            Uri docUri = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+            name = queryDisplayName(docUri);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not query the folder name", e);
+        }
+        if (name == null || name.isEmpty()) {
+            String id = DocumentsContract.getTreeDocumentId(tree);
+            int colon = id.lastIndexOf(':');
+            int slash = id.lastIndexOf('/');
+            name = id.substring(Math.max(colon, slash) + 1);
+            if (name.isEmpty()) {
+                name = "Folder";
+            }
+        }
+        ret.put("name", name);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void listFolder(PluginCall call) {
+        final String uriString = call.getString("uri");
+        if (uriString == null || uriString.isEmpty()) {
+            call.reject("listFolder requires 'uri'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Uri tree = Uri.parse(uriString);
+                ContentResolver resolver = getContext().getContentResolver();
+                String treeId = DocumentsContract.getTreeDocumentId(tree);
+                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, treeId);
+                JSArray entries = new JSArray();
+                String[] columns = {
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                };
+                try (Cursor cursor = resolver.query(children, columns, null, null, null)) {
+                    while (cursor != null && cursor.moveToNext()) {
+                        String id = cursor.getString(0);
+                        String name = cursor.getString(1);
+                        String mime = cursor.isNull(2) ? null : cursor.getString(2);
+                        if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime) || name == null || name.startsWith(".")) {
+                            continue;
+                        }
+                        if (!isPictureName(name) && !(mime != null && mime.startsWith("image/"))) {
+                            continue;
+                        }
+                        JSObject e = new JSObject();
+                        e.put("uri", DocumentsContract.buildDocumentUriUsingTree(tree, id).toString());
+                        e.put("name", name);
+                        if (!cursor.isNull(3)) {
+                            e.put("size", cursor.getLong(3));
+                        }
+                        if (!cursor.isNull(4)) {
+                            e.put("mtime", cursor.getLong(4));
+                        }
+                        entries.put(e);
+                    }
+                }
+                String folderName = queryDisplayName(DocumentsContract.buildDocumentUriUsingTree(tree, treeId));
+                JSObject ret = new JSObject();
+                ret.put("uri", tree.toString());
+                ret.put("name", folderName != null ? folderName : "Folder");
+                ret.put("entries", entries);
+                call.resolve(ret);
+            } catch (Throwable e) {
+                call.reject("Could not list the folder: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void createInFolder(PluginCall call) {
+        final String dirUri = call.getString("dirUri");
+        final String name = call.getString("name");
+        final String mime = call.getString("mime", "application/octet-stream");
+        final String data = call.getString("data");
+        if (dirUri == null || dirUri.isEmpty() || name == null || name.trim().isEmpty() || data == null) {
+            call.reject("createInFolder requires 'dirUri', 'name' and 'data'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Uri tree = Uri.parse(dirUri);
+                ContentResolver resolver = getContext().getContentResolver();
+                Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+                // Replace a file of the same name rather than letting the provider append " (1)".
+                Uri existing = findChild(resolver, tree, name.trim());
+                if (existing != null) {
+                    DocumentsContract.deleteDocument(resolver, existing);
+                }
+                Uri created = DocumentsContract.createDocument(resolver, parent, mime == null || mime.isEmpty() ? "application/octet-stream" : mime, name.trim());
+                if (created == null) {
+                    throw new IOException("The storage provider refused to create the file");
+                }
+                writeBytes(created, decodeBase64(data));
+                String newName = queryDisplayName(created);
+                JSObject ret = new JSObject();
+                ret.put("uri", created.toString());
+                ret.put("name", newName != null ? newName : name.trim());
+                call.resolve(ret);
+            } catch (Throwable e) {
+                call.reject("Could not create the file: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    private static Uri findChild(ContentResolver resolver, Uri tree, String name) {
+        try {
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+            String[] columns = { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME };
+            try (Cursor cursor = resolver.query(children, columns, null, null, null)) {
+                while (cursor != null && cursor.moveToNext()) {
+                    if (name.equals(cursor.getString(1))) {
+                        return DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not look for " + name, e);
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------------------------------------

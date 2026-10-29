@@ -69,6 +69,10 @@ export interface Prefs {
   tgaRle: boolean;
   /** Print at True Size: measured ÷ expected length from the calibration ruler (1 = the printer is exact). */
   printScale: number;
+  /** Quick Move / Quick Copy targets 1–9 (Alt+1…9, Alt+Shift+1…9); an empty uri is an unset slot. */
+  quickFolders: { name: string; uri: string }[];
+  /** Ask before deleting a file. */
+  confirmDelete: boolean;
   /** Sort order for folders */
   sort: 'name' | 'natural' | 'date' | 'size' | 'type';
   sortDescending: boolean;
@@ -111,6 +115,7 @@ export function defaultPrefs(): Prefs {
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', tgaRle: true, printScale: 1,
+    quickFolders: [], confirmDelete: true,
     sort: 'natural', sortDescending: false,
   };
 }
@@ -156,6 +161,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
       .map((t: any) => ({ ...t, label: String(t.label ?? t.id), groups: t.groups.filter(isObj).map((g: any) => ({ ...g, id: String(g.id ?? ''), label: String(g.label ?? ''), items: strings(g.items) })) }));
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
+  if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
   if (out.macros) out.macros = out.macros.filter((m: any) => isObj(m) && typeof m.name === 'string' && Array.isArray(m.steps) && m.steps.every((s: any) => isObj(s) && typeof s.id === 'string'));
   if (typeof out.jpegQuality === 'number') out.jpegQuality = Math.max(1, Math.min(100, Math.round(out.jpegQuality)));
   if (typeof out.prefetch === 'number') out.prefetch = Math.max(0, Math.min(8, Math.round(out.prefetch)));

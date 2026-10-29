@@ -199,6 +199,65 @@ function registerIpc() {
     win.setContentSize(Math.max(360, Math.min(area.width, Math.round(width))), Math.max(300, Math.min(area.height, Math.round(height))));
   });
   handle('getArgs', async () => ({ args: process.argv.slice(1) }));
+
+  // File operations (M2). Every source must be a granted file; every destination a granted folder.
+  const grantedDir = (uri) => {
+    if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a folder address');
+    const dir = path.resolve(fileURLToPath(uri));
+    if (!grantedDirs.has(dir)) throw new Error('Anne\'s Lens has no permission for this folder; choose it again.');
+    return dir;
+  };
+  const safeName = (name) => { const n = path.basename(String(name || '')).trim(); if (!n || n === '.' || n === '..' || /[\\/:*?"<>|\0]/.test(n)) throw new Error('That is not a valid file name.'); return n; };
+  const freeName = (dir, name, allowSame) => {
+    if (allowSame || !fs.existsSync(path.join(dir, name))) return name;
+    const ext = path.extname(name), base = name.slice(0, name.length - ext.length);
+    for (let i = 2; i < 10000; i++) { const n = `${base} (${i})${ext}`; if (!fs.existsSync(path.join(dir, n))) return n; }
+    throw new Error('No free file name');
+  };
+  const done = (p) => { grant(p); grantDir(path.dirname(p)); return { uri: pathToFileURL(p).href, name: path.basename(p) }; };
+  handle('renameDocument', async ({ uri, name }) => {
+    const p = grantedPath(uri, true);
+    const target = path.join(path.dirname(p), safeName(name));
+    if (target !== p && fs.existsSync(target) && target.toLowerCase() !== p.toLowerCase()) throw new Error(`A file named "${path.basename(target)}" already exists.`);
+    fs.renameSync(p, target);
+    return done(target);
+  });
+  handle('deleteDocument', async ({ uri, permanent }) => {
+    const p = grantedPath(uri, true);
+    if (permanent) { fs.unlinkSync(p); return { ok: true, trashed: false }; }
+    try { await shell.trashItem(p); return { ok: true, trashed: true }; }
+    catch (e) { throw new Error(`Could not move the file to the ${process.platform === 'win32' ? 'Recycle Bin' : 'Trash'}: ${e && e.message ? e.message : e}`); }
+  });
+  handle('pickFolder', async ({ title }) => {
+    const r = await dialog.showOpenDialog(win, { title: String(title || 'Choose a folder'), properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return { canceled: true };
+    const dir = r.filePaths[0];
+    grantDir(dir);
+    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir };
+  });
+  const transfer = (move) => async ({ uri, dirUri, name }) => {
+    const p = grantedPath(uri, true);
+    const dir = grantedDir(dirUri);
+    const target = path.join(dir, freeName(dir, safeName(name || path.basename(p)), false));
+    if (move) { try { fs.renameSync(p, target); } catch { fs.copyFileSync(p, target, fs.constants.COPYFILE_EXCL); fs.unlinkSync(p); } }
+    else fs.copyFileSync(p, target, fs.constants.COPYFILE_EXCL);
+    return done(target);
+  };
+  handle('moveFile', transfer(true));
+  handle('copyFile', transfer(false));
+  handle('createInFolder', async ({ dirUri, name, data }) => {
+    const dir = grantedDir(dirUri);
+    const target = path.join(dir, safeName(name));
+    fs.writeFileSync(target, Buffer.from(String(data || ''), 'base64'));
+    return done(target);
+  });
+  handle('setFileTime', async ({ uri, mtime }) => {
+    const p = grantedPath(uri, true);
+    const t = new Date(Number(mtime));
+    if (Number.isNaN(t.getTime())) throw new Error('Bad time');
+    fs.utimesSync(p, t, t);
+    return { ok: true };
+  });
   handle('getPortableMode', async () => {
     let available = true;
     try { fs.accessSync(exeDir, fs.constants.W_OK); } catch { available = false; }

@@ -38,6 +38,15 @@ interface QuillNativePlugin {
   readClipboard(): Promise<{ text?: string | null }>;
   writeClipboard(opts: { text: string; sensitive?: boolean }): Promise<void>;
   openInApp?(opts: { packageName: string; name: string; mime: string; data: string }): Promise<{ opened: boolean; reason?: string }>;
+  /** File operations (M2). Android: Storage Access Framework; desktop: the file system. */
+  renameDocument?(opts: { uri: string; name: string }): Promise<{ uri: string; name: string }>;
+  deleteDocument?(opts: { uri: string; permanent?: boolean }): Promise<{ ok: boolean; trashed?: boolean }>;
+  /** ACTION_OPEN_DOCUMENT_TREE / a folder dialog: a folder files can be created in and listed. */
+  pickFolder?(opts: { title?: string }): Promise<{ canceled?: boolean; uri?: string; name?: string }>;
+  /** Creates (or replaces) a file in a picked folder. */
+  createInFolder?(opts: { dirUri: string; name: string; mime: string; data: string }): Promise<{ uri: string; name: string }>;
+  /** Lists the pictures in a picked folder. */
+  listFolder?(opts: { uri: string }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
 }
 
 /** The desktop bridge adds what a file system and a window manager make possible. */
@@ -62,6 +71,15 @@ interface DesktopBridge extends QuillNativePlugin {
   fitWindow(opts: { width: number; height: number }): Promise<void>;
   /** Arguments the app was started with (desktop command line), consumed once. */
   getArgs(): Promise<{ args: string[] }>;
+  /** Moves or copies a file into a folder (both must have been opened or picked). */
+  moveFile(opts: { uri: string; dirUri: string; name?: string }): Promise<{ uri: string; name: string }>;
+  copyFile(opts: { uri: string; dirUri: string; name?: string }): Promise<{ uri: string; name: string }>;
+  setFileTime(opts: { uri: string; mtime: number }): Promise<{ ok: boolean }>;
+  /** Writes bytes to a new file in a folder the app may use (undo of a delete). */
+  createInFolder(opts: { dirUri: string; name: string; mime: string; data: string }): Promise<{ uri: string; name: string }>;
+  renameDocument(opts: { uri: string; name: string }): Promise<{ uri: string; name: string }>;
+  deleteDocument(opts: { uri: string; permanent?: boolean }): Promise<{ ok: boolean; trashed?: boolean }>;
+  pickFolder(opts: { title?: string }): Promise<{ canceled?: boolean; uri?: string; name?: string }>;
 }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
@@ -131,11 +149,17 @@ export async function openDocuments(accept: string, mimeTypes: string[], multipl
  * Opens a folder: the desktop dialog (entries by URI), the File System Access directory picker (entries
  * by handle), or a directory <input> (entries as File objects). Null when canceled or unavailable.
  */
-export async function openFolderDialog(): Promise<{ name: string; uri: string | null; entries?: FolderEntry[]; files?: File[]; handles?: { name: string; handle: any }[] } | null> {
+export async function openFolderDialog(): Promise<{ name: string; uri: string | null; entries?: FolderEntry[]; files?: File[]; handles?: { name: string; handle: any }[]; dirHandle?: any } | null> {
   if (desktop) {
     const r = await desktop.openFolder();
     if (r.canceled || !r.entries) return null;
     return { name: r.name || 'Folder', uri: r.uri || null, entries: r.entries };
+  }
+  if (isNative() && Native.pickFolder && Native.listFolder) {
+    const r = await Native.pickFolder({ title: 'Open Folder' });
+    if (r.canceled || !r.uri) return null;
+    const listed = await Native.listFolder({ uri: r.uri });
+    return { name: listed.name || r.name || 'Folder', uri: listed.uri, entries: listed.entries };
   }
   const anyWin = window as any;
   if (anyWin.showDirectoryPicker) {
@@ -143,7 +167,7 @@ export async function openFolderDialog(): Promise<{ name: string; uri: string | 
       const dir = await anyWin.showDirectoryPicker({ mode: 'read' });
       const handles: { name: string; handle: any }[] = [];
       for await (const [name, h] of dir.entries()) if (h.kind === 'file') handles.push({ name, handle: h });
-      return { name: dir.name, uri: null, handles };
+      return { name: dir.name, uri: 'fsadir:' + (await handleId(dir)), handles, dirHandle: dir };
     } catch (e: any) {
       if (e?.name === 'AbortError') return null;
     }
@@ -160,10 +184,110 @@ export async function openFolderDialog(): Promise<{ name: string; uri: string | 
   });
 }
 
-/** The picture files beside `uri` (desktop only; elsewhere null). */
+/** The picture files beside `uri` (desktop), or in a picked Android folder; elsewhere null. */
 export async function listFolderOf(uri: string): Promise<{ uri: string; name: string; entries: FolderEntry[] } | null> {
-  if (!desktop) return null;
-  try { return await desktop.listFolder({ uri }); } catch { return null; }
+  if (desktop) { try { return await desktop.listFolder({ uri }); } catch { return null; } }
+  if (isNative() && Native.listFolder && /^content:/.test(uri)) { try { return await Native.listFolder({ uri }); } catch { return null; } }
+  return null;
+}
+
+// ------------------------------------------------------------------------------------------
+// File operations (M2): rename, delete, move, copy, folder picking, file times. Each backend says what
+// it can do; the commands disable themselves for the rest.
+
+export interface FileOpCaps { rename: boolean; delete: boolean; trash: boolean; move: boolean; copy: boolean; pickFolder: boolean; setTime: boolean; restore: boolean }
+
+const FSA_DIR = 'fsadir:';
+const fsaDir = (uri: string | null | undefined): any => (uri && uri.startsWith(FSA_DIR) ? handles.get(uri.slice(FSA_DIR.length)) : undefined);
+const mimeOf = (name: string) => { const ext = (name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase(); return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', avif: 'image/avif', heic: 'image/heic', svg: 'image/svg+xml' } as Record<string, string>)[ext] || 'application/octet-stream'; };
+
+/** What file operations the entry's backend supports. `dirUri` is the folder the entry was listed from. */
+export function fileOpCaps(uri: string | null, dirUri: string | null): FileOpCaps {
+  const none: FileOpCaps = { rename: false, delete: false, trash: false, move: false, copy: false, pickFolder: false, setTime: false, restore: false };
+  if (!uri) return none;
+  if (desktop) return { rename: true, delete: true, trash: true, move: true, copy: true, pickFolder: true, setTime: true, restore: true };
+  if (uri.startsWith('fsa:')) { const dir = fsaDir(dirUri); const fsa = !!(window as any).showDirectoryPicker; return { rename: !!dir, delete: !!dir, trash: false, move: !!dir && fsa, copy: fsa, pickFolder: fsa, setTime: false, restore: !!dir }; }
+  if (uri.startsWith(IOS_PREFIX)) return { rename: true, delete: true, trash: false, move: false, copy: false, pickFolder: false, setTime: false, restore: true };
+  if (isNative() && /^content:/.test(uri)) { const tree = !!Native.pickFolder && !!Native.createInFolder; return { rename: !!Native.renameDocument, delete: !!Native.deleteDocument, trash: false, move: tree, copy: tree, pickFolder: tree, setTime: false, restore: tree && !!dirUri && /^content:/.test(dirUri) }; }
+  return none;
+}
+
+export async function renameFile(uri: string, dirUri: string | null, newName: string): Promise<{ uri: string; name: string }> {
+  if (desktop) return desktop.renameDocument({ uri, name: newName });
+  if (uri.startsWith('fsa:')) {
+    const h = handles.get(uri.slice(4)), dir = fsaDir(dirUri);
+    if (!h || !dir) throw new Error('The folder is not available for renaming.');
+    if (typeof h.move === 'function') { try { await h.move(newName); return { uri: 'fsa:' + (await handleId(h)), name: newName }; } catch { /* fall through to copy + remove */ } }
+    const f: File = await h.getFile();
+    const nh = await dir.getFileHandle(newName, { create: true });
+    const w = await nh.createWritable(); await w.write(f); await w.close();
+    await dir.removeEntry(h.name);
+    return { uri: 'fsa:' + (await handleId(nh)), name: newName };
+  }
+  if (uri.startsWith(IOS_PREFIX)) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const safe = newName.replace(/[\\/:*?"<>|]/g, '_');
+    await Filesystem.rename({ from: uri.slice(IOS_PREFIX.length), to: safe, directory: Directory.Documents });
+    return { uri: IOS_PREFIX + safe, name: safe };
+  }
+  if (isNative() && Native.renameDocument) return Native.renameDocument({ uri, name: newName });
+  throw new Error('Renaming is not available here.');
+}
+
+/** Deletes a file: to the Recycle Bin / Trash on the desktop unless `permanent`. */
+export async function deleteFile(uri: string, dirUri: string | null, permanent: boolean): Promise<{ trashed: boolean }> {
+  if (desktop) { const r = await desktop.deleteDocument({ uri, permanent }); return { trashed: !!r.trashed }; }
+  if (uri.startsWith('fsa:')) {
+    const h = handles.get(uri.slice(4)), dir = fsaDir(dirUri);
+    if (!h || !dir) throw new Error('The folder is not available for deleting.');
+    await dir.removeEntry(h.name);
+    handles.delete(uri.slice(4));
+    return { trashed: false };
+  }
+  if (uri.startsWith(IOS_PREFIX)) { const { Filesystem, Directory } = await import('@capacitor/filesystem'); await Filesystem.deleteFile({ path: uri.slice(IOS_PREFIX.length), directory: Directory.Documents }); return { trashed: false }; }
+  if (isNative() && Native.deleteDocument) { await Native.deleteDocument({ uri, permanent }); return { trashed: false }; }
+  throw new Error('Deleting is not available here.');
+}
+
+/** A destination folder: {uri, name}, or null when canceled or unavailable. */
+export async function pickFolder(title: string): Promise<{ uri: string; name: string } | null> {
+  if (desktop) { const r = await desktop.pickFolder({ title }); return r.canceled || !r.uri ? null : { uri: r.uri, name: r.name || r.uri }; }
+  if (isNative() && Native.pickFolder) { const r = await Native.pickFolder({ title }); return r.canceled || !r.uri ? null : { uri: r.uri, name: r.name || 'Folder' }; }
+  const anyWin = window as any;
+  if (anyWin.showDirectoryPicker) {
+    try { const dir = await anyWin.showDirectoryPicker({ mode: 'readwrite' }); return { uri: FSA_DIR + (await handleId(dir)), name: dir.name }; } catch (e: any) { if (e?.name === 'AbortError') return null; throw e; }
+  }
+  return null;
+}
+
+/** Writes `data` as `name` into a folder from pickFolder / openFolder; replaces an existing file of that name. */
+export async function writeIntoFolder(dirUri: string, name: string, data: ArrayBuffer): Promise<{ uri: string; name: string }> {
+  if (desktop) return desktop.createInFolder({ dirUri, name, mime: mimeOf(name), data: b64FromBuffer(data) });
+  const dir = fsaDir(dirUri);
+  if (dir) {
+    if (dir.requestPermission && (await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Writing to the folder was not allowed.');
+    const nh = await dir.getFileHandle(name, { create: true });
+    const w = await nh.createWritable(); await w.write(data); await w.close();
+    return { uri: 'fsa:' + (await handleId(nh)), name };
+  }
+  if (dirUri.startsWith(IOS_PREFIX)) { await iosWrite(new Blob([data]), name); return { uri: IOS_PREFIX + name, name }; }
+  if (isNative() && Native.createInFolder) return Native.createInFolder({ dirUri, name, mime: mimeOf(name), data: b64FromBuffer(data) });
+  throw new Error('The folder cannot be written to here.');
+}
+
+/** Copies (or, with `move`, moves) the file into `dirUri`. Returns the new file. */
+export async function copyFileTo(uri: string, dirUri: string | null, destDirUri: string, name: string, move: boolean): Promise<{ uri: string; name: string }> {
+  if (desktop) return move ? desktop.moveFile({ uri, dirUri: destDirUri, name }) : desktop.copyFile({ uri, dirUri: destDirUri, name });
+  const src = await readUri(uri);
+  if (!src) throw new Error('The file could not be read.');
+  const out = await writeIntoFolder(destDirUri, name, src.data);
+  if (move) await deleteFile(uri, dirUri, true);
+  return out;
+}
+
+export async function setFileTime(uri: string, mtime: number): Promise<boolean> {
+  if (desktop) return (await desktop.setFileTime({ uri, mtime })).ok;
+  return false;
 }
 
 function toastSaved(name: string): void {
