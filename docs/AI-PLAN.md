@@ -1,6 +1,6 @@
 # AI plan
 
-> **Plan.** Anne's Lens has no code yet. This document fixes what the **AI** tab and the **AI** menu (present in every classic menu layout) will do, which services and on-device models they use, and the rules for privacy, cost and provenance. Command ids are in [COMMANDS-PLAN.md](COMMANDS-PLAN.md#ai).
+> **Plan.** This document fixes what the **AI** tab and the **AI** menu (present in every classic menu layout) will do, which services and on-device models they use, and the rules for privacy, cost and provenance. Command ids are in [COMMANDS-PLAN.md](COMMANDS-PLAN.md#ai).
 
 The AI tab is optional. Nothing is sent anywhere until you run an AI command, and every AI command is an ordinary command: it can go on the Quick Access Bar, on a custom tab, in any menu layout, on a shortcut, or in a macro or batch recipe.
 

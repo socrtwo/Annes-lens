@@ -1,0 +1,222 @@
+/** Application preferences (per device), persisted to localStorage (or beside the program in portable mode). */
+import { PLAN_LAYOUTS } from './plan.generated';
+
+export interface CustomGroup { id: string; label: string; items: string[] }
+export interface CustomTab { id: string; label: string; groups: CustomGroup[]; hidden?: boolean }
+export interface RecentEntry { key: string; name: string; when: number; uri?: string; format?: string; pinned?: boolean }
+export interface Macro { name: string; steps: { id: string; arg?: any }[]; description?: string; key?: string; created: number }
+
+export type MenuStyle = 'ribbon' | 'classic' | 'both';
+export type ZoomMode = 'fit' | 'fit-large' | 'fit-width' | 'fit-height' | 'fill' | 'actual';
+export type AlphaDisplay = 'checkerboard' | 'white' | 'black' | 'custom';
+
+export interface Prefs {
+  author: string;
+  qat: string[];
+  qatPosition: 'top' | 'below' | 'bottom';
+  qatLabels: boolean;
+  qatHidden: boolean;
+  customTabs: CustomTab[];
+  hiddenTabs: string[];
+  tabOrder: string[];
+  keymap: Record<string, string>;
+  theme: 'system' | 'light' | 'dark' | 'black';
+  ribbon: 'full' | 'tabs' | 'hidden';
+  /** The menu system: the suite ribbon, a classic menu bar, or both. */
+  menuStyle: MenuStyle;
+  /** Which viewer's arrangement the classic menu bar follows (a key of PLAN_LAYOUTS). */
+  menuLayout: string;
+  statusBar: boolean;
+  recent: RecentEntry[];
+  recentFolders: RecentEntry[];
+  macros: Macro[];
+  confirmClose: boolean;
+  highContrastUI: boolean;
+  uiScale: number;
+  pinnedCommands: string[];
+  firstRun: boolean;
+  touchMode: boolean;
+  /** Viewing */
+  zoomMode: ZoomMode;
+  /** Keep the zoom factor when moving to another picture. */
+  zoomLock: boolean;
+  /** Keep the panned position too. */
+  keepPosition: boolean;
+  /** Next/previous wrap around at the ends of the folder. */
+  wrap: boolean;
+  /** Apply the EXIF Orientation tag when showing a picture. */
+  autoRotateExif: boolean;
+  /** Smooth (bilinear) or nearest-neighbor display when zoomed in. */
+  smoothZoom: boolean;
+  /** What shows through transparent pixels. */
+  alphaDisplay: AlphaDisplay;
+  alphaColor: string;
+  /** Canvas color around the picture ('' = the theme's canvas color). */
+  background: string;
+  fullScreenBackground: string;
+  /** Pictures decoded ahead of the current one in each direction. */
+  prefetch: number;
+  /** Show pixel position and color in the status bar. */
+  pixelInfo: boolean;
+  /** Esc closes the app (IrfanView) after leaving full screen; off in browsers by default. */
+  escExits: boolean;
+  /** Mouse wheel without a modifier: next/previous picture, or scroll/zoom. */
+  wheel: 'navigate' | 'zoom' | 'scroll';
+  /** Saving */
+  jpegQuality: number;
+  defaultSaveFormat: string;
+  /** Sort order for folders */
+  sort: 'name' | 'natural' | 'date' | 'size' | 'type';
+  sortDescending: boolean;
+}
+
+export const DEFAULT_QAT = ['file.open', 'file.saveAs', 'view.previous', 'view.next', 'image.rotateLeft', 'image.rotateRight', 'view.fullScreen', 'view.cmdSearch'];
+
+/**
+ * The Quick Access Bar drop-down checklist (docs/QAT.md): the suite's standard choices (AutoSave left out,
+ * New mapped to Paste as New Picture) plus the union of the surveyed viewers' default toolbar buttons.
+ */
+export const QAT_STANDARD = ['edit.pasteAsNew', 'file.open', 'file.save', 'file.email', 'file.quickPrint', 'file.printPreview', 'file.print', 'edit.undo', 'edit.redo', 'view.touchMode', 'file.openRecent'];
+export const QAT_EXTRAS = ['file.saveAs', 'view.previous', 'view.next', 'view.zoomIn', 'view.zoomOut', 'view.actualSize', 'view.fitWindow', 'image.rotateLeft', 'image.rotateRight', 'view.fullScreen', 'show.start', 'browse.thumbnails', 'edit.copy', 'edit.paste', 'file.delete', 'edit.crop', 'edit.markup', 'adjust.colorCorrections', 'image.info', 'browse.favorite', 'file.share', 'file.options', 'batch.convert', 'view.cmdSearch'];
+export const QAT_CHOICES = [...QAT_STANDARD, ...QAT_EXTRAS];
+/** Kept first, in this order, by addAllQatChoices. */
+export const QAT_PINNED_FIRST = ['file.save', 'file.print'];
+
+/**
+ * Adds every drop-down choice to the bar: Save and Print first, then the remaining choices sorted by
+ * label (case-insensitive), then anything else already on the bar, in its existing order.
+ */
+export function addAllQatChoices(current: string[], labelOf: (id: string) => string | undefined, choices: string[] = QAT_CHOICES): string[] {
+  const known = choices.filter((id) => labelOf(id) !== undefined);
+  const first = QAT_PINNED_FIRST.filter((id) => known.includes(id));
+  const rest = known.filter((id) => !first.includes(id))
+    .sort((a, b) => labelOf(a)!.localeCompare(labelOf(b)!, undefined, { sensitivity: 'base' }));
+  const head = [...first, ...rest];
+  return [...head, ...current.filter((id) => id === '|' || !head.includes(id))];
+}
+
+export function defaultPrefs(): Prefs {
+  return {
+    author: '',
+    qat: [...DEFAULT_QAT], qatPosition: 'top', qatLabels: false, qatHidden: false,
+    customTabs: [], hiddenTabs: [], tabOrder: [], keymap: {},
+    theme: 'system', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
+    recent: [], recentFolders: [], macros: [],
+    confirmClose: true, highContrastUI: false, uiScale: 1, pinnedCommands: [], firstRun: true, touchMode: false,
+    zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
+    alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
+    escExits: false, wheel: 'navigate',
+    jpegQuality: 90, defaultSaveFormat: 'png',
+    sort: 'natural', sortDescending: false,
+  };
+}
+
+const KEY = 'quilllens.prefs.v1';
+
+export function loadPrefs(): Prefs {
+  const d = defaultPrefs();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return d;
+    const p = sanitizePrefs(JSON.parse(raw));
+    return { ...d, ...p };
+  } catch {
+    return d;
+  }
+}
+
+const ENUMS: Partial<Record<keyof Prefs, readonly string[]>> = {
+  qatPosition: ['top', 'below', 'bottom'], theme: ['system', 'light', 'dark', 'black'], ribbon: ['full', 'tabs', 'hidden'],
+  menuStyle: ['ribbon', 'classic', 'both'], menuLayout: Object.keys(PLAN_LAYOUTS),
+  zoomMode: ['fit', 'fit-large', 'fit-width', 'fit-height', 'fill', 'actual'], alphaDisplay: ['checkerboard', 'white', 'black', 'custom'],
+  wheel: ['navigate', 'zoom', 'scroll'], sort: ['name', 'natural', 'date', 'size', 'type'],
+};
+const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/** Keeps only preferences of the expected shape (stored, or pasted into Import Settings). Unknown keys are dropped. */
+export function sanitizePrefs(raw: unknown): Partial<Prefs> {
+  if (!isObj(raw)) return {};
+  const d = defaultPrefs() as Record<string, any>;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!(k in d)) continue;
+    const def = d[k];
+    if (Array.isArray(def) ? Array.isArray(v) : isObj(def) ? isObj(v) : typeof v === typeof def && (typeof v !== 'number' || Number.isFinite(v))) out[k] = v;
+  }
+  for (const [k, ok] of Object.entries(ENUMS)) if (k in out && !ok!.includes(out[k])) delete out[k];
+  for (const k of ['qat', 'hiddenTabs', 'tabOrder', 'pinnedCommands']) if (k in out) out[k] = strings(out[k]);
+  for (const k of ['keymap']) if (k in out) out[k] = Object.fromEntries(Object.entries(out[k]).filter(([, x]) => typeof x === 'string'));
+  if (out.customTabs) {
+    out.customTabs = out.customTabs.filter((t: any) => isObj(t) && typeof t.id === 'string' && Array.isArray(t.groups))
+      .map((t: any) => ({ ...t, label: String(t.label ?? t.id), groups: t.groups.filter(isObj).map((g: any) => ({ ...g, id: String(g.id ?? ''), label: String(g.label ?? ''), items: strings(g.items) })) }));
+  }
+  for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
+  if (out.macros) out.macros = out.macros.filter((m: any) => isObj(m) && typeof m.name === 'string' && Array.isArray(m.steps) && m.steps.every((s: any) => isObj(s) && typeof s.id === 'string'));
+  if (typeof out.jpegQuality === 'number') out.jpegQuality = Math.max(1, Math.min(100, Math.round(out.jpegQuality)));
+  if (typeof out.prefetch === 'number') out.prefetch = Math.max(0, Math.min(8, Math.round(out.prefetch)));
+  return out as Partial<Prefs>;
+}
+
+export function savePrefs(p: Prefs): void {
+  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage full or unavailable */ }
+}
+
+/**
+ * IrfanView-style key lists: lines of `Command=Key` (an IrfanView command name or an Anne's Lens id), or
+ * `Key=Command`, optionally under an INI section such as [Keys] or [Hotkeys]. Keys use the plan's notation
+ * (Ctrl+Shift+O, Space, F11). Unknown commands are reported, not applied.
+ */
+export const IRFANVIEW_COMMAND_NAMES: Record<string, string> = {
+  'open': 'file.open', 'open folder': 'file.openFolder', 'reopen': 'file.openRecent', 'recent files': 'file.openRecent', 'open with external editor': 'file.openExternal',
+  'thumbnails': 'browse.thumbnails', 'slideshow': 'show.settings', 'start slideshow': 'show.start', 'batch conversion': 'batch.convert', 'batch conversion/rename': 'batch.convert', 'search files': 'edit.findFiles',
+  'rename file': 'file.rename', 'rename': 'file.rename', 'move file': 'file.moveTo', 'copy file': 'file.copyTo', 'delete file': 'file.delete', 'delete': 'file.delete',
+  'save': 'file.save', 'save as': 'file.saveAs', 'save for web': 'file.saveForWeb', 'print': 'file.print', 'select scan source': 'file.selectSource', 'acquire': 'file.scan', 'scan': 'file.scan', 'batch scanning': 'file.batchScan',
+  'copy': 'edit.copy', 'cut': 'edit.cut', 'paste': 'edit.paste', 'undo': 'edit.undo', 'redo': 'edit.redo', 'crop selection': 'edit.crop', 'custom crop selection': 'edit.customSelection', 'custom selection': 'edit.customSelection', 'select all': 'edit.selectAll', 'select none': 'edit.selectNone', 'insert text': 'edit.insertText', 'add text': 'edit.insertText', 'show paint dialog': 'edit.paint', 'paint': 'edit.paint', 'auto crop borders': 'edit.autoCrop',
+  'image information': 'image.info', 'information': 'image.info', 'rotate left': 'image.rotateLeft', 'rotate right': 'image.rotateRight', 'custom rotation': 'image.rotateCustom', 'custom/fine rotation': 'image.rotateCustom', 'vertical flip': 'image.flipV', 'horizontal flip': 'image.flipH', 'resize': 'image.resize', 'resize/resample': 'image.resize', 'change canvas size': 'edit.canvasSize', 'add border/frame': 'edit.border', 'add border': 'edit.border',
+  'convert to grayscale': 'image.grayscale', 'grayscale': 'image.grayscale', 'negative': 'image.negative', 'decrease color depth': 'image.decreaseDepth', 'increase color depth': 'image.increaseDepth', 'color corrections': 'adjust.colorCorrections', 'auto adjust colors': 'adjust.auto', 'sharpen': 'adjust.sharpen', 'red eye reduction': 'adjust.redEye', 'histogram': 'image.histogram', 'effects': 'fx.browser', 'jpg lossless rotation': 'image.losslessJpeg', 'jpg lossless': 'image.losslessJpeg', 'create panorama image': 'create.panoramaJoin', 'swap colors': 'image.swapChannels', 'palette': 'image.paletteEdit',
+  'next file': 'view.next', 'previous file': 'view.previous', 'first file': 'view.first', 'last file': 'view.last', 'random file': 'view.random', 'next page': 'pages.next', 'previous page': 'pages.previous',
+  'full screen': 'view.fullScreen', 'fullscreen': 'view.fullScreen', 'zoom in': 'view.zoomIn', 'zoom out': 'view.zoomOut', 'original size': 'view.actualSize', 'fit to window': 'view.fitWindow', 'fit images to window': 'view.fitWindow', 'fit only big images to window': 'view.fitLarge', 'fit window to image': 'view.fitWindowToImage', 'lock zoom': 'view.zoomLock', 'center image': 'view.center', 'always on top': 'view.alwaysOnTop', 'minimize': 'view.minimize', 'show menu bar': 'view.menuMode', 'show toolbar': 'view.toolbar', 'show status bar': 'view.statusBar',
+  'properties': 'file.options', 'properties/settings': 'file.options', 'options': 'file.options', 'set as wallpaper': 'file.wallpaper', 'exit': 'file.exit', 'capture': 'file.capture', 'screenshot': 'file.capture', 'exif info': 'meta.exif', 'iptc info': 'meta.iptc', 'comment': 'meta.comment', 'change language': 'view.language', 'language': 'view.language', 'show hex view': 'file.openHex', 'extract all frames': 'create.extractFrames', 'extract all pages': 'create.extractFrames', 'create contact sheet': 'create.contactSheet', 'create multipage tif': 'create.multipage', 'send by email': 'file.email', 'email': 'file.email', 'edit multipage tif': 'pages.insert', 'help': 'help.contents', 'about': 'help.about',
+};
+
+export function parseKeyList(text: string, ids: Set<string>): { keymap: Record<string, string>; unknown: string[] } {
+  const keymap: Record<string, string> = {};
+  const unknown: string[] = [];
+  const keyRe = /^(?:(?:ctrl|cmd|alt|shift|win)\+)*(?:[a-z0-9]|f\d{1,2}|space|backspace|enter|esc|escape|del|delete|home|end|pgup|pgdn|pageup|pagedown|left|right|up|down|tab|ins|insert|[+\-=.,/\\\[\]`;'])$/i;
+  const toId = (cmd: string): string | null => {
+    const c = cmd.trim();
+    if (ids.has(c)) return c;
+    const lower = c.toLowerCase().replace(/\s+/g, ' ').replace(/\.\.\.$|…$/, '').trim();
+    return IRFANVIEW_COMMAND_NAMES[lower] || null;
+  };
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || /^[;#[]/.test(line)) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const a = line.slice(0, eq).trim(), b = line.slice(eq + 1).trim();
+    let key = '', cmd = '';
+    if (keyRe.test(b) && !keyRe.test(a)) { cmd = a; key = b; } else if (keyRe.test(a)) { key = a; cmd = b; } else { cmd = a; key = b; }
+    const id = toId(cmd);
+    if (!id) { unknown.push(line); continue; }
+    const canon = planKeyToCanonical(key);
+    if (!canon) { unknown.push(line); continue; }
+    keymap[canon] = id;
+  }
+  return { keymap, unknown };
+}
+
+/** "Ctrl+Shift+O" -> "Mod-Shift-o" (the same conversion scripts/gen-plan-ts.mjs applies to the plan). */
+export function planKeyToCanonical(k: string): string | null {
+  const s = String(k).trim();
+  if (!s || /…|wheel/i.test(s)) return null;
+  if (s === '+') return '=';
+  const parts = s.split('+').map((p) => p.trim());
+  const base = parts.pop()!;
+  if (!base) return null;
+  const names: Record<string, string> = { space: 'Space', backspace: 'Backspace', pgdn: 'PageDown', pagedown: 'PageDown', pgup: 'PageUp', pageup: 'PageUp', right: 'ArrowRight', left: 'ArrowLeft', up: 'ArrowUp', down: 'ArrowDown', home: 'Home', end: 'End', enter: 'Enter', esc: 'Escape', escape: 'Escape', del: 'Delete', delete: 'Delete', tab: 'Tab', ins: 'Insert', insert: 'Insert' };
+  const key = names[base.toLowerCase()] || (base.length === 1 ? base.toLowerCase() : /^f\d{1,2}$/i.test(base) ? base.toUpperCase() : base);
+  const mods = parts.map((p) => ({ ctrl: 'Mod', cmd: 'Mod', win: 'Mod', alt: 'Alt', shift: 'Shift' } as Record<string, string>)[p.toLowerCase()] || p);
+  return [...['Mod', 'Alt', 'Shift'].filter((m) => mods.includes(m)), key].join('-');
+}

@@ -1,0 +1,395 @@
+/**
+ * Platform bridge. One API, three back ends:
+ * - Android: the `QuillNative` Capacitor plugin (android/app/src/main/java/.../QuillNativePlugin.java)
+ *   provides the Storage Access Framework (real Open / Save As dialogs, write-back to the same file),
+ *   the system print service, sharing, and pictures opened or shared from other apps.
+ * - Desktop (Windows, macOS, Linux, Raspberry Pi OS): the Electron preload (electron/preload.cjs)
+ *   exposes the same interface as `window.quillDesktop`, backed by native file dialogs and the file
+ *   system, plus folder listing (next/previous through a folder), Show in Folder, Open With and
+ *   portable mode.
+ * - Browser and iOS: <input type=file>, the File System Access API or downloads, and window.print().
+ *   On iOS, saved files go to the app's Documents folder (Files ▸ On My iPhone ▸ Anne's Lens).
+ */
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { download, pickFile } from '../ui/dom';
+
+export interface OpenedFile { name: string; data: ArrayBuffer; uri: string | null; mime?: string; size?: number; mtime?: number }
+export interface FolderEntry { uri: string; name: string; size?: number; mtime?: number }
+
+interface NativeFile { uri?: string; name?: string; mime?: string; data?: string; files?: NativeFile[] }
+
+interface QuillNativePlugin {
+  /** ACTION_OPEN_DOCUMENT. Resolves {canceled:true} when dismissed; {files} when several were picked. */
+  openDocument(opts: { mimeTypes: string[]; multiple?: boolean }): Promise<{ canceled?: boolean } & NativeFile>;
+  /** ACTION_CREATE_DOCUMENT then write. */
+  saveAs(opts: { name: string; mime: string; data: string /* base64 */ }): Promise<{ canceled?: boolean; uri?: string; name?: string }>;
+  /** Overwrite an existing document URI obtained from openDocument/saveAs (persisted permission). */
+  writeUri(opts: { uri: string; data: string /* base64 */ }): Promise<{ ok: boolean }>;
+  /** Read a URI again (recent files, folder entries). */
+  readUri(opts: { uri: string }): Promise<{ name?: string; mime?: string; data: string; size?: number; mtime?: number }>;
+  /** Print the current WebView through PrintManager. */
+  print(opts: { jobName: string }): Promise<void>;
+  /** Share a file through ACTION_SEND. */
+  share(opts: { name: string; mime: string; data: string; title?: string }): Promise<void>;
+  /** File(s) the app was launched with (ACTION_VIEW / ACTION_SEND / ACTION_SEND_MULTIPLE), consumed once. */
+  getLaunchFile(): Promise<NativeFile>;
+  keepAwake(opts: { on: boolean }): Promise<void>;
+  addListener(event: 'fileOpened', cb: (f: NativeFile) => void): Promise<{ remove: () => void }>;
+  readClipboard(): Promise<{ text?: string | null }>;
+  writeClipboard(opts: { text: string; sensitive?: boolean }): Promise<void>;
+  openInApp?(opts: { packageName: string; name: string; mime: string; data: string }): Promise<{ opened: boolean; reason?: string }>;
+}
+
+/** The desktop bridge adds what a file system and a window manager make possible. */
+interface DesktopBridge extends QuillNativePlugin {
+  /** 'win32' | 'darwin' | 'linux' */
+  platform: string;
+  openExternal(opts: { url: string }): Promise<void>;
+  /** Native folder dialog; resolves the folder's picture files. */
+  openFolder(): Promise<{ canceled?: boolean; uri?: string; name?: string; entries?: FolderEntry[] }>;
+  /** The picture files beside a file (or inside a folder URI), sorted by name. */
+  listFolder(opts: { uri: string }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
+  /** Show the file in the system file manager. */
+  revealInFolder(opts: { uri: string }): Promise<void>;
+  /** Open the file with the program registered for its type. */
+  openWith(opts: { uri: string }): Promise<{ ok: boolean; error?: string }>;
+  /** Settings beside the program instead of in the user profile. */
+  getPortableMode(): Promise<{ on: boolean; dir: string; available: boolean }>;
+  setPortableMode(opts: { on: boolean }): Promise<{ ok: boolean; error?: string }>;
+  relaunch(): Promise<void>;
+  setAlwaysOnTop(opts: { on: boolean }): Promise<void>;
+  minimize(): Promise<void>;
+  fitWindow(opts: { width: number; height: number }): Promise<void>;
+  /** Arguments the app was started with (desktop command line), consumed once. */
+  getArgs(): Promise<{ args: string[] }>;
+}
+
+const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
+const Native: QuillNativePlugin = desktop || registerPlugin<QuillNativePlugin>('QuillNative');
+
+/** Running in the Capacitor app shell (Android or iOS). */
+export const isCapacitor = (): boolean => Capacitor.isNativePlatform();
+/** A native bridge is present: real file dialogs, write-back (Android app or desktop app). */
+export const isNative = (): boolean => !!desktop || (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('QuillNative'));
+export const isDesktop = (): boolean => !!desktop;
+export const isIOS = (): boolean => Capacitor.getPlatform() === 'ios';
+/** 'android' | 'ios' | 'web' | 'windows' | 'macos' | 'linux' */
+export const platformName = (): string => (desktop ? ({ win32: 'windows', darwin: 'macos' } as Record<string, string>)[desktop.platform] || 'linux' : Capacitor.getPlatform());
+export const desktopBridge = (): DesktopBridge | undefined => desktop;
+
+// iOS: files live in the app's Documents folder, which the Files app shows.
+const IOS_PREFIX = 'ios-doc:';
+async function iosWrite(blob: Blob, name: string): Promise<string> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  const safe = name.replace(/[\\/:*?"<>|]/g, '_') || 'picture';
+  await Filesystem.writeFile({ path: safe, data: b64FromBuffer(await blob.arrayBuffer()), directory: Directory.Documents });
+  return safe;
+}
+/** Save As on iOS has no picker: never replace another file, use "Name (2).ext" instead. */
+async function iosFreeName(name: string): Promise<string> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  const safe = name.replace(/[\\/:*?"<>|]/g, '_') || 'picture';
+  const dot = safe.lastIndexOf('.');
+  const base = dot > 0 ? safe.slice(0, dot) : safe, ext = dot > 0 ? safe.slice(dot) : '';
+  for (let i = 1; i < 500; i++) {
+    const candidate = i === 1 ? safe : `${base} (${i})${ext}`;
+    try { await Filesystem.stat({ path: candidate, directory: Directory.Documents }); } catch { return candidate; }
+  }
+  return `${base} (${Date.now()})${ext}`;
+}
+
+export function b64FromBuffer(buf: ArrayBuffer): string {
+  const u8 = new Uint8Array(buf);
+  let s = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk) s += String.fromCharCode(...u8.subarray(i, i + chunk));
+  return btoa(s);
+}
+
+export function bufferFromB64(b64: string): ArrayBuffer {
+  const s = atob(b64);
+  const u8 = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+  return u8.buffer;
+}
+
+const fromNative = (r: NativeFile): OpenedFile => ({ name: r.name || 'picture', data: bufferFromB64(r.data || ''), uri: r.uri || null, mime: r.mime });
+
+/** Opens one or several files with the platform's picker. */
+export async function openDocuments(accept: string, mimeTypes: string[], multiple = true): Promise<OpenedFile[]> {
+  if (isNative()) {
+    const r = await Native.openDocument({ mimeTypes, multiple });
+    if (r.canceled) return [];
+    if (r.files?.length) return r.files.filter((f) => f.data).map(fromNative);
+    return r.data ? [fromNative(r)] : [];
+  }
+  const files = await pickFile(accept, multiple);
+  return Promise.all(files.map(async (f) => ({ name: f.name, data: await f.arrayBuffer(), uri: null, mime: f.type, size: f.size, mtime: f.lastModified })));
+}
+
+/**
+ * Opens a folder: the desktop dialog (entries by URI), the File System Access directory picker (entries
+ * by handle), or a directory <input> (entries as File objects). Null when canceled or unavailable.
+ */
+export async function openFolderDialog(): Promise<{ name: string; uri: string | null; entries?: FolderEntry[]; files?: File[]; handles?: { name: string; handle: any }[] } | null> {
+  if (desktop) {
+    const r = await desktop.openFolder();
+    if (r.canceled || !r.entries) return null;
+    return { name: r.name || 'Folder', uri: r.uri || null, entries: r.entries };
+  }
+  const anyWin = window as any;
+  if (anyWin.showDirectoryPicker) {
+    try {
+      const dir = await anyWin.showDirectoryPicker({ mode: 'read' });
+      const handles: { name: string; handle: any }[] = [];
+      for await (const [name, h] of dir.entries()) if (h.kind === 'file') handles.push({ name, handle: h });
+      return { name: dir.name, uri: null, handles };
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return null;
+    }
+  }
+  return new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    (inp as any).webkitdirectory = true;
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', () => { const files = inp.files ? [...inp.files] : []; inp.remove(); resolve(files.length ? { name: (files[0] as any).webkitRelativePath?.split('/')[0] || 'Folder', uri: null, files } : null); });
+    inp.addEventListener('cancel', () => { inp.remove(); resolve(null); });
+    inp.click();
+  });
+}
+
+/** The picture files beside `uri` (desktop only; elsewhere null). */
+export async function listFolderOf(uri: string): Promise<{ uri: string; name: string; entries: FolderEntry[] } | null> {
+  if (!desktop) return null;
+  try { return await desktop.listFolder({ uri }); } catch { return null; }
+}
+
+function toastSaved(name: string): void {
+  import('../ui/dialog').then(({ toast }) => toast(`Saved "${name}" to Files ▸ On My iPhone ▸ Anne's Lens`)).catch(() => undefined);
+}
+
+export async function saveAs(blob: Blob, name: string): Promise<{ uri: string | null; name: string } | null> {
+  if (isNative()) {
+    const r = await Native.saveAs({ name, mime: blob.type || 'application/octet-stream', data: b64FromBuffer(await blob.arrayBuffer()) });
+    if (r.canceled) return null;
+    return { uri: r.uri || null, name: r.name || name };
+  }
+  if (isIOS()) {
+    const n = await iosWrite(blob, await iosFreeName(name));
+    toastSaved(n);
+    return { uri: IOS_PREFIX + n, name: n };
+  }
+  const anyWin = window as any;
+  if (anyWin.showSaveFilePicker) {
+    try {
+      const handle = await anyWin.showSaveFilePicker({ suggestedName: name });
+      const w = await handle.createWritable();
+      await w.write(blob);
+      await w.close();
+      return { uri: 'fsa:' + (await handleId(handle)), name: handle.name };
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return null;
+    }
+  }
+  download(blob, name);
+  return { uri: null, name };
+}
+
+/** File System Access handles by id. Names alone are not unique: two folders can hold "IMG_0001.jpg". */
+const handles = new Map<string, any>();
+let handleSeq = 0;
+export async function handleId(handle: any): Promise<string> {
+  for (const [id, h] of handles) {
+    try { if (await h.isSameEntry?.(handle)) { handles.set(id, handle); return id; } } catch { /* stale handle */ }
+  }
+  const id = `${Date.now().toString(36)}${(++handleSeq).toString(36)}:${handle.name}`;
+  handles.set(id, handle);
+  return id;
+}
+export const handleFor = (uri: string): any => (uri.startsWith('fsa:') ? handles.get(uri.slice(4)) : undefined);
+
+export async function writeBack(uri: string, blob: Blob): Promise<boolean> {
+  if (uri.startsWith('fsa:')) {
+    const h = handles.get(uri.slice(4));
+    if (!h) return false;
+    if (h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') return false;
+    const w = await h.createWritable();
+    await w.write(blob);
+    await w.close();
+    return true;
+  }
+  if (uri.startsWith(IOS_PREFIX)) { await iosWrite(blob, uri.slice(IOS_PREFIX.length)); return true; }
+  if (!isNative()) return false;
+  const r = await Native.writeUri({ uri, data: b64FromBuffer(await blob.arrayBuffer()) });
+  return !!r.ok;
+}
+
+export async function readUri(uri: string): Promise<OpenedFile | null> {
+  if (uri.startsWith('fsa:')) {
+    const h = handles.get(uri.slice(4));
+    if (!h) return null;
+    try { const f: File = await h.getFile(); return { name: f.name, data: await f.arrayBuffer(), uri, mime: f.type, size: f.size, mtime: f.lastModified }; } catch { return null; }
+  }
+  if (uri.startsWith(IOS_PREFIX)) {
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const r = await Filesystem.readFile({ path: uri.slice(IOS_PREFIX.length), directory: Directory.Documents });
+      return { name: uri.slice(IOS_PREFIX.length), data: bufferFromB64(typeof r.data === 'string' ? r.data : b64FromBuffer(await (r.data as Blob).arrayBuffer())), uri };
+    } catch { return null; }
+  }
+  if (!isNative()) return null;
+  try {
+    const r = await Native.readUri({ uri });
+    return { name: r.name || 'picture', data: bufferFromB64(r.data), uri, mime: r.mime, size: r.size, mtime: r.mtime };
+  } catch {
+    return null;
+  }
+}
+
+export async function printDocument(jobName: string): Promise<void> {
+  if (isNative()) { await Native.print({ jobName }); return; }
+  window.print();
+}
+
+export async function shareFile(blob: Blob, name: string, title?: string): Promise<void> {
+  if (isNative()) {
+    await Native.share({ name, mime: blob.type || 'application/octet-stream', data: b64FromBuffer(await blob.arrayBuffer()), title });
+    return;
+  }
+  if (isIOS()) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share } = await import('@capacitor/share');
+    const w = await Filesystem.writeFile({ path: name.replace(/[\\/:*?"<>|]/g, '_') || 'picture', data: b64FromBuffer(await blob.arrayBuffer()), directory: Directory.Cache });
+    await Share.share({ title: title || name, files: [w.uri] });
+    return;
+  }
+  const file = new File([blob], name, { type: blob.type });
+  const nav = navigator as any;
+  if (nav.canShare && nav.canShare({ files: [file] })) { await nav.share({ files: [file], title: title || name }); return; }
+  download(blob, name);
+}
+
+/**
+ * iOS has no QuillNative plugin: "Open in Anne's Lens" and Share arrive as file:// URLs through the
+ * Capacitor App plugin; iOS copies the file into the app's Documents/Inbox first.
+ */
+let lastIosUrl = '';
+async function readIosUrl(url: string): Promise<OpenedFile | null> {
+  if (!/^file:/i.test(url) || url === lastIosUrl) return null;
+  lastIosUrl = url;
+  try {
+    const { Filesystem } = await import('@capacitor/filesystem');
+    const r = await Filesystem.readFile({ path: url });
+    const data = typeof r.data === 'string' ? bufferFromB64(r.data) : await (r.data as Blob).arrayBuffer();
+    let name = url.split(/[?#]/)[0].split('/').pop() || 'picture';
+    try { name = decodeURIComponent(name); } catch { /* keep the raw name */ }
+    return { name, data, uri: null };
+  } catch {
+    return null;
+  }
+}
+
+/** The file(s) the app was started with ("Open with", "Share to", command line), consumed once. */
+export async function launchFiles(): Promise<OpenedFile[]> {
+  if (isCapacitor() && isIOS() && !isNative()) {
+    try {
+      const { App } = await import('@capacitor/app');
+      const r = await App.getLaunchUrl();
+      const f = r?.url ? await readIosUrl(r.url) : null;
+      return f ? [f] : [];
+    } catch {
+      return [];
+    }
+  }
+  if (!isNative()) return [];
+  try {
+    const r = await Native.getLaunchFile();
+    if (!r) return [];
+    if (r.files?.length) return r.files.filter((f) => f.data).map(fromNative);
+    return r.data ? [fromNative(r)] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function onFilesOpened(cb: (f: OpenedFile[]) => void): void {
+  if (isCapacitor() && isIOS() && !isNative()) {
+    void import('@capacitor/app').then(({ App }) => App.addListener('appUrlOpen', (e) => { void readIosUrl(e.url).then((f) => { if (f) cb([f]); }); }));
+    return;
+  }
+  if (!isNative()) return;
+  Native.addListener('fileOpened', (r) => { if (r.files?.length) cb(r.files.filter((f) => f.data).map(fromNative)); else if (r.data) cb([fromNative(r)]); });
+}
+
+export async function keepAwake(on: boolean): Promise<void> {
+  if (!isNative()) {
+    try { if (on) (window as any).__wake = await (navigator as any).wakeLock?.request('screen'); else (window as any).__wake?.release(); } catch { /* */ }
+    return;
+  }
+  try { await Native.keepAwake({ on }); } catch { /* */ }
+}
+
+/** Open a URL outside the app (system browser or mail app). */
+export function openExternal(url: string): void {
+  if (!/^(https?|mailto|tel|ftp|sms|geo):/i.test(url.trim())) return;
+  if (desktop) { void desktop.openExternal({ url }); return; }
+  if (isCapacitor()) { window.location.href = url; return; }
+  window.open(url, '_blank', 'noopener');
+}
+
+export async function onBackButton(cb: () => boolean): Promise<void> {
+  if (!isCapacitor() || isIOS()) return;
+  const { App } = await import('@capacitor/app');
+  App.addListener('backButton', () => { if (!cb()) App.minimizeApp(); });
+}
+
+/** Read clipboard text. Returns null when the platform refuses (no permission, no focus). */
+export async function readClipboardText(): Promise<string | null> {
+  try {
+    if (isNative()) return (await Native.readClipboard()).text ?? null;
+    if (navigator.clipboard?.readText) return await navigator.clipboard.readText();
+  } catch { /* denied */ }
+  return null;
+}
+
+export async function writeClipboardText(text: string): Promise<boolean> {
+  try {
+    if (isNative()) { await Native.writeClipboard({ text }); return true; }
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { return false; }
+}
+
+// ------------------------------------------------------------------------------------------
+// Sibling Anne's Office apps
+
+export type QuillApp = 'Anne\'s Pen' | 'Anne\'s Post' | 'Anne\'s Grid' | 'Anne\'s Stage' | 'Anne\'s Loom' | 'Anne\'s Press' | 'Anne\'s Folio';
+export const QUILL_APP_IDS: Record<QuillApp, string> = {
+  'Anne\'s Pen': 'io.github.socrtwo.quillpen', 'Anne\'s Post': 'io.github.socrtwo.quillpost', 'Anne\'s Grid': 'io.github.socrtwo.quillgrid',
+  'Anne\'s Stage': 'io.github.socrtwo.quillstage', 'Anne\'s Loom': 'io.github.socrtwo.quillloom', 'Anne\'s Press': 'io.github.socrtwo.quillpress', 'Anne\'s Folio': 'io.github.socrtwo.quillfolio',
+};
+
+export async function openInQuillApp(app: QuillApp, data: ArrayBuffer, name: string, mime: string): Promise<{ opened: boolean; reason: 'not-installed' | 'unsupported' | 'error' | ''; message?: string }> {
+  try {
+    if (isNative() && !desktop && Native.openInApp) {
+      const r = await Native.openInApp({ packageName: QUILL_APP_IDS[app], name, mime, data: b64FromBuffer(data) });
+      return r.opened ? { opened: true, reason: '' } : { opened: false, reason: 'not-installed' };
+    }
+  } catch (e: any) {
+    return { opened: false, reason: 'error', message: e?.message || String(e) };
+  }
+  return { opened: false, reason: 'unsupported' };
+}
+
+/** Called when the app returns to the foreground (Android resume, browser tab visible again). */
+export function onAppResume(cb: () => void): () => void {
+  const vis = () => { if (document.visibilityState === 'visible') cb(); };
+  document.addEventListener('visibilitychange', vis);
+  let remove: (() => void) | null = null;
+  if (isCapacitor()) {
+    import('@capacitor/app').then(({ App }) => App.addListener('resume', cb)).then((h) => { remove = () => h.remove(); }).catch(() => undefined);
+  }
+  return () => { document.removeEventListener('visibilitychange', vis); remove?.(); };
+}

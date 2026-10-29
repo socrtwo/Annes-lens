@@ -1,6 +1,6 @@
 # Recovery plan: damaged pictures
 
-> **Plan.** Anne's Lens has no code yet. This is the design of its recovery pipeline, the picture counterpart of the recovery engines in the sister apps, descended from the author's [Immortal Unzipper / Immortal Zip](https://socrtwo.github.io/Immortal-Zip/), [Word Recovery](https://github.com/socrtwo/wordrecovery-SF) and [Universal File Repair Tool](https://github.com/socrtwo/Universal-File-Repair-Tool) projects.
+> **Plan.** This is the design of its recovery pipeline, the picture counterpart of the recovery engines in the sister apps, descended from the author's [Immortal Unzipper / Immortal Zip](https://socrtwo.github.io/Immortal-Zip/), [Word Recovery](https://github.com/socrtwo/wordrecovery-SF) and [Universal File Repair Tool](https://github.com/socrtwo/Universal-File-Repair-Tool) projects.
 
 ## Principles
 
