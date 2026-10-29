@@ -65,6 +65,8 @@ export interface Prefs {
   /** Saving */
   jpegQuality: number;
   defaultSaveFormat: string;
+  /** Save As: run-length encode TGA files. */
+  tgaRle: boolean;
   /** Sort order for folders */
   sort: 'name' | 'natural' | 'date' | 'size' | 'type';
   sortDescending: boolean;
@@ -106,7 +108,7 @@ export function defaultPrefs(): Prefs {
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
-    jpegQuality: 90, defaultSaveFormat: 'png',
+    jpegQuality: 90, defaultSaveFormat: 'png', tgaRle: true,
     sort: 'natural', sortDescending: false,
   };
 }

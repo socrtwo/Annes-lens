@@ -26,6 +26,17 @@ module.exports = {
     { ext: ['ico', 'cur'], name: 'Icon', role: 'Viewer', mimeType: 'image/x-icon' },
     { ext: ['tif', 'tiff'], name: 'TIFF Picture', role: 'Editor', mimeType: 'image/tiff' },
     { ext: ['svg', 'svgz'], name: 'SVG Picture', role: 'Viewer', mimeType: 'image/svg+xml' },
+    { ext: ['tga', 'tpic'], name: 'Targa Picture', role: 'Editor', mimeType: 'image/x-tga' },
+    { ext: ['pnm', 'ppm', 'pgm', 'pbm', 'pam', 'pfm'], name: 'Netpbm Picture', role: 'Editor', mimeType: 'image/x-portable-anymap' },
+    { ext: 'qoi', name: 'QOI Picture', role: 'Editor', mimeType: 'image/qoi' },
+    { ext: ['pcx', 'dcx'], name: 'PCX Picture', role: 'Viewer', mimeType: 'image/x-pcx' },
+    { ext: ['xpm', 'xbm'], name: 'X Pixmap', role: 'Viewer', mimeType: 'image/x-xpixmap' },
+    { ext: 'wbmp', name: 'Wireless Bitmap', role: 'Editor', mimeType: 'image/vnd.wap.wbmp' },
+    { ext: ['psd', 'psb'], name: 'Photoshop Picture', role: 'Viewer', mimeType: 'image/vnd.adobe.photoshop' },
+    { ext: 'icns', name: 'Apple Icon', role: 'Viewer', mimeType: 'image/icns' },
+    { ext: 'dds', name: 'DirectDraw Surface', role: 'Viewer', mimeType: 'image/vnd-ms.dds' },
+    { ext: ['hdr', 'pic', 'rgbe'], name: 'Radiance HDR Picture', role: 'Viewer', mimeType: 'image/vnd.radiance' },
+    { ext: ['dng', 'cr2', 'cr3', 'nef', 'arw', 'raf', 'orf', 'rw2', 'pef', 'srw', '3fr', 'iiq', 'x3f'], name: 'Camera RAW Picture', role: 'Viewer', mimeType: 'image/x-raw' },
   ],
 
   win: {

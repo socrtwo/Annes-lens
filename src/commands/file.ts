@@ -3,7 +3,7 @@ import { def } from './registry';
 import type { App, PictureTab } from '../app';
 import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, type Entry } from '../picture/folder';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
-import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, formatById } from '../codecs/registry';
+import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
 import { openDialog, toast, confirmDialog, choiceDialog } from '../ui/dialog';
 import { sanitizePrefs, parseKeyList, DEFAULT_QAT, type Prefs } from '../prefs';
 import { allCommands, getCommand } from './registry';
@@ -62,26 +62,31 @@ async function openFolderFromDialog(app: App): Promise<void> {
   await app.openFolder(folder, 0);
 }
 
-export type SaveFormat = 'png' | 'jpeg' | 'webp' | 'bmp';
-const EXT: Record<SaveFormat, string> = { png: 'png', jpeg: 'jpg', webp: 'webp', bmp: 'bmp' };
+export type SaveFormat = EncodeFormat;
+const EXT = Object.fromEntries(Object.entries(ENCODERS).map(([k, v]) => [k, v.ext])) as Record<SaveFormat, string>;
+const SAVE_OPTIONS = Object.entries(ENCODERS).map(([value, v]) => ({ value, label: v.label }));
 
 /** Encodes the active picture's current page in the format chosen (asking for options unless given). */
 async function produce(app: App, format?: SaveFormat, quality?: number): Promise<{ blob: Blob; name: string } | null> {
   const pic = app.picture!;
   const base = pic.name.replace(/\.[^.]+$/, '') || 'picture';
   let fmt = format, q = quality;
+  let opts: { rle?: boolean; threshold?: number } = { rle: app.prefs.tgaRle };
   if (!fmt) {
-    const current = (['png', 'jpeg', 'webp', 'bmp'] as SaveFormat[]).find((f) => formatById(f)?.id === pic.format.id || (f === 'jpeg' && pic.format.id === 'jpeg')) || (app.prefs.defaultSaveFormat as SaveFormat) || 'png';
+    const current = encoderFor(pic.format.id) || (ENCODERS[app.prefs.defaultSaveFormat as SaveFormat] ? (app.prefs.defaultSaveFormat as SaveFormat) : 'png');
     const r = await openDialog({ title: 'Save As', fields: [
-      { key: 'format', label: 'Format', type: 'select', options: [{ value: 'png', label: 'PNG (lossless)' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }, { value: 'bmp', label: 'Windows Bitmap' }], value: current },
-      { key: 'quality', label: 'Quality', type: 'range', min: 1, max: 100, value: app.prefs.jpegQuality, visibleIf: (v) => v.format === 'jpeg' || v.format === 'webp' },
-      { key: 'i', type: 'info', label: pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP and BMP; flattened onto white in JPEG. Metadata is not carried over yet (planned for M2).' : 'Metadata is not carried over yet (planned for M2).' },
+      { key: 'format', label: 'Format', type: 'select', options: SAVE_OPTIONS, value: current },
+      { key: 'quality', label: 'Quality', type: 'range', min: 1, max: 100, value: app.prefs.jpegQuality, visibleIf: (v) => !!ENCODERS[v.format as SaveFormat]?.lossy },
+      { key: 'rle', label: 'Compress runs (RLE)', type: 'checkbox', value: app.prefs.tgaRle, visibleIf: (v) => v.format === 'tga' },
+      { key: 'threshold', label: 'Black below this brightness', type: 'range', min: 1, max: 254, value: 128, visibleIf: (v) => v.format === 'wbmp' },
+      { key: 'i', type: 'info', label: pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP, BMP, TGA, PAM and QOI; flattened onto white in JPEG, PPM, PGM and WBMP. Metadata is not carried over yet (planned for M2).' : 'Metadata is not carried over yet (planned for M2).' },
     ], ok: 'Save' });
     if (!r) return null;
-    fmt = r.format; q = r.quality; app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.savePrefs();
+    fmt = r.format; q = r.quality; opts = { rle: !!r.rle, threshold: +r.threshold || 128 };
+    app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.prefs.tgaRle = !!r.rle; app.savePrefs();
   }
   const c = pic.frameCanvas();
-  const blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100);
+  const blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
   return { blob, name: `${base}.${EXT[fmt!]}` };
 }
 
@@ -89,7 +94,7 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
 export async function saveTab(app: App, tab: PictureTab, opts: { as?: boolean; format?: SaveFormat; copy?: boolean } = {}): Promise<boolean> {
   const pic = tab.picture;
   if (!pic) return false;
-  const writable = (['png', 'jpeg', 'webp', 'bmp'] as SaveFormat[]).find((f) => f === pic.format.id);
+  const writable = encoderFor(pic.format.id);
   if (!opts.as && !opts.copy && pic.entry.uri && writable) {
     try {
       const out = await produce(app, writable, app.prefs.jpegQuality);
@@ -190,7 +195,7 @@ def([
 // Save ----------------------------------------------------------------------------------------
 
 def([
-  { id: 'file.save', icon: 'save', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, tip: 'Writes back to the same file when its format can be written (PNG, JPEG, WebP, BMP); otherwise asks where', run: (app) => saveTab(app, app.tab) },
+  { id: 'file.save', icon: 'save', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, tip: 'Writes back to the same file when its format can be written (PNG, JPEG, WebP, BMP, TGA, PPM, QOI, WBMP); otherwise asks where', run: (app) => saveTab(app, app.tab) },
   { id: 'file.saveAs', icon: 'save_as', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, run: (app, format?: SaveFormat) => saveTab(app, app.tab, { as: true, format: format && EXT[format] ? format : undefined }) },
   { id: 'file.saveCopy', icon: 'file_copy', noRecord: true, isEnabled: (app) => !!app.picture, run: (app) => saveTab(app, app.tab, { as: true, copy: true }) },
   { id: 'file.saveAll', icon: 'library_add_check', noRecord: true, run: async (app) => { for (const t of app.tabs) if (t.dirty && t.picture) { app.activate(t); await saveTab(app, t); } } },
@@ -324,7 +329,7 @@ def([
         { key: 'confirmClose', label: 'Ask to save when leaving an edited picture', type: 'checkbox', value: p.confirmClose, half: true },
         { key: 'h4', type: 'heading', label: 'Saving' },
         { key: 'jpegQuality', label: 'JPEG / WebP quality', type: 'range', min: 1, max: 100, value: p.jpegQuality, half: true },
-        { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: ['png', 'jpeg', 'webp', 'bmp'], value: p.defaultSaveFormat, half: true },
+        { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: SAVE_OPTIONS, value: p.defaultSaveFormat, half: true },
         { key: 'h5', type: 'heading', label: 'Customize' },
         { key: 'bq', type: 'button', label: 'Customize Quick Access Bar…', onClick: () => app.exec('file.customizeQat') },
         { key: 'br', type: 'button', label: 'Customize Tabs (Ribbon)…', onClick: () => app.exec('file.customizeRibbon') },
