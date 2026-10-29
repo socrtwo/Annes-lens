@@ -4,6 +4,7 @@ import './fileTools';
 import './fileOps';
 import './edit';
 import './image';
+import './lossless';
 import './view';
 import './pages';
 import './meta';

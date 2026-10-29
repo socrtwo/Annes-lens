@@ -28,6 +28,7 @@ app.ui.tabsChanged();
 (window as any).__qnAllIds = allCommands().map((c) => c.id);
 (window as any).__qnGetCommand = getCommand;
 (window as any).__qnCodecs = () => import('./codecs/registry');
+(window as any).__qnLossless = () => import('./codecs/jpegLossless');
 
 // Files dropped on the window open as a folder of their own.
 window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });

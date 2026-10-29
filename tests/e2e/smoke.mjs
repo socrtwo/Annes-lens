@@ -151,6 +151,30 @@ try {
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
+  // Lossless JPEG: a platform-encoded JPEG rotated by its coefficients decodes to the rotated picture (within JPEG noise).
+  const lossless = await p.evaluate(async () => {
+    const { losslessTransform } = await window.__qnLossless();
+    const c = document.createElement('canvas'); c.width = 96; c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = '#ff0000'; x.fillRect(0, 0, 48, 64); x.fillStyle = '#0000ff'; x.fillRect(48, 0, 48, 64); x.fillStyle = '#00ff00'; x.fillRect(0, 0, 96, 16);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+    const src = new Uint8Array(await blob.arrayBuffer());
+    const out = losslessTransform(src, 'rot90', {});
+    const bmp = await createImageBitmap(new Blob([out.bytes], { type: 'image/jpeg' }));
+    const d = document.createElement('canvas'); d.width = bmp.width; d.height = bmp.height;
+    const y = d.getContext('2d'); y.drawImage(bmp, 0, 0);
+    const px = (px_, py_) => [...y.getImageData(px_, py_, 1, 1).data].slice(0, 3);
+    // After a 90° clockwise turn: green strip (old top) is at the right; red (old left) at the top, blue at the bottom.
+    return { size: [bmp.width, bmp.height], perfect: out.perfect, warnings: out.warnings, right: px(56, 32), top: px(20, 20), bottom: px(20, 80), smaller: out.bytes.length < src.length + 200 };
+  });
+  check('lossless size', lossless.size, [64, 96]);
+  check('lossless perfect', lossless.perfect, true);
+  check('lossless warnings', lossless.warnings, []);
+  check('lossless green right', lossless.right[1] > 180 && lossless.right[0] < 90 && lossless.right[2] < 90, true);
+  check('lossless red top', lossless.top[0] > 180 && lossless.top[1] < 90, true);
+  check('lossless blue bottom', lossless.bottom[2] > 180 && lossless.bottom[0] < 90, true);
+  check('lossless no bloat', lossless.smaller, true);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));
