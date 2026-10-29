@@ -38,7 +38,7 @@ Each release will have builds for **Android** (APK and AAB), **iOS/iPadOS** (an 
 | **Anne's Loom** | Web sites | https://github.com/socrtwo/QuillLoom |
 | **Anne's Press** | Desktop publishing | https://github.com/socrtwo/QuillPress |
 | **Anne's Folio** | PDF | https://github.com/socrtwo/QuillFolio |
-| **Anne's Lens** | Pictures (this project) | https://github.com/socrtwo/QuillLens |
+| **Anne's Lens** | Pictures (this project) | https://github.com/socrtwo/Annes-lens |
 
 The apps share one application shell: command registry, Quick Access Bar, customizable tabs and keyboard, command search, macro recorder, AI setup wizard and providers, recovery engine and platform layer. Anne's Lens sends pictures with their captions, alt text and citations to Anne's Pen, Stage, Press and Folio, OCR text to Anne's Pen, web galleries to Anne's Loom, and e-mail through Anne's Post.
 

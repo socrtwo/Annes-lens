@@ -14,7 +14,7 @@
 set -euo pipefail
 
 OWNER="${OWNER:-socrtwo}"
-REPO="${REPO:-QuillLens}"
+REPO="${REPO:-Annes-lens}"
 VISIBILITY="--public"
 [[ "${1:-}" == "--private" ]] && VISIBILITY="--private"
 
