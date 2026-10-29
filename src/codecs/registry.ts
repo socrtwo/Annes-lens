@@ -5,7 +5,7 @@
  * DDS and Radiance HDR; camera RAW files show their largest embedded JPEG preview. Decoding happens off the main thread where the
  * platform allows (createImageBitmap) and is tolerant: a damaged GIF or TIFF shows what was readable.
  */
-import { Picture, type Page, type Frame } from '../picture/model';
+import { Picture, transformPage, orientationOps, type Page, type Frame } from '../picture/model';
 import type { Entry } from '../picture/folder';
 import { decodeGif, isGif } from './gif';
 import { decodeTiff, isTiff } from './tiff';
@@ -111,6 +111,12 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   return null;
 }
 
+/** Decoding options the app sets from its preferences. */
+export const decodeOptions = {
+  /** Turn pictures upright by their EXIF Orientation tag when decoding (Options ▸ Auto-rotate by EXIF orientation). */
+  autoRotate: true,
+};
+
 /** Decodes bytes into a Picture. Throws with a readable message when nothing can be shown. */
 export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Picture> {
   const fmt = sniff(u8, entry.name) || formatFromName(entry.name);
@@ -140,6 +146,9 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   }
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;
+  // EXIF orientation: the platform decodes with imageOrientation 'none', so the pixels are as stored.
+  const ops = decodeOptions.autoRotate && fmt.id !== 'tiff' && fmt.id !== 'raw' ? orientationOps(pic.orientation) : [];
+  if (ops.length && typeof document !== 'undefined') { pic.pages = pic.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); pic.orientationApplied = true; }
   return pic;
 }
 

@@ -315,7 +315,7 @@ def({
       rows.push(['Recovered', `${pic.pages.length} page${pic.pages.length > 1 ? 's' : ''}, ${pic.pages.reduce((s, p) => s + p.frames.length, 0)} frame${pic.pages.reduce((s, p) => s + p.frames.length, 0) > 1 ? 's' : ''}, ${pic.width} × ${pic.height}`]);
       rows.push(['Condition', pic.warnings.length ? `${pic.warnings.length} problem${pic.warnings.length > 1 ? 's' : ''} found; everything readable is shown` : 'no damage found']);
       for (const [i, w] of pic.warnings.entries()) rows.push([`Problem ${i + 1}`, w]);
-      if (pic.exif?.orientation && pic.exif.orientation !== 1) rows.push(['EXIF orientation', `${pic.exif.orientation}${app.prefs.autoRotateExif ? ' (applied on display)' : ' (not applied)'}`]);
+      if (pic.exif?.orientation && pic.exif.orientation !== 1) rows.push(['EXIF orientation', `${pic.exif.orientation}${pic.orientationApplied ? ' (applied on display)' : ' (not applied)'}`]);
       for (const [k, v] of Object.entries(pic.info)) if (v && k !== 'segments' && k !== 'chunks') rows.push([k[0].toUpperCase() + k.slice(1), v.length > 200 ? v.slice(0, 200) + '…' : v]);
     }
     const table = h('table', { class: 'ql-stats qn-info' }, ...rows.map(([k, v]) => h('tr', null, h('td', null, k), h('td', null, v))));

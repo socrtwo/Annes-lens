@@ -65,6 +65,8 @@ export interface Prefs {
   /** Saving */
   jpegQuality: number;
   defaultSaveFormat: string;
+  /** Save and Save As: carry EXIF, XMP and the color profile into JPEG, PNG and WebP output. */
+  keepMetadata: boolean;
   /** Save As: run-length encode TGA files. */
   tgaRle: boolean;
   /** Print at True Size: measured ÷ expected length from the calibration ruler (1 = the printer is exact). */
@@ -114,7 +116,7 @@ export function defaultPrefs(): Prefs {
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
-    jpegQuality: 90, defaultSaveFormat: 'png', tgaRle: true, printScale: 1,
+    jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     quickFolders: [], confirmDelete: true,
     sort: 'natural', sortDescending: false,
   };

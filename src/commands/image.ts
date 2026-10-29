@@ -35,7 +35,7 @@ export function infoRows(app: App): [string, string][] {
     if (e.lens) rows.push(['Lens', e.lens]);
     if (e.exposure) rows.push(['Exposure', e.exposure]);
     if (e.dateTaken) rows.push(['Date taken', e.dateTaken]);
-    if (e.orientation !== 1) rows.push(['EXIF orientation', String(e.orientation) + (app.prefs.autoRotateExif ? ' (applied)' : ' (not applied)')]);
+    if (e.orientation !== 1) rows.push(['EXIF orientation', String(e.orientation) + (pic.orientationApplied ? ' (applied)' : ' (not applied)')]);
     if (e.gps) rows.push(['Location (GPS)', `${e.gps.lat.toFixed(5)}, ${e.gps.lon.toFixed(5)}${e.gps.alt !== undefined ? `, ${Math.round(e.gps.alt)} m` : ''}`]);
     if (e.software) rows.push(['Software', e.software]);
     if (e.description) rows.push(['Description', e.description]);
@@ -101,8 +101,8 @@ def([
       if (!pic) { app.prefs.autoRotateExif = !app.prefs.autoRotateExif; app.savePrefs(); return; }
       const ops = orientationOps(pic.orientation);
       if (!ops.length) { toast('This picture has no EXIF orientation to apply.'); return; }
-      if ((pic as any).exifApplied) { toast('The EXIF orientation is already applied.'); return; }
-      app.edit('Auto-Rotate by EXIF', (p) => { p.pages = p.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); (p as any).exifApplied = true; });
+      if (pic.orientationApplied) { toast('The EXIF orientation is already applied (Options ▸ Auto-rotate).'); return; }
+      app.edit('Auto-Rotate by EXIF', (p) => { p.pages = p.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); p.orientationApplied = true; });
     },
   },
 ]);

@@ -13,6 +13,7 @@ import { Folder, type Entry } from './picture/folder';
 import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
 import { Journal } from './picture/journal';
+import { decodeOptions } from './codecs/registry';
 
 let tabCounter = 0;
 
@@ -137,7 +138,7 @@ export class App {
   /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
   journal = new Journal();
 
-  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); }
+  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
 
   get tab(): PictureTab { return this.active; }
   /** The picture in the active window, or null. */
@@ -146,7 +147,7 @@ export class App {
   get folder(): Folder { return this.active.folder; }
 
   onRefresh(fn: (app: App) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); }
+  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
 
   rebuildKeyIndex(): void {
     this.keyIndex.clear();

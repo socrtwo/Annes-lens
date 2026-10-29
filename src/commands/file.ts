@@ -9,6 +9,7 @@ import { sanitizePrefs, parseKeyList, DEFAULT_QAT, type Prefs } from '../prefs';
 import { allCommands, getCommand } from './registry';
 import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
+import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 
 /** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder. */
 export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow?: boolean } = {}): Promise<void> {
@@ -79,15 +80,26 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
       { key: 'quality', label: 'Quality', type: 'range', min: 1, max: 100, value: app.prefs.jpegQuality, visibleIf: (v) => !!ENCODERS[v.format as SaveFormat]?.lossy },
       { key: 'rle', label: 'Compress runs (RLE)', type: 'checkbox', value: app.prefs.tgaRle, visibleIf: (v) => v.format === 'tga' },
       { key: 'threshold', label: 'Black below this brightness', type: 'range', min: 1, max: 254, value: 128, visibleIf: (v) => v.format === 'wbmp' },
-      { key: 'i', type: 'info', label: pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP, BMP, TGA, PAM and QOI; flattened onto white in JPEG, PPM, PGM and WBMP. Metadata is not carried over yet (planned for M2).' : 'Metadata is not carried over yet (planned for M2).' },
+      { key: 'keepMeta', label: 'Keep metadata (EXIF, XMP, color profile)', type: 'checkbox', value: app.prefs.keepMetadata, visibleIf: (v) => ['jpeg', 'png', 'webp'].includes(v.format) },
+      { key: 'i', type: 'info', label: `${pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP, BMP, TGA, PAM and QOI; flattened onto white in JPEG, PPM, PGM and WBMP. ' : ''}${hasMeta(extractMeta(pic.bytes)) ? 'The file\'s EXIF, XMP and color profile go into JPEG, PNG and WebP output when "Keep metadata" is on; the orientation tag is reset when the picture was turned upright.' : 'This file carries no EXIF, XMP or color profile to pass on.'}` },
     ], ok: 'Save' });
     if (!r) return null;
     fmt = r.format; q = r.quality; opts = { rle: !!r.rle, threshold: +r.threshold || 128 };
-    app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.prefs.tgaRle = !!r.rle; app.savePrefs();
+    app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.prefs.tgaRle = !!r.rle; app.prefs.keepMetadata = !!r.keepMeta; app.savePrefs();
   }
   const c = pic.frameCanvas();
-  const blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
+  let blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
+  if (app.prefs.keepMetadata && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty);
   return { blob, name: `${base}.${EXT[fmt!]}` };
+}
+
+/** Adds the source file's EXIF, XMP and ICC profile to an encoded JPEG, PNG or WebP; `upright` resets the Orientation tag. */
+export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg' | 'png' | 'webp', upright: boolean): Promise<Blob> {
+  const meta = extractMeta(source);
+  if (!hasMeta(meta)) return blob;
+  if (meta.exif && upright) meta.exif = setExifOrientation(meta.exif, 1);
+  const bytes = injectMeta(new Uint8Array(await blob.arrayBuffer()), format, meta);
+  return new Blob([bytes as BlobPart], { type: blob.type });
 }
 
 /** Save: back into the same file when the format can be written and the file is writable; otherwise Save As. */
@@ -334,6 +346,7 @@ def([
         { key: 'h4', type: 'heading', label: 'Saving' },
         { key: 'jpegQuality', label: 'JPEG / WebP quality', type: 'range', min: 1, max: 100, value: p.jpegQuality, half: true },
         { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: SAVE_OPTIONS, value: p.defaultSaveFormat, half: true },
+        { key: 'keepMetadata', label: 'Keep EXIF, XMP and color profile when saving JPEG, PNG, WebP', type: 'checkbox', value: p.keepMetadata, half: true },
         { key: 'h5', type: 'heading', label: 'Customize' },
         { key: 'bq', type: 'button', label: 'Customize Quick Access Bar…', onClick: () => app.exec('file.customizeQat') },
         { key: 'br', type: 'button', label: 'Customize Tabs (Ribbon)…', onClick: () => app.exec('file.customizeRibbon') },
@@ -347,7 +360,7 @@ def([
         alphaDisplay: r.alphaDisplay, alphaColor: r.alphaColor, background: String(r.background || '').trim(), fullScreenBackground: r.fullScreenBackground,
         sort: r.sort, sortDescending: r.sortDescending,
         theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose, confirmDelete: r.confirmDelete,
-        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat,
+        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat, keepMetadata: !!r.keepMetadata,
       } satisfies Partial<Prefs>);
       app.savePrefs();
       app.ui.applyPrefs();
