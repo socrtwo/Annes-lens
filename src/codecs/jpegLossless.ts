@@ -339,6 +339,15 @@ function flipV(f: JpegCoefficients): void {
 }
 
 function transpose(f: JpegCoefficients): void {
+  // The quantization tables are not symmetric: a coefficient that moves from (v,u) to (u,v) must keep its quantizer.
+  f.qt = f.qt.map((t) => {
+    if (!t) return t;
+    const nat = new Uint16Array(64);
+    for (let i = 0; i < 64; i++) nat[ZIGZAG[i]] = t[i];
+    const out = new Uint16Array(64);
+    for (let i = 0; i < 64; i++) { const n = ZIGZAG[i], v = n >> 3, u = n & 7; out[i] = nat[u * 8 + v]; }
+    return out;
+  });
   for (const c of f.components) {
     const bpl = c.blocksPerLine, bpc = c.blocksPerColumn;
     const out = new Int16Array(c.coefs.length);
