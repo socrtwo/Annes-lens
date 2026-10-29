@@ -2,6 +2,7 @@
 import './file';
 import './fileTools';
 import './fileOps';
+import './acquire';
 import './edit';
 import './image';
 import './lossless';

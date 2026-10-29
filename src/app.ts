@@ -112,7 +112,7 @@ export class PictureTab {
       if (this.folder.current !== e) return;
       this.picture = null; this.loading = null; this.error = err?.message || String(err);
       this.ui.pictureChanged(true);
-      toast(`Could not open ${e.name}: ${this.error}`, { ms: 6000 });
+      toast(`Could not open ${e.name}: ${this.error}`, { ms: 8000, action: 'Repair…', onAction: () => this.app.exec('file.openRepair') });
     }
     this.app.ui.tabsChanged();
     this.app.refresh();

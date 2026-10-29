@@ -10,7 +10,7 @@ function synth(width: number, height: number, color = true, seed = 7): JpegCoeff
   let s = seed;
   const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s; };
   const qt = new Uint16Array(64).fill(2); qt[0] = 1;
-  const f: JpegCoefficients = { width, height, precision: 8, progressive: false, arithmetic: false, components: [], qt: [qt, qt, null, null], segments: [], adobeTransform: null, restartInterval: 0, warnings: [] };
+  const f: JpegCoefficients = { width, height, precision: 8, progressive: false, arithmetic: false, components: [], qt: [qt, qt, null, null], segments: [], adobeTransform: null, restartInterval: 0, warnings: [], decodedUnits: 0, totalUnits: 0 };
   for (const c of comps) {
     const bpl = mpl * c.h, bpc = mpc * c.v;
     const coefs = new Int16Array(bpl * bpc * 64);

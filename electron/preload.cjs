@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const call = (name) => (opts) => ipcRenderer.invoke('ql:' + name, opts);
 const methods = ['openDocument', 'openFolder', 'listFolder', 'saveAs', 'writeUri', 'readUri', 'print', 'share', 'getLaunchFile', 'keepAwake', 'readClipboard', 'writeClipboard', 'openExternal', 'revealInFolder', 'openWith', 'setAlwaysOnTop', 'minimize', 'fitWindow', 'getArgs', 'getPortableMode', 'setPortableMode', 'relaunch',
-  'renameDocument', 'deleteDocument', 'pickFolder', 'moveFile', 'copyFile', 'createInFolder', 'setFileTime'];
+  'renameDocument', 'deleteDocument', 'pickFolder', 'moveFile', 'copyFile', 'createInFolder', 'setFileTime', 'fetchUrl'];
 
 const api = { platform: process.platform };
 for (const m of methods) api[m] = call(m);

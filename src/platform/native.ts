@@ -80,6 +80,8 @@ interface DesktopBridge extends QuillNativePlugin {
   renameDocument(opts: { uri: string; name: string }): Promise<{ uri: string; name: string }>;
   deleteDocument(opts: { uri: string; permanent?: boolean }): Promise<{ ok: boolean; trashed?: boolean }>;
   pickFolder(opts: { title?: string }): Promise<{ canceled?: boolean; uri?: string; name?: string }>;
+  /** Downloads a picture in the main process (no CORS). */
+  fetchUrl(opts: { url: string }): Promise<{ name: string; mime: string; data: string }>;
 }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
@@ -283,6 +285,17 @@ export async function copyFileTo(uri: string, dirUri: string | null, destDirUri:
   const out = await writeIntoFolder(destDirUri, name, src.data);
   if (move) await deleteFile(uri, dirUri, true);
   return out;
+}
+
+/** Downloads a picture: through the desktop main process, or fetch() where the host allows cross-origin reads. */
+export async function fetchPicture(url: string): Promise<OpenedFile> {
+  if (!/^https?:\/\//i.test(url)) throw new Error('Enter an http(s) address.');
+  if (desktop) { const r = await desktop.fetchUrl({ url }); return { name: r.name, data: bufferFromB64(r.data), uri: null, mime: r.mime }; }
+  const res = await fetch(url, { mode: 'cors', redirect: 'follow' });
+  if (!res.ok) throw new Error(`The server answered ${res.status}`);
+  let name = '';
+  try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ }
+  return { name: name || 'picture', data: await res.arrayBuffer(), uri: null, mime: res.headers.get('content-type') || undefined };
 }
 
 export async function setFileTime(uri: string, mtime: number): Promise<boolean> {

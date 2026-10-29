@@ -175,6 +175,32 @@ try {
   check('lossless blue bottom', lossless.bottom[2] > 180 && lossless.bottom[0] < 90, true);
   check('lossless no bloat', lossless.smaller, true);
 
+  // Damaged files: a JPEG cut in half opens through the coefficient rebuild; a truncated PNG through the tolerant reader.
+  const damaged = await p.evaluate(async () => {
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); return c; };
+    const blob = (c, t, q) => new Promise((r) => c.toBlob(r, t, q));
+    // A textured picture, so the scan data (not the headers) makes up most of the file.
+    const tex = mk(256, 256, '#3366cc'); const tx = tex.getContext('2d'); const id = tx.getImageData(0, 0, 256, 256);
+    for (let i = 0; i < id.data.length; i += 4) { const x = (i / 4) % 256, y = Math.floor(i / 4 / 256); id.data[i] = (x * 7 + y * 3 + ((x * y) % 13) * 9) & 255; id.data[i + 1] = (x ^ y) & 255; id.data[i + 2] = (y * 5 + (x % 17) * 11) & 255; }
+    tx.putImageData(id, 0, 0);
+    const jpg = new Uint8Array(await (await blob(tex, 'image/jpeg', 0.9)).arrayBuffer());
+    const whole = await createImageBitmap(new Blob([jpg], { type: 'image/jpeg' }));
+    const wc = mk(256, 256, '#000'); wc.getContext('2d').drawImage(whole, 0, 0);
+    const want = [...wc.getContext('2d').getImageData(2, 2, 1, 1).data].slice(0, 3);
+    const png = new Uint8Array(await (await blob(mk(64, 64, '#cc6633'), 'image/png')).arrayBuffer());
+    const files = [new File([jpg.subarray(0, Math.floor(jpg.length * 0.6))], 'cut.jpg'), new File([png.subarray(0, Math.floor(png.length * 0.7))], 'cut.png')];
+    await qn.exec('file.openDropped', files);
+    await new Promise((r) => setTimeout(r, 800));
+    const out = [];
+    for (let i = 0; i < 2; i++) { try { const pic = await qn.tab.loader.get(qn.folder.entries[i]); const d = pic.frameCanvas().getContext('2d').getImageData(2, 2, 1, 1).data; out.push([pic.name, pic.decoder, pic.width, pic.warnings.length > 0, [...d].slice(0, 3)]); } catch (e) { out.push([String(e)]); } }
+    return { out, want, size: jpg.length };
+  });
+  check('cut jpeg', damaged.out[0] && damaged.out[0].slice(0, 4), ['cut.jpg', 'jpeg (repaired)', 256, true]);
+  check('cut jpeg textured', damaged.size > 20000, true);
+  check('cut jpeg pixel', damaged.out[0] && damaged.out[0][4] && damaged.out[0][4].every((v, i) => Math.abs(v - damaged.want[i]) <= 4), true);
+  check('cut png', damaged.out[1] && damaged.out[1].slice(0, 4), ['cut.png', 'png (tolerant)', 64, true]);
+  check('cut png pixel', damaged.out[1] && damaged.out[1][4] && damaged.out[1][4][0] === 204 && damaged.out[1][4][1] === 102, true);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

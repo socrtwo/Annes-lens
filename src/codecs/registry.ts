@@ -23,6 +23,8 @@ import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
+import { decodePngTolerant } from './png';
+import { repairJpeg } from './jpegLossless';
 import { readExif } from '../meta/exif';
 import type { DecodedPage, Raster } from './raster';
 
@@ -142,7 +144,16 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
     try { decoded = await fromPlatform(u8, fmt, null); } catch { decoded = fromOwn(decodeBmp(u8), 'bmp'); }
   } else {
     const info: ContainerInfo | null = fmt.id === 'jpeg' ? safe(() => jpegInfo(u8)) : fmt.id === 'png' || fmt.id === 'apng' ? safe(() => pngInfo(u8)) : fmt.id === 'webp' ? safe(() => webpInfo(u8)) : null;
-    decoded = await fromPlatform(u8, fmt, info);
+    try { decoded = await fromPlatform(u8, fmt, info); }
+    catch (e: any) {
+      // The platform refused (damaged file): the app's tolerant readers show what can be read.
+      if (fmt.id === 'png' || fmt.id === 'apng') { const r = decodePngTolerant(u8); decoded = fromOwn(r, 'png (tolerant)'); decoded.warnings.unshift(`The platform could not decode the file (${e?.message || e}); shown by the app's tolerant reader`); }
+      else if (fmt.id === 'jpeg') {
+        const rep = repairJpeg(u8);
+        const r = await fromPlatform(rep.bytes, fmt, info);
+        decoded = { ...r, decoder: 'jpeg (repaired)', warnings: [`The platform could not decode the file (${e?.message || e}); rebuilt from its coefficients: ${rep.decodedUnits} of ${rep.totalUnits} blocks present`, ...rep.warnings, ...r.warnings] };
+      } else throw e;
+    }
   }
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;

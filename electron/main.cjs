@@ -8,7 +8,7 @@
 // File access is limited to files the user opened or saved through a dialog, opened the app with, or
 // that sit in a folder the user opened, so picture content cannot use the bridge to read arbitrary files.
 'use strict';
-const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu, session, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL, fileURLToPath } = require('node:url');
@@ -251,6 +251,20 @@ function registerIpc() {
     fs.writeFileSync(target, Buffer.from(String(data || ''), 'base64'));
     return done(target);
   });
+  // Open URL: fetched here so picture hosts need no CORS headers; the renderer gets bytes and a name.
+  handle('fetchUrl', async ({ url }) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('Only http(s) addresses can be opened');
+    const res = await net.fetch(url, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`The server answered ${res.status} ${res.statusText}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > 256 * 1024 * 1024) throw new Error('The file is larger than 256 MB');
+    let name = '';
+    const cd = res.headers.get('content-disposition') || '';
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) { try { name = decodeURIComponent(m[1]); } catch { name = m[1]; } }
+    if (!name) { try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ } }
+    return { name: name || 'picture', mime: res.headers.get('content-type') || 'application/octet-stream', data: buf.toString('base64') };
+  });
   handle('setFileTime', async ({ uri, mtime }) => {
     const p = grantedPath(uri, true);
     const t = new Date(Number(mtime));
@@ -299,6 +313,18 @@ const CSP = [
   "base-uri 'self'",
   "frame-src 'none'",
 ].join('; ');
+
+// Screen Capture: getDisplayMedia in the renderer is answered with the primary screen (or a window by name).
+function setupDisplayMedia() {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } }).then((sources) => {
+      const want = String(request.frame && request.frame.url && new URL(request.frame.url).searchParams.get('capture') || '');
+      const pick = (want && sources.find((s) => s.id === want)) || sources.find((s) => s.id.startsWith('screen')) || sources[0];
+      if (!pick) { callback({}); return; }
+      callback({ video: pick });
+    }).catch(() => callback({}));
+  }, { useSystemPicker: true });
+}
 
 function serveApp() {
   protocol.handle(SCHEME, async (req) => {
@@ -373,6 +399,7 @@ app.whenReady().then(() => {
   for (const f of pendingFiles) { grant(f); grantDir(path.dirname(f)); }
   serveApp();
   registerIpc();
+  try { setupDisplayMedia(); } catch (e) { console.warn('display media handler', e); }
   buildMenu();
   createWindow();
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
