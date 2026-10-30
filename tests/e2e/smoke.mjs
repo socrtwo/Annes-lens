@@ -461,6 +461,27 @@ try {
   check('history panel lists the states', ins.cards >= 2, true);
   check('join side by side opened a new window', [ins.windowsAfter, /-joined\.png$/.test(ins.name), ins.height], [ins.windowsBefore + 1, true, 48]);
 
+  // Geometry: Auto Straighten levels a picture of lines tilted by 5°; Crop Page from Photo flattens a bright page on a dark background.
+  const geo = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const tilted = document.createElement('canvas'); tilted.width = 240; tilted.height = 180; { const x = tilted.getContext('2d'); x.fillStyle = '#eee'; x.fillRect(0, 0, 240, 180); x.translate(120, 90); x.rotate((5 * Math.PI) / 180); for (let y = -80; y < 80; y += 16) { const g = x.createLinearGradient(0, y, 0, y + 6); g.addColorStop(0, '#eee'); g.addColorStop(0.5, '#222'); g.addColorStop(1, '#eee'); x.fillStyle = g; x.fillRect(-150, y, 300, 6); } }
+    const page = document.createElement('canvas'); page.width = 200; page.height = 150; { const x = page.getContext('2d'); x.fillStyle = '#222'; x.fillRect(0, 0, 200, 150); x.fillStyle = '#f4f4f4'; x.beginPath(); x.moveTo(50, 30); x.lineTo(160, 40); x.lineTo(150, 125); x.lineTo(40, 115); x.closePath(); x.fill(); }
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await blob(tilted)], 'a-tilted.png'), new File([await blob(page)], 'b-page.png')]);
+    await wait(600);
+    await qn.exec('image.autoStraighten'); await wait(200);
+    const label = qn.tab.undoLabel;
+    await qn.exec('view.next'); await wait(500);
+    const before = [qn.picture.width, qn.picture.height];
+    await qn.exec('edit.cropPage'); await wait(300);
+    const after = [qn.picture.width, qn.picture.height];
+    const fc = qn.picture.frameCanvas(); const center = [...fc.getContext('2d').getImageData(Math.floor(fc.width / 2), Math.floor(fc.height / 2), 1, 1).data].slice(0, 3);
+    return { label, before, after, center, label2: qn.tab.undoLabel };
+  });
+  check('auto straighten found about -5°', /^Auto Straighten -(4|5|6)\./.test(geo.label), true);
+  check('crop page flattened the page', [geo.label2, geo.after[0] < geo.before[0], geo.after[1] < geo.before[1], geo.center[0] > 200], ['Crop Page from Photo', true, true, true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

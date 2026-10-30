@@ -13,6 +13,7 @@ import './edit';
 import './editAdd';
 import './image';
 import './imageOps';
+import './geometry';
 import './adjust';
 import './effects';
 import './lossless';

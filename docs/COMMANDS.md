@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **322 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **328 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -10,10 +10,10 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (5) · Organize (7) · View (3) · Share (4)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (5) · Organize (7) · View (3) · Share (4)
 - **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
-- **Edit**: Undo (3) · Clipboard (9) · Select (5) · Crop (4) · Add (5) · Paint and markup (1) · Find (1)
-- **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
+- **Edit**: Undo (3) · Clipboard (9) · Select (5) · Crop (5) · Add (5) · Paint and markup (1) · Find (1)
+- **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (5)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (5) · Rate and label (8) · Find and compare (3) · Catalog (1)
@@ -34,12 +34,12 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | XnView style (`xnview`) | XnView MP browser and viewer | 94 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 65 |
 | ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 44 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 28 |
-| Picasa style (`picasa`) | Picasa 3 | 43 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 29 |
+| Picasa style (`picasa`) | Picasa 3 | 44 |
 | Preview style (`preview`) | macOS Preview | 40 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 27 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 205 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 322 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 28 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 207 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 328 |
 
 ## File (59 of 82)
 
@@ -105,7 +105,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Portable Mode | Close and options |  | `file.portableMode` | from IrfanView, XnView Classic and XnView MP |
 | Reset All Customizations | Close and options |  | `file.resetCustomizations` | from the Anne's Office suite |
 
-## Edit (29 of 55)
+## Edit (30 of 55)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -129,6 +129,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Selection Information | Select |  | `edit.selectionInfo` | not in tabs; from IrfanView |
 | Auto Crop Borders | Crop | Shift+x | `edit.autoCrop` | from IrfanView |
 | Crop for Print Size… | Crop |  | `edit.cropPrint` | from Picasa |
+| Crop Page from Photo | Crop |  | `edit.cropPage` | from new in Anne's Lens |
 | Crop Selection | Crop | Ctrl+y | `edit.crop` | from IrfanView |
 | Crop to Aspect Ratio… | Crop |  | `edit.cropAspect` | from Microsoft Photos, Preview, Apple Photos and iPhoto |
 | Add Border or Frame… | Add |  | `edit.border` | from IrfanView, FastStone Image Viewer |
@@ -139,7 +140,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Redact Region (blur, pixelate, black out) | Paint and markup |  | `edit.redact` | from FastStone Image Viewer, new in Anne's Lens |
 | Go to File by Name | Find | Ctrl+Shift+g | `edit.gotoFile` | from new in Anne's Lens |
 
-## Image (29 of 41)
+## Image (34 of 41)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -148,13 +149,18 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Histogram | Information | Shift+h | `image.histogram` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
 | Picture Information | Information | i | `image.info` | from IrfanView, most picture viewers |
 | Show Channel | Information |  | `image.showChannel` | has options menu; not in tabs; from IrfanView, XnView Classic and XnView MP |
+| Auto Straighten | Rotate and flip |  | `image.autoStraighten` | from Lightroom Classic (Library and Develop), new in Anne's Lens |
 | Auto-Rotate by EXIF Orientation | Rotate and flip |  | `image.autoRotateExif` | from IrfanView, XnView Classic and XnView MP |
 | Custom Rotation… | Rotate and flip | Ctrl+u | `image.rotateCustom` | from IrfanView |
+| Deskew Scanned Page | Rotate and flip |  | `image.deskew` | from Kodak/Wang Imaging for Windows, new in Anne's Lens |
 | Flip Horizontal | Rotate and flip | h | `image.flipH` | from IrfanView |
 | Flip Vertical | Rotate and flip | v | `image.flipV` | from IrfanView |
+| Lens Correction… | Rotate and flip |  | `image.lensCorrection` | from digiKam, Lightroom Classic (Library and Develop) |
+| Perspective Correction… | Rotate and flip |  | `image.perspective` | from Lightroom Classic (Library and Develop), PhotoScape |
 | Rotate 180° | Rotate and flip |  | `image.rotate180` |  |
 | Rotate Left | Rotate and flip | l | `image.rotateLeft` | from IrfanView, most picture viewers |
 | Rotate Right | Rotate and flip | r | `image.rotateRight` | from IrfanView, most picture viewers |
+| Straighten | Rotate and flip |  | `image.straighten` | from Picasa, Microsoft Photos, Apple Photos and iPhoto |
 | Lossless Auto-Rotate by EXIF | Lossless JPEG |  | `image.losslessAutoRotate` | from XnView Classic and XnView MP, FastStone Image Viewer |
 | Lossless Crop | Lossless JPEG |  | `image.losslessCrop` | from IrfanView, XnView Classic and XnView MP |
 | Lossless JPEG Transformations… | Lossless JPEG | Shift+j | `image.losslessJpeg` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
@@ -428,13 +434,13 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (235)
+## Planned, not yet built (229)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (23): `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
-- **Edit** (26): `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.cropPage`, `edit.paint`, `edit.markup`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`
-- **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
+- **Edit** (25): `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.paint`, `edit.markup`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`
+- **Image** (7): `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (2): `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (23): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
