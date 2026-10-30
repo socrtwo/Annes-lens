@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **266 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **294 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -10,14 +10,14 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (5) · Organize (3) · View (3) · Share (4)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (5) · Organize (7) · View (3) · Share (4)
 - **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
 - **Edit**: Undo (2) · Clipboard (9) · Select (5) · Crop (4) · Add (2)
 - **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
 - **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
-- **Browse**: Views (5) · Rate and label (1) · Catalog (1)
-- **Metadata**: View and edit (1)
+- **Browse**: Views (5) · Rate and label (8) · Catalog (1)
+- **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
 - **Batch**: Batch (7)
 - **Pages and Frames** (contextual): Pages (3) · Frames (4)
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (2) · Display (2) · Quick Access Bar and search (5)
@@ -28,17 +28,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 118 |
-| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 23 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 76 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 57 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 36 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 27 |
-| Picasa style (`picasa`) | Picasa 3 | 35 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 121 |
+| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 24 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 86 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 58 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 41 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 28 |
+| Picasa style (`picasa`) | Picasa 3 | 39 |
 | Preview style (`preview`) | macOS Preview | 38 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 16 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 175 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 266 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 23 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 190 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 294 |
 
 ## File (59 of 82)
 
@@ -257,7 +257,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Round Corners | Frames and shadows |  | `fx.roundCorners` | from FastStone Image Viewer |
 | Vignette Frame | Frames and shadows |  | `fx.vignetteFrame` | from FastStone Image Viewer |
 
-## Browse (7 of 40)
+## Browse (14 of 40)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -266,14 +266,42 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Thumbnail Size | Views |  | `browse.thumbSize` | has options menu; from IrfanView, XnView Classic and XnView MP |
 | Thumbnails | Views | t | `browse.thumbnails` | from IrfanView |
 | View Mode | Views |  | `browse.viewMode` | has options menu; from XnView Classic and XnView MP, ACDSee |
+| Color Label | Rate and label |  | `browse.colorLabel` | has options menu; from XnView Classic and XnView MP, Lightroom Classic (Library and Develop), ACDSee |
+| Favorite | Rate and label | Ctrl+Shift+8 | `browse.favorite` | from Picasa, Apple Photos and iPhoto, Google Photos |
+| Pick | Rate and label |  | `browse.pick` | from Lightroom Classic (Library and Develop), FastPictureViewer |
+| Rating | Rate and label |  | `browse.rate` | has options menu; from XnView Classic and XnView MP, Lightroom Classic (Library and Develop), ACDSee |
+| Reject | Rate and label |  | `browse.reject` | from Lightroom Classic (Library and Develop), FastPictureViewer |
 | Select by Pattern… | Rate and label |  | `browse.selectPattern` | from XnView Classic and XnView MP |
+| Select Rejected | Rate and label |  | `browse.selectRejected` | from Lightroom Classic (Library and Develop) |
+| Unflag | Rate and label |  | `browse.unflag` | from Lightroom Classic (Library and Develop) |
 | Refresh | Catalog | F5 | `browse.refresh` | from XnView Classic and XnView MP, IrfanView |
 
-## Metadata (1 of 26)
+## Metadata (22 of 26)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
+| Comment… | View and edit |  | `meta.comment` | from IrfanView |
+| Compare Metadata | View and edit |  | `meta.diff` | from new in Anne's Lens |
+| Copy Metadata From… | View and edit |  | `meta.copyFrom` | from XnView Classic and XnView MP |
+| Creator and Copyright… | View and edit |  | `meta.copyright` | from XnView Classic and XnView MP, digiKam |
 | EXIF Information | View and edit | e | `meta.exif` | from IrfanView, most picture viewers |
+| IPTC Information… | View and edit |  | `meta.iptc` | from IrfanView, XnView Classic and XnView MP |
+| Keywords… | View and edit | Ctrl+k | `meta.keywords` | from digiKam, XnView Classic and XnView MP, Lightroom Classic (Library and Develop) |
+| Metadata Template… | View and edit |  | `meta.template` | from digiKam, Lightroom Classic (Library and Develop), XnView Classic and XnView MP |
+| Title and Caption… | View and edit | Ctrl+Shift+t | `meta.caption` | from Picasa, digiKam, Apple Photos and iPhoto |
+| Write Sidecar or Embed | View and edit |  | `meta.sidecarMode` | has options menu; from digiKam, Lightroom Classic (Library and Develop) |
+| XMP… | View and edit |  | `meta.xmp` | from XnView Classic and XnView MP, digiKam |
+| Change Date Taken… | Date and place |  | `meta.shiftDate` | from IrfanView, XnView Classic and XnView MP, digiKam |
+| Remove Location | Date and place |  | `meta.removeGps` | from Microsoft Photos, new in Anne's Lens |
+| Set Location… | Date and place |  | `meta.geotag` | from Picasa, digiKam, XnView Classic and XnView MP |
+| Checksum… | Privacy and integrity |  | `meta.checksum` | from new in Anne's Lens |
+| Content Credentials | Privacy and integrity |  | `meta.provenance` | from new in Anne's Lens |
+| Fixity Report… | Privacy and integrity |  | `meta.fixity` | from new in Anne's Lens |
+| Privacy Check | Privacy and integrity |  | `meta.privacyCheck` | from new in Anne's Lens |
+| Strip Metadata… | Privacy and integrity |  | `meta.strip` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Export Metadata as CSV… | Records and genealogy |  | `meta.exportCsv` | from XnView Classic and XnView MP, digiKam |
+| Import Metadata from CSV… | Records and genealogy |  | `meta.importCsv` | from new in Anne's Lens |
+| Source Citation… | Records and genealogy |  | `meta.citation` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), new in Anne's Lens |
 
 ## Batch (7 of 13)
 
@@ -366,7 +394,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (291)
+## Planned, not yet built (263)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -375,8 +403,8 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`
-- **Browse** (33): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.rate`, `browse.colorLabel`, `browse.favorite`, `browse.pick`, `browse.reject`, `browse.unflag`, `browse.selectRejected`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
-- **Metadata** (25): `meta.iptc`, `meta.xmp`, `meta.comment`, `meta.caption`, `meta.keywords`, `meta.copyright`, `meta.regions`, `meta.template`, `meta.copyFrom`, `meta.diff`, `meta.sidecarMode`, `meta.shiftDate`, `meta.geotag`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.removeGps`, `meta.strip`, `meta.privacyCheck`, `meta.provenance`, `meta.checksum`, `meta.fixity`, `meta.citation`, `meta.personLink`, `meta.exportCsv`, `meta.importCsv`
+- **Browse** (26): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
+- **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`
 - **Batch** (6): `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.watermark`, `batch.multipage`
 - **Create** (17): `create.contactSheet`, `create.panoramaJoin`, `create.panoramaStitch`, `create.imageStrip`, `create.collage`, `create.movie`, `create.animation`, `create.multipage`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.icon`, `create.comparison`, `create.extractFrames`, `create.extractEmbedded`
 - **Pages and Frames** (8): `pages.insert`, `pages.delete`, `pages.extract`, `pages.reorder`, `frames.editor`, `frames.reverse`, `frames.loopCount`, `frames.optimize`

@@ -368,6 +368,32 @@ try {
   check('effects browser renders thumbnails', fxr.cards >= 10, true);
   check('custom convolution applied', [fxr.clicked4, fxr.label4, fxr.canUndo], [true, 'Custom Filter', true]);
 
+  // Metadata: rating and favorite through the commands, the caption dialog, Strip Metadata and a checksum (the web File has no URI, so writes go through the download path).
+  const md = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const M = await window.__qnMeta(), N = await window.__qnNative();
+    const dialog = async () => { for (let i = 0; i < 60; i++) { if (document.querySelector('.ql-dialog .ql-primary')) return true; await wait(50); } return false; };
+    // A fake File System Access handle so the dropped file has somewhere to write back to.
+    const store = { parts: [] };
+    const handle = { name: qn.picture.name, kind: 'file', isSameEntry: async () => false, createWritable: async () => ({ write: async (b) => { store.parts.push(b); }, close: async () => {} }) };
+    qn.picture.entry.uri = 'fsa:' + (await N.handleId(handle));
+    await qn.exec('browse.rate', 4); await wait(150);
+    const v1 = await M.readMeta(qn, qn.picture.entry);
+    await qn.exec('browse.favorite'); await wait(150);
+    const fav = (await M.readMeta(qn, qn.picture.entry)).props.favorite;
+    const run = qn.exec('meta.caption'); const d1 = await dialog();
+    const title = document.querySelector('.ql-dialog input[id^="f_title_"]'); title.value = 'E2E title'; title.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(200);
+    const v2 = await M.readMeta(qn, qn.picture.entry);
+    const sizeBefore = qn.picture.bytes.length;
+    const run2 = qn.exec('meta.strip'); const d2 = await dialog(); document.querySelector('.ql-dialog .ql-primary').click(); await run2; await wait(200);
+    const v3 = await M.readMeta(qn, qn.picture.entry);
+    return { writes: store.parts.length, uriKept: qn.picture.entry.uri.startsWith('fsa:'), d1, d2, format: qn.picture.format.id, rating: v1.props.rating, fav, title: v2.props.title, ratingKept: v2.props.rating, embeddedAfterStrip: v3.embedded, smaller: qn.picture.bytes.length < sizeBefore, md5: M.md5(new Uint8Array(0)), width: qn.picture.width };
+  });
+  check('rating written into the PNG', [md.format, md.rating, md.fav, md.writes, md.uriKept], ['png', 4, true, 4, true]);
+  check('caption dialog saved the title and kept the rating', [md.d1, md.title, md.ratingKept], [true, 'E2E title', 4]);
+  check('strip removed the packet', [md.d2, md.embeddedAfterStrip, md.smaller, md.md5], [true, null, true, 'd41d8cd98f00b204e9800998ecf8427e']);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

@@ -79,6 +79,12 @@ export interface Prefs {
   quickFolders: { name: string; uri: string }[];
   /** Ask before deleting a file. */
   confirmDelete: boolean;
+  /** Metadata: where edits go for formats that can embed XMP ('embed', 'sidecar' or 'both'); other formats always use a sidecar. */
+  sidecarMode: 'embed' | 'sidecar' | 'both';
+  /** Metadata Template: saved field sets. */
+  metaTemplates: { name: string; fields: Record<string, string> }[];
+  /** Keywords typed so far (autocomplete). */
+  keywordHistory: string[];
   /** Custom Filter (Convolution): saved kernels. */
   convolutions: { name: string; size: number; kernel: number[]; divisor: number; bias: number }[];
   /** Thumbnails: size in CSS pixels and the last panel mode. */
@@ -127,7 +133,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true, convolutions: [], thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -174,6 +180,9 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
   if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.metaTemplates) out.metaTemplates = out.metaTemplates.filter((r: any) => isObj(r) && typeof r.name === 'string' && isObj(r.fields)).slice(0, 40);
+  if (out.keywordHistory) out.keywordHistory = strings(out.keywordHistory).slice(0, 500);
+  if (out.sidecarMode && !['embed', 'sidecar', 'both'].includes(out.sidecarMode)) delete out.sidecarMode;
   if (out.convolutions) out.convolutions = out.convolutions.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.kernel) && r.kernel.every((x: any) => typeof x === 'number')).slice(0, 40);
   if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);
   if (out.print) out.print = { ...d.print, ...Object.fromEntries(Object.entries(out.print).filter(([k, v]) => k in d.print && typeof v === typeof (d.print as any)[k])) };
