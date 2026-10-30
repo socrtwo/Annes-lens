@@ -569,3 +569,6 @@ body.ql-fullscreen .ql-titlebar, body.ql-fullscreen .ql-tabs, body.ql-fullscreen
 .qn-curve { width: 256px; height: 256px; max-width: 100%; border: 1px solid var(--border); border-radius: 4px; cursor: crosshair; touch-action: none; }
 .qn-sigwrap { display: flex; justify-content: center; } .qn-sigpad { width: 100%; max-width: 600px; aspect-ratio: 3 / 1; border: 1px dashed var(--border); border-radius: 6px; background: #fff; touch-action: none; cursor: crosshair; }
 .qn-fxcard-current { border-color: var(--accent); }
+.qn-queue { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow: auto; }
+.qn-queue-item { border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.qn-q-done { opacity: 0.7; } .qn-q-failed b { color: #d33; }

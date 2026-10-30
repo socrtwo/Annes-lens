@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **328 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **334 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -18,7 +18,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (5) · Rate and label (8) · Find and compare (3) · Catalog (1)
 - **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
-- **Batch**: Batch (7)
+- **Batch**: Batch (13)
 - **Create**: Create (9)
 - **Pages and Frames** (contextual): Pages (3) · Frames (4)
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (2) · Display (2) · Quick Access Bar and search (5)
@@ -31,15 +31,15 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 |---|---|---|
 | IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 126 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 26 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 94 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 65 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 44 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 96 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 66 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 46 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 29 |
 | Picasa style (`picasa`) | Picasa 3 | 44 |
 | Preview style (`preview`) | macOS Preview | 40 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 28 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 207 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 328 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 30 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 211 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 334 |
 
 ## File (59 of 82)
 
@@ -329,15 +329,21 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Import Metadata from CSV… | Records and genealogy |  | `meta.importCsv` | from new in Anne's Lens |
 | Source Citation… | Records and genealogy |  | `meta.citation` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), new in Anne's Lens |
 
-## Batch (7 of 13)
+## Batch (13 of 13)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
 | Batch Conversion and Rename… | Batch | b | `batch.convert` | from IrfanView |
 | Batch Lossless JPEG… | Batch |  | `batch.lossless` | from IrfanView, XnView Classic and XnView MP |
+| Batch Metadata… | Batch |  | `batch.metadata` | from XnView Classic and XnView MP, digiKam |
+| Batch Multipage… | Batch |  | `batch.multipage` | from IrfanView |
+| Batch Queue | Batch |  | `batch.queue` | from digiKam |
 | Batch Rename… | Batch | Ctrl+b | `batch.rename` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
+| Batch Steps… | Batch |  | `batch.actions` | from IrfanView, XnView Classic and XnView MP |
+| Batch Watermark… | Batch |  | `batch.watermark` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Optimize Files… | Batch |  | `batch.optimize` | from IrfanView, new in Anne's Lens |
 | Preview Batch (Dry Run) | Batch |  | `batch.dryRun` | from new in Anne's Lens |
+| Recipe Editor… | Batch |  | `batch.recipe` | from XnView Classic and XnView MP, digiKam |
 | Undo Last Batch | Batch |  | `batch.undo` | from new in Anne's Lens |
 | Web and Email Sizes… | Batch |  | `batch.webPresets` | has options menu; from Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa |
 
@@ -434,7 +440,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (229)
+## Planned, not yet built (223)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -445,7 +451,6 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (23): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`
-- **Batch** (6): `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.watermark`, `batch.multipage`
 - **Create** (8): `create.panoramaStitch`, `create.movie`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.extractEmbedded`
 - **Pages and Frames** (8): `pages.insert`, `pages.delete`, `pages.extract`, `pages.reorder`, `frames.editor`, `frames.reverse`, `frames.loopCount`, `frames.optimize`
 - **RAW** (4): `raw.preview`, `raw.develop`, `raw.preferPreview`, `raw.extractPreview`

@@ -482,6 +482,23 @@ try {
   check('auto straighten found about -5°', /^Auto Straighten -(4|5|6)\./.test(geo.label), true);
   check('crop page flattened the page', [geo.label2, geo.after[0] < geo.before[0], geo.after[1] < geo.before[1], geo.center[0] > 200], ['Crop Page from Photo', true, true, true]);
 
+  // Batch Steps: an ordered job (resize, border, text watermark, metadata) through the runner with an in-memory sink.
+  const bs = await p.evaluate(async () => {
+    const B = await window.__qnBatch(), S = await window.__qnBatchSteps(), M = await window.__qnMeta();
+    const entries = qn.tab.folder.entries;
+    const actions = S.resolveActions([{ kind: 'resize', mode: 'long', value: 100, kernel: 'bilinear', onlyShrink: true }, { kind: 'border', size: 5, color: '#ff0000' }, { kind: 'text', text: '{basename}', size: 10, color: '#ffffff', anchor: 'mc', margin: 0, opacity: 1, outline: 1, font: 'sans-serif' }, { kind: 'metadata', patch: { rights: '© test', keywords: ['batch'] } }], 100);
+    const job = { inputs: entries, format: 'png', quality: 90, keepMeta: true, steps: { actions }, names: { pattern: '{name}-steps' } };
+    const outs = [];
+    const res = await B.runBatch(qn, job, async (r) => { outs.push(r); return { uri: null, name: r.name }; }, { silent: true });
+    const first = outs[0];
+    const props = M.parseXmp(new TextDecoder().decode(M.extractMeta(first.data).xmp));
+    const bmp = await createImageBitmap(new Blob([first.data], { type: 'image/png' }));
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; const x = c.getContext('2d'); x.drawImage(bmp, 0, 0);
+    const corner = [...x.getImageData(1, 1, 1, 1).data].slice(0, 3);
+    return { n: res.done.length, names: outs.map((o) => o.name), size: [bmp.width, bmp.height], corner, rights: props.rights, keywords: props.keywords, desc: S.describeAction(actions[1]) };
+  });
+  check('batch steps ran in order', [bs.n, bs.names[0].endsWith('-steps.png'), bs.size, bs.corner, bs.rights, bs.keywords, bs.desc], [2, true, [110, 85], [255, 0, 0], '© test', ['batch'], 'Border 5 px']);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

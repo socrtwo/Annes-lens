@@ -32,10 +32,11 @@ app.ui.tabsChanged();
 (window as any).__qnPalette = () => import('./codecs/palette');
 (window as any).__qnImageOps = () => import('./commands/imageOps');
 (window as any).__qnBatch = () => import('./commands/batch');
+(window as any).__qnBatchSteps = () => import('./commands/batchSteps');
 (window as any).__qnEffects = () => import('./picture/effects');
 (window as any).__qnSimilar = () => import('./picture/similar');
 (window as any).__qnNative = () => import('./platform/native');
-(window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc')]).then(([m, x, e, i]) => ({ ...m, ...x, ...e, ...i }));
+(window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite')]).then(([m, x, e, i, w]) => ({ ...m, ...x, ...e, ...i, ...w }));
 
 // Files dropped on the window open as a folder of their own.
 window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });

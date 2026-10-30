@@ -6,6 +6,7 @@ import './acquire';
 import './print';
 import './browse';
 import './batch';
+import './batchSteps';
 import './compare';
 import './create';
 import './export';

@@ -11,7 +11,15 @@ import { h, download } from '../ui/dom';
 import type { Entry } from '../picture/folder';
 import { decodePicture, encodeCanvas, encoderFor, ENCODERS, type EncodeFormat } from '../codecs/registry';
 import { frameRaster, rasterFrame } from '../picture/edit';
-import { resample, grayscale, reduceColors, autoCropRect, crop, type Kernel } from '../picture/ops';
+import { resample, grayscale, negative, reduceColors, autoCropRect, crop, clampRect, canvasSize, hexToRgb, type Kernel } from '../picture/ops';
+import { colorCorrect, autoAdjust, autoLevels, autoContrast, autoColor, sharpen, gaussianBlur } from '../picture/adjust';
+import { rotateRaster } from '../picture/geometry';
+import { drawText, drawOverlay } from './editAdd';
+import { updateXmp } from '../meta/xmp';
+import { setXmp, canEmbed, decodeText } from '../meta/metaEdit';
+import { sniff } from '../codecs/registry';
+import { makeRaster, type Raster } from '../codecs/raster';
+import type { Picture } from '../picture/model';
 import { transformPage, orientationOps } from '../picture/model';
 import { losslessTransform, isJpeg, opForOrientation, type LosslessOp } from '../codecs/jpegLossless';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
@@ -22,7 +30,25 @@ import { dirUriOf, replaceEntry, parseExifDate } from './fileOps';
 import { fmtSize } from '../ui/shell';
 import { entryFromUri } from '../picture/folder';
 
+/** One ordered step of a Batch Steps job (applied after the simple steps, in order). */
+export type Action =
+  | { kind: 'resize'; mode: 'long' | 'width' | 'height' | 'percent'; value: number; kernel: Kernel; onlyShrink: boolean }
+  | { kind: 'crop'; x: number; y: number; w: number; h: number /* percent */ }
+  | { kind: 'autoCrop'; tolerance: number }
+  | { kind: 'rotate'; angle: number; expand: boolean; bg: string }
+  | { kind: 'flip'; dir: 'h' | 'v' }
+  | { kind: 'canvas'; w: number; h: number; anchor: string; bg: string; transparent: boolean }
+  | { kind: 'color'; brightness: number; contrast: number; gamma: number; saturation: number }
+  | { kind: 'auto'; what: 'adjust' | 'levels' | 'contrast' | 'color' }
+  | { kind: 'grayscale' } | { kind: 'negative' } | { kind: 'colors'; n: number }
+  | { kind: 'sharpen'; amount: number } | { kind: 'blur'; radius: number }
+  | { kind: 'text'; text: string; size: number; color: string; anchor: string; margin: number; opacity: number; outline: number; font: string }
+  | { kind: 'overlay'; dataUrl: string; scale: number; opacity: number; anchor: string; margin: number; tile: boolean }
+  | { kind: 'border'; size: number; color: string }
+  | { kind: 'metadata'; patch: Record<string, any> };
 export interface BatchSteps {
+  /** Ordered steps (Batch Steps editor); run after the fixed ones below. */
+  actions?: Action[];
   resize?: { mode: 'long' | 'width' | 'height' | 'percent'; value: number; kernel: Kernel; onlyShrink: boolean };
   rotate?: 'exif' | 'rot90' | 'rot180' | 'rot270' | 'flipH' | 'flipV';
   grayscale?: boolean;
@@ -44,7 +70,7 @@ const base = (n: string) => n.replace(/\.[^.]+$/, '');
 const extOf = (n: string) => (n.match(/\.([^.]+)$/)?.[1] || '').toLowerCase();
 
 /** The inputs: marked thumbnails, else the whole folder. */
-function inputsOf(app: App): { entries: Entry[]; marked: boolean } {
+export function inputsOf(app: App): { entries: Entry[]; marked: boolean } {
   const t = app.tab;
   const marked = [...t.marked].filter((e) => t.folder.entries.includes(e));
   return marked.length ? { entries: t.folder.entries.filter((e) => t.marked.has(e)), marked: true } : { entries: [...t.folder.entries], marked: false };
@@ -65,7 +91,8 @@ export function planNames(job: BatchJob, infos: { entry: Entry; width?: number; 
 async function processOne(job: BatchJob, e: Entry, index: number, name: string): Promise<BatchResult> {
   const u8 = new Uint8Array(await e.read());
   const steps = job.steps;
-  const pixelWork = !!(steps.resize || steps.grayscale || steps.colors || steps.autoCrop || (steps.rotate && !(isJpeg(u8) && job.format === 'keep')));
+  const pixelWork = !!(steps.resize || steps.grayscale || steps.colors || steps.autoCrop || steps.actions?.some((a) => a.kind !== 'metadata') || (steps.rotate && !(isJpeg(u8) && job.format === 'keep')));
+  const metaAction = steps.actions?.filter((a): a is Extract<Action, { kind: 'metadata' }> => a.kind === 'metadata') || [];
   // Lossless paths: JPEG kept as JPEG with only a rotation, or an explicit lossless job.
   if (isJpeg(u8) && job.format === 'keep' && !pixelWork && (job.lossless || steps.rotate)) {
     const exif = readExif(u8);
@@ -74,7 +101,10 @@ async function processOne(job: BatchJob, e: Entry, index: number, name: string):
     const r = losslessTransform(u8, op, { stripMetadata: job.lossless?.strip || !job.keepMeta, orientation: wanted === 'exif' || op !== 'none' ? 1 : undefined });
     return { name, data: r.bytes, source: e, note: `${op === 'none' ? 'optimized' : op} losslessly, ${fmtSize(u8.length)} → ${fmtSize(r.bytes.length)}` };
   }
-  if (job.format === 'keep' && !pixelWork) return { name, data: u8, source: e, note: 'copied' };
+  if (job.format === 'keep' && !pixelWork) {
+    if (metaAction.length) { const fmt = sniff(u8, e.name)?.id || ''; if (canEmbed(fmt)) { const m = extractMeta(u8); let xml = m.xmp ? decodeText(m.xmp) : null; for (const a of metaAction) xml = updateXmp(xml, a.patch); return { name, data: setXmp(u8, fmt, new TextEncoder().encode(xml!)), source: e, note: 'metadata updated' }; } }
+    return { name, data: u8, source: e, note: 'copied' };
+  }
   const pic = await decodePicture(u8, e);
   try {
     let page = pic.current;
@@ -90,11 +120,13 @@ async function processOne(job: BatchJob, e: Entry, index: number, name: string):
     }
     if (steps.grayscale) r = grayscale(r);
     if (steps.colors) r = reduceColors(r, steps.colors, 'floyd').raster;
+    for (const a of steps.actions || []) r = await applyAction(r, a, { name: e.name, index, pic });
     const fmt: EncodeFormat = job.format === 'keep' ? encoderFor(pic.format.id) || 'png' : job.format;
     const c = rasterFrame(r, 0).image as HTMLCanvasElement;
     let blob = await encodeCanvas(c, fmt, job.quality / 100);
-    if (job.keepMeta && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) {
-      const meta = extractMeta(u8);
+    if ((job.keepMeta || metaAction.length) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) {
+      const meta = job.keepMeta ? extractMeta(u8) : {};
+      if (metaAction.length) { let xml = meta.xmp ? decodeText(meta.xmp) : null; for (const a of metaAction) xml = updateXmp(xml, a.patch); meta.xmp = new TextEncoder().encode(xml!); }
       if (hasMeta(meta)) { if (meta.exif) meta.exif = setExifOrientation(meta.exif, 1); blob = new Blob([injectMeta(new Uint8Array(await blob.arrayBuffer()), fmt, meta) as BlobPart], { type: blob.type }); }
     }
     const out = new Uint8Array(await blob.arrayBuffer());
@@ -103,8 +135,38 @@ async function processOne(job: BatchJob, e: Entry, index: number, name: string):
   } finally { pic.release(); }
 }
 
+const overlayImages = new Map<string, Promise<HTMLImageElement>>();
+function overlayImage(dataUrl: string): Promise<HTMLImageElement> {
+  let p = overlayImages.get(dataUrl);
+  if (!p) { p = new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error('The overlay picture could not be decoded.')); img.src = dataUrl; }); overlayImages.set(dataUrl, p); }
+  return p;
+}
+/** Applies one Batch Steps action to a raster. */
+export async function applyAction(r: Raster, a: Action, ctx: { name: string; index: number; pic?: Picture }): Promise<Raster> {
+  switch (a.kind) {
+    case 'resize': { let w = r.width, hh = r.height; if (a.mode === 'percent') { w = Math.round(r.width * a.value / 100); hh = Math.round(r.height * a.value / 100); } else { const k = a.mode === 'long' ? a.value / Math.max(r.width, r.height) : a.mode === 'width' ? a.value / r.width : a.value / r.height; w = Math.round(r.width * k); hh = Math.round(r.height * k); } return a.onlyShrink && (w > r.width || hh > r.height) ? r : resample(r, Math.max(1, w), Math.max(1, hh), a.kernel); }
+    case 'crop': { const rect = clampRect({ x: Math.round(r.width * a.x / 100), y: Math.round(r.height * a.y / 100), w: Math.round(r.width * a.w / 100), h: Math.round(r.height * a.h / 100) }, r.width, r.height); return rect ? crop(r, rect) : r; }
+    case 'autoCrop': { const rect = autoCropRect(r, a.tolerance); return rect ? crop(r, rect) : r; }
+    case 'rotate': return a.angle ? rotateRaster(r, a.angle, a.expand, hexToRgb(a.bg) as [number, number, number]) : r;
+    case 'flip': { const out = makeRaster(r.width, r.height); for (let y = 0; y < r.height; y++) for (let x = 0; x < r.width; x++) { const sx = a.dir === 'h' ? r.width - 1 - x : x, sy = a.dir === 'v' ? r.height - 1 - y : y; out.data.set(r.data.subarray((sy * r.width + sx) * 4, (sy * r.width + sx) * 4 + 4), (y * r.width + x) * 4); } return out; }
+    case 'canvas': { const w = a.w || r.width, hh = a.h || r.height, ax = /left/.test(a.anchor) ? 0 : /right/.test(a.anchor) ? 1 : 0.5, ay = /top/.test(a.anchor) ? 0 : /bottom/.test(a.anchor) ? 1 : 0.5; return canvasSize(r, w, hh, Math.round((w - r.width) * ax), Math.round((hh - r.height) * ay), a.transparent ? [0, 0, 0, 0] : [...hexToRgb(a.bg), 255] as [number, number, number, number]); }
+    case 'color': return colorCorrect(r, { brightness: a.brightness, contrast: a.contrast, gamma: a.gamma, saturation: a.saturation });
+    case 'auto': return a.what === 'adjust' ? autoAdjust(r) : a.what === 'levels' ? autoLevels(r) : a.what === 'contrast' ? autoContrast(r) : autoColor(r);
+    case 'grayscale': return grayscale(r);
+    case 'negative': return negative(r);
+    case 'colors': return reduceColors(r, a.n, 'floyd').raster;
+    case 'sharpen': return sharpen(r, a.amount / 100);
+    case 'blur': return gaussianBlur(r, a.radius);
+    case 'text': return drawText(r, r.width, { text: a.text.replace(/\{name\}/g, ctx.name).replace(/\{basename\}/g, ctx.name.replace(/\.[^.]+$/, '')).replace(/\{n\}/g, String(ctx.index + 1)).replace(/\{date\}/g, new Date().toISOString().slice(0, 10)).replace(/\{exifdate\}/g, ctx.pic?.exif?.dateTaken?.slice(0, 10).replace(/:/g, '-') || '').replace(/\{w\}/g, String(r.width)).replace(/\{h\}/g, String(r.height)), font: a.font, size: a.size, bold: false, italic: false, color: a.color, outline: a.outline, outlineColor: '#000000', shadow: 0, shadowColor: '#000000', bg: '#000000', bgOpacity: 0, rotation: 0, anchor: a.anchor, margin: a.margin, opacity: a.opacity, align: 'left' });
+    case 'overlay': return drawOverlay(r, r.width, await overlayImage(a.dataUrl), { scale: a.scale, opacity: a.opacity, anchor: a.anchor, margin: a.margin, tile: a.tile, rotation: 0 });
+    case 'border': return canvasSize(r, r.width + 2 * a.size, r.height + 2 * a.size, a.size, a.size, [...hexToRgb(a.color), 255] as [number, number, number, number]);
+    case 'metadata': return r;
+  }
+}
+
 /** Runs the job with a progress dialog; `sink` stores each output. Returns what was written. */
-export async function runBatch(app: App, job: BatchJob, sink: (r: BatchResult) => Promise<{ uri: string | null; name: string }>, opts: { silent?: boolean } = {}): Promise<{ done: { name: string; uri: string | null; source: Entry; note?: string }[]; failed: { name: string; error: string }[]; canceled: boolean }> {
+export interface BatchControl { paused?: () => boolean; canceled?: () => boolean; progress?: (i: number, n: number, name: string) => void }
+export async function runBatch(app: App, job: BatchJob, sink: (r: BatchResult) => Promise<{ uri: string | null; name: string }>, opts: { silent?: boolean; control?: BatchControl } = {}): Promise<{ done: { name: string; uri: string | null; source: Entry; note?: string }[]; failed: { name: string; error: string }[]; canceled: boolean }> {
   const names = planNames(job, job.inputs.map((entry) => ({ entry })));
   const done: { name: string; uri: string | null; source: Entry; note?: string }[] = [], failed: { name: string; error: string }[] = [];
   let canceled = false;
@@ -113,9 +175,11 @@ export async function runBatch(app: App, job: BatchJob, sink: (r: BatchResult) =
   const dialog = { close: null as null | (() => void) };
   const dlg = opts.silent ? null : openDialog({ title: 'Batch', content: h('div', null, bar, line), ok: false, cancel: 'Cancel', onOpen: (ctl) => { dialog.close = () => ctl.close(null); } }).then(() => { canceled = true; });
   for (let i = 0; i < job.inputs.length; i++) {
-    if (canceled) break;
+    while (opts.control?.paused?.() && !opts.control.canceled?.()) await new Promise((res) => setTimeout(res, 200));
+    if (canceled || opts.control?.canceled?.()) { canceled = true; break; }
     const e = job.inputs[i];
     line.textContent = `${i + 1} / ${job.inputs.length}: ${e.name}`;
+    opts.control?.progress?.(i, job.inputs.length, e.name);
     try {
       const r = await processOne(job, e, i, names[i]);
       const w = await sink(r);
@@ -124,13 +188,14 @@ export async function runBatch(app: App, job: BatchJob, sink: (r: BatchResult) =
     bar.value = i + 1;
     await new Promise((res) => setTimeout(res, 0));
   }
+  opts.control?.progress?.(job.inputs.length, job.inputs.length, '');
   dialog.close?.();
   await dlg;
   return { done, failed, canceled };
 }
 
 /** Where outputs go: a folder the platform can write into, or a ZIP download. */
-async function chooseSink(app: App, title: string): Promise<{ sink: (r: BatchResult) => Promise<{ uri: string | null; name: string }>; finish: () => Promise<void>; dirUri: string | null; label: string } | null> {
+export async function chooseSink(app: App, title: string): Promise<{ sink: (r: BatchResult) => Promise<{ uri: string | null; name: string }>; finish: () => Promise<void>; dirUri: string | null; label: string } | null> {
   const dest = await pickFolder(title);
   if (dest) return { sink: async (r) => writeIntoFolder(dest.uri, r.name, r.data.buffer.slice(r.data.byteOffset, r.data.byteOffset + r.data.byteLength) as ArrayBuffer), finish: async () => undefined, dirUri: dest.uri, label: dest.name };
   const fsa = !!(window as any).showDirectoryPicker;
@@ -139,12 +204,12 @@ async function chooseSink(app: App, title: string): Promise<{ sink: (r: BatchRes
   return { sink: async (r) => { zipped.push({ name: r.name, data: r.data }); return { uri: null, name: r.name }; }, finish: async () => { if (zipped.length) download(new Blob([writeZip(zipped) as BlobPart], { type: 'application/zip' }), `${app.tab.folder.name || 'batch'}-output.zip`); }, dirUri: null, label: 'a ZIP download' };
 }
 
-function summary(app: App, r: { done: any[]; failed: { name: string; error: string }[]; canceled: boolean }, where: string): void {
+export function summary(app: App, r: { done: any[]; failed: { name: string; error: string }[]; canceled: boolean }, where: string): void {
   const text = `${r.done.length} file${r.done.length === 1 ? '' : 's'} written to ${where}${r.failed.length ? `; ${r.failed.length} failed (${r.failed.slice(0, 3).map((f) => `${f.name}: ${f.error}`).join('; ')})` : ''}${r.canceled ? '; canceled' : ''}`;
   toast(text, { ms: 8000, action: r.done.length ? 'Undo' : undefined, onAction: () => app.exec('batch.undo') });
 }
 
-function journalOutputs(app: App, label: string, done: { name: string; uri: string | null }[], dirUri: string | null): void {
+export function journalOutputs(app: App, label: string, done: { name: string; uri: string | null }[], dirUri: string | null): void {
   const withUri = done.filter((d) => d.uri);
   app.journal.push({ kind: 'copy', label, when: Date.now(), undo: withUri.length ? async () => { for (const d of withUri) await deleteFile(d.uri!, dirUri, true); } : undefined, noUndo: withUri.length ? undefined : 'the outputs were downloaded, not written to a folder' });
 }

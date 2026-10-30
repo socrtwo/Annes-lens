@@ -41,9 +41,9 @@
 - [x] Batch Conversion and Rename (B): the marked thumbnails or the folder; rotate (EXIF or fixed), auto crop, resize with a kernel, grayscale, color reduction; any output format with quality and metadata; name patterns with counters, dates, EXIF fields, case and find/replace (regular expressions); live name preview; outputs to a chosen folder or a ZIP download; progress with cancel; Undo Last Batch. Batch Rename (Ctrl+B) in place with collision-safe two-pass renaming and undo; Batch Lossless JPEG; Optimize Files (JPEG); Web and Email Sizes presets; Preview (dry run).
 - [x] Insert Text (with fields), Insert Watermark or Overlay, Signature; Redact Region; History Panel; Go to File by Name.
 - [x] Straighten and Auto Straighten (gradient-orientation histogram), Deskew Scanned Page (projection-profile variance), Perspective Correction and Crop Page from Photo (homography; bright-page corner detection), Lens Correction (Brown radial model, vignetting gain, per-channel scale for lateral color).
-- [ ] Batch steps editor with saved recipes, the background queue, batch metadata, watermark and multipage; Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; content-aware resize; palette editing; color profiles.
+- [x] Batch Steps (ordered actions run per picture by the batch engine, text sizes relative to the width), Recipe Editor (saved in the preferences, JSON copy and paste), Batch Queue (silent runs with progress, pause, cancel; each job one journal entry), Batch Watermark, Batch Metadata (in place, keywords added or replaced), Batch Multipage (split to pages, join through Multipage TIFF or PDF).
+- [ ] Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; content-aware resize; palette editing; color profiles.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
-- Batch conversion and rename with steps, recipes, dry run, undo last batch.
 
 ## M4 — Adjust, effects and organize (started)
 
