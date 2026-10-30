@@ -33,6 +33,7 @@ app.ui.tabsChanged();
 (window as any).__qnImageOps = () => import('./commands/imageOps');
 (window as any).__qnBatch = () => import('./commands/batch');
 (window as any).__qnEffects = () => import('./picture/effects');
+(window as any).__qnSimilar = () => import('./picture/similar');
 (window as any).__qnNative = () => import('./platform/native');
 (window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc')]).then(([m, x, e, i]) => ({ ...m, ...x, ...e, ...i }));
 

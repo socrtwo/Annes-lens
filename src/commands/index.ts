@@ -6,6 +6,7 @@ import './acquire';
 import './print';
 import './browse';
 import './batch';
+import './compare';
 import './export';
 import './edit';
 import './image';

@@ -56,7 +56,7 @@
 - Contact sheet, join side by side, image strip, animations, multipage, web gallery, icon set, comparison picture, extraction from documents.
 - Compare up to four, before/after slider, difference overlay, synchronized windows, loupe, measure, rulers and grids.
 - Slideshow with transitions, music, captions, kiosk mode, phone remote, HTML export.
-- Find duplicates and similar pictures; quality sort; stacks.
+- [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.
 - Hand-offs to Anne's Folio, Stage, Pen and Press. Command-line options (desktop).
 
 ## M6 — Places, people, scans and records

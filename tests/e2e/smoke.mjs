@@ -394,6 +394,27 @@ try {
   check('caption dialog saved the title and kept the rating', [md.d1, md.title, md.ratingKept], [true, 'E2E title', 4]);
   check('strip removed the packet', [md.d2, md.embeddedAfterStrip, md.smaller, md.md5], [true, null, true, 'd41d8cd98f00b204e9800998ecf8427e']);
 
+  // Find Duplicates: two byte-identical files plus a resized copy and a different picture, grouped through the dialog.
+  const dup = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mk = (w, h, f) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); for (let y = 0; y < h; y += 8) for (let i = 0; i < w; i += 8) { x.fillStyle = f(i, y); x.fillRect(i, y, 8, 8); } return c; };
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const pat = (i, y) => `hsl(${(i * 3 + y * 5) % 360}, 70%, ${40 + ((i + y) % 32)}%)`;
+    const big = mk(128, 96, pat), other = mk(128, 96, (i, y) => ((i / 8 + y / 8) % 2 ? '#fff' : '#000'));
+    const small = document.createElement('canvas'); small.width = 64; small.height = 48; small.getContext('2d').drawImage(big, 0, 0, 64, 48);
+    const b1 = await blob(big);
+    await qn.exec('file.openDropped', [new File([b1], 'one.png'), new File([b1], 'two.png'), new File([await blob(small)], 'half.png'), new File([await blob(other)], 'other.png')]);
+    await wait(600);
+    const run = qn.exec('browse.findDuplicates');
+    for (let i = 0; i < 60 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click();
+    let title = ''; for (let i = 0; i < 100; i++) { const t = document.querySelector('.ql-dialog-head'); if (t && /Duplicates —/.test(t.textContent)) { title = t.textContent; break; } await wait(50); }
+    const cards = document.querySelectorAll('.ql-dialog .qn-fxcard').length;
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(100);
+    return { title, cards, marked: qn.tab.marked.size, order: qn.folder.length };
+  });
+  check('duplicates grouped', [/1 group/.test(dup.title), dup.cards, dup.marked, dup.order], [true, 3, 2, 4]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

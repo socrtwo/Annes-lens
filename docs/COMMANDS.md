@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **294 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **297 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -16,7 +16,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
 - **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
-- **Browse**: Views (5) · Rate and label (8) · Catalog (1)
+- **Browse**: Views (5) · Rate and label (8) · Find and compare (3) · Catalog (1)
 - **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
 - **Batch**: Batch (7)
 - **Pages and Frames** (contextual): Pages (3) · Frames (4)
@@ -30,15 +30,15 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 |---|---|---|
 | IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 121 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 24 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 86 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 88 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 58 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 41 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 42 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 28 |
-| Picasa style (`picasa`) | Picasa 3 | 39 |
+| Picasa style (`picasa`) | Picasa 3 | 40 |
 | Preview style (`preview`) | macOS Preview | 38 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 23 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 190 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 294 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 26 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 193 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 297 |
 
 ## File (59 of 82)
 
@@ -257,7 +257,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Round Corners | Frames and shadows |  | `fx.roundCorners` | from FastStone Image Viewer |
 | Vignette Frame | Frames and shadows |  | `fx.vignetteFrame` | from FastStone Image Viewer |
 
-## Browse (14 of 40)
+## Browse (17 of 40)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -274,6 +274,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Select by Pattern… | Rate and label |  | `browse.selectPattern` | from XnView Classic and XnView MP |
 | Select Rejected | Rate and label |  | `browse.selectRejected` | from Lightroom Classic (Library and Develop) |
 | Unflag | Rate and label |  | `browse.unflag` | from Lightroom Classic (Library and Develop) |
+| Find Duplicates… | Find and compare |  | `browse.findDuplicates` | from XnView Classic and XnView MP, digiKam, gThumb, ThumbsPlus |
+| Find Similar Pictures… | Find and compare |  | `browse.findSimilar` | from XnView Classic and XnView MP, digiKam, Geeqie (GQview) |
+| Sort by Quality | Find and compare |  | `browse.qualitySort` | from digiKam |
 | Refresh | Catalog | F5 | `browse.refresh` | from XnView Classic and XnView MP, IrfanView |
 
 ## Metadata (22 of 26)
@@ -394,7 +397,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (263)
+## Planned, not yet built (260)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -403,7 +406,7 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`
-- **Browse** (26): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
+- **Browse** (23): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`
 - **Batch** (6): `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.watermark`, `batch.multipage`
 - **Create** (17): `create.contactSheet`, `create.panoramaJoin`, `create.panoramaStitch`, `create.imageStrip`, `create.collage`, `create.movie`, `create.animation`, `create.multipage`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.icon`, `create.comparison`, `create.extractFrames`, `create.extractEmbedded`
