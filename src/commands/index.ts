@@ -36,4 +36,5 @@ import './aiUnderstand';
 import './aiEdit';
 import './aiGenerate';
 import './platformFile';
+import './metaGeo';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

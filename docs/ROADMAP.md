@@ -74,11 +74,11 @@
 
 ## M6 — Places, people, scans and records
 
-- Map and geotagging (GPX), place-name lookup; Timeline; Albums and Smart Albums.
+- [x] Geotagging from a GPX or KML track (capture-time matching with a camera-clock offset and time zone) and offline place-name lookup (Region Tags write MWG regions; Look Up Place Names writes city/state/country from a built-in gazetteer, importable CSV). Timeline done; Map, Albums and Smart Albums still to do.
 - People (on-device, opt-in).
 - Document Cleanup, Crop Page from Photo, deskew, descreen, dust and scratches, restore faded colors, Restore Old Photo wizard (non-AI steps).
 - OCR (tesseract.js) with OCR to Anne's Pen; QR and barcodes.
-- Source citations, person links, checksums and fixity reports, content-credentials viewer.
+- [x] Source citations, checksums, fixity reports and the content-credentials viewer; person links (Link Person ties a region to a person record with dates and a GEDCOM xref or FamilySearch id, stored on the region and in a reusable roster).
 - RAW develop module; HEIC and RAR modules where licensing allows.
 
 ## M7 — AI

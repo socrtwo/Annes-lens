@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **470 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **474 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 9 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -17,7 +17,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (5)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (8) · Rate and label (8) · Find and compare (6) · Catalog (1)
-- **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
+- **Metadata**: View and edit (12) · Date and place (5) · Privacy and integrity (5) · Records and genealogy (4)
 - **Batch**: Batch (13)
 - **Create**: Create (15)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
@@ -41,9 +41,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 88 |
 | Picasa style (`picasa`) | Picasa 3 | 106 |
 | Preview style (`preview`) | macOS Preview | 100 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 95 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 299 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 470 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 97 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 301 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 474 |
 
 ## File (76 of 82)
 
@@ -339,7 +339,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Stack Bursts and Versions | Find and compare |  | `browse.stacks` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto, new in Anne's Lens |
 | Refresh | Catalog | F5 | `browse.refresh` | from XnView Classic and XnView MP, IrfanView |
 
-## Metadata (22 of 26)
+## Metadata (26 of 26)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -351,10 +351,13 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | IPTC Information… | View and edit |  | `meta.iptc` | from IrfanView, XnView Classic and XnView MP |
 | Keywords… | View and edit | Ctrl+k | `meta.keywords` | from digiKam, XnView Classic and XnView MP, Lightroom Classic (Library and Develop) |
 | Metadata Template… | View and edit |  | `meta.template` | from digiKam, Lightroom Classic (Library and Develop), XnView Classic and XnView MP |
+| Region Tags… | View and edit |  | `meta.regions` | from digiKam, Picasa |
 | Title and Caption… | View and edit | Ctrl+Shift+t | `meta.caption` | from Picasa, digiKam, Apple Photos and iPhoto |
 | Write Sidecar or Embed | View and edit |  | `meta.sidecarMode` | has options menu; from digiKam, Lightroom Classic (Library and Develop) |
 | XMP… | View and edit |  | `meta.xmp` | from XnView Classic and XnView MP, digiKam |
 | Change Date Taken… | Date and place |  | `meta.shiftDate` | from IrfanView, XnView Classic and XnView MP, digiKam |
+| Geotag from GPS Track… | Date and place |  | `meta.geotagGpx` | from digiKam, Geeqie (GQview) |
+| Look Up Place Names | Date and place |  | `meta.reverseGeocode` | from Apple Photos and iPhoto, new in Anne's Lens |
 | Remove Location | Date and place |  | `meta.removeGps` | from Microsoft Photos, new in Anne's Lens |
 | Set Location… | Date and place |  | `meta.geotag` | from Picasa, digiKam, XnView Classic and XnView MP |
 | Checksum… | Privacy and integrity |  | `meta.checksum` | from new in Anne's Lens |
@@ -364,6 +367,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Strip Metadata… | Privacy and integrity |  | `meta.strip` | from XnView Classic and XnView MP, FastStone Image Viewer |
 | Export Metadata as CSV… | Records and genealogy |  | `meta.exportCsv` | from XnView Classic and XnView MP, digiKam |
 | Import Metadata from CSV… | Records and genealogy |  | `meta.importCsv` | from new in Anne's Lens |
+| Link Person… | Records and genealogy |  | `meta.personLink` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), new in Anne's Lens |
 | Source Citation… | Records and genealogy |  | `meta.citation` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), new in Anne's Lens |
 
 ## Batch (13 of 13)
@@ -600,7 +604,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (87)
+## Planned, not yet built (83)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -610,7 +614,6 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Adjust** (2): `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (17): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
-- **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`
 - **Create** (2): `create.panoramaStitch`, `create.photoBook`
 - **RAW** (1): `raw.develop`
 - **View** (20): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.filmstrip`, `view.navigator`, `view.infoPane`, `view.language`, `view.measure`, `view.colorManaged`, `view.stereo`, `view.sphere`, `view.twoPage`, `view.rtl`, `view.compare`, `view.compareSplit`, `view.syncWindows`, `view.mediaPlay`, `view.mediaFrame`, `view.motionPhoto`

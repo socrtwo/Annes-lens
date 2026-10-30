@@ -15,6 +15,9 @@ export const NS: Record<string, string> = {
   Iptc4xmpCore: 'http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/',
   Iptc4xmpExt: 'http://iptc.org/std/Iptc4xmpExt/2008-02-29/',
   lens: 'https://socrtwo.github.io/annes-lens/ns/1.0/',
+  'mwg-rs': 'http://www.metadataworkinggroup.com/schemas/regions/',
+  stArea: 'http://ns.adobe.com/xmp/sType/Area#',
+  stDim: 'http://ns.adobe.com/xap/1.0/sType/Dimensions#',
 };
 
 export interface Citation { repository?: string; collection?: string; callNumber?: string; item?: string; page?: string; accessed?: string; text?: string }
@@ -169,3 +172,67 @@ export function scrubXmp(xml: string, what: { location?: boolean; people?: boole
 
 /** True when a packet carries anything beyond an empty description. */
 export const xmpIsEmpty = (xml: string): boolean => /<rdf:Description[^>]*>\s*<\/rdf:Description>/.test(xml) && !/<rdf:Description[^>]*\s[A-Za-z0-9]+:[A-Za-z]+=/.test(xml);
+
+
+// Region tags (MWG regions: named faces, pets and objects) and the person links on them --------
+
+export interface Region {
+  name: string;
+  /** Face | Pet | Focus | BarCode | Object (free text allowed). */
+  type: string;
+  /** Normalized center and size, 0..1 of the picture. */
+  area: { x: number; y: number; w: number; h: number };
+  /** Person link (Anne's Lens): a person record's details copied onto the region. */
+  personId?: string;
+  born?: string;
+  died?: string;
+}
+export interface RegionDoc { dims: { w: number; h: number } | null; regions: Region[] }
+
+const numAttr = (s: string, name: string): number | undefined => { const m = s.match(new RegExp(`${esc(name)}=["']\\s*([-\\d.]+)`)); return m ? +m[1] : undefined; };
+const strAttr = (s: string, name: string): string | undefined => { const m = s.match(new RegExp(`${esc(name)}=["']([^"']*)`)); return m ? unescapeXml(m[1]) : undefined; };
+
+/** Reads the MWG region list (named areas) and the Anne's Lens person links on them. */
+export function readRegions(xml: string | null | undefined): RegionDoc {
+  const out: RegionDoc = { dims: null, regions: [] };
+  if (!xml) return out;
+  const block = xml.match(/<mwg-rs:Regions[\s\S]*?<\/mwg-rs:Regions>|<mwg-rs:Regions[^>]*rdf:parseType=["']Resource["'][\s\S]*?<\/mwg-rs:Regions>/);
+  const scope = block ? block[0] : (/<mwg-rs:Regions\b/.test(xml) ? xml : '');
+  if (!scope) return out;
+  const dim = scope.match(/<mwg-rs:AppliedToDimensions\b([^>]*)\/?>/);
+  if (dim) { const w = numAttr(dim[1], 'stDim:w') ?? numAttr(dim[1], 'w'); const h = numAttr(dim[1], 'stDim:h') ?? numAttr(dim[1], 'h'); if (w && h) out.dims = { w, h }; }
+  for (const li of scope.matchAll(/<rdf:li\b[^>]*>([\s\S]*?)<\/rdf:li>/g)) {
+    const body = li[1];
+    const name = readText(body, prefixFor(xml, 'mwg-rs') || 'mwg-rs', 'Name') || body.match(/<mwg-rs:Name>([^<]*)</)?.[1];
+    const type = body.match(/<mwg-rs:Type>([^<]*)</)?.[1] || 'Face';
+    const areaTag = body.match(/<mwg-rs:Area\b([^>]*)\/?>/);
+    if (!areaTag) continue;
+    const a = areaTag[1];
+    const x = numAttr(a, 'stArea:x') ?? numAttr(a, 'x'), y = numAttr(a, 'stArea:y') ?? numAttr(a, 'y'), w = numAttr(a, 'stArea:w') ?? numAttr(a, 'w') ?? numAttr(a, 'stArea:d'), h = numAttr(a, 'stArea:h') ?? numAttr(a, 'h') ?? numAttr(a, 'stArea:d');
+    if (x === undefined || y === undefined) continue;
+    out.regions.push({ name: name ? unescapeXml(name) : '', type: unescapeXml(type), area: { x, y, w: w ?? 0, h: h ?? 0 }, personId: strAttr(a, 'lens:PersonId'), born: strAttr(a, 'lens:PersonBorn'), died: strAttr(a, 'lens:PersonDied') });
+  }
+  return out;
+}
+
+/** Replaces the MWG region list with `regions` (removes it when empty); keeps the rest of the packet. */
+export function writeRegions(xml: string | null | undefined, regions: Region[], dims: { w: number; h: number } | null): string {
+  let out = xml && /<rdf:Description/.test(xml) ? xml : emptyXmp();
+  if (!/<\/rdf:Description>/.test(out)) out = out.replace(/<rdf:Description\b([^>]*)\/>/, '<rdf:Description$1>\n  </rdf:Description>');
+  out = out.replace(/\s*<mwg-rs:Regions[\s\S]*?<\/mwg-rs:Regions>/g, '');
+  const ext = prefixFor(out, 'Iptc4xmpExt');
+  out = removeProp(out, ext, 'PersonInImage');
+  if (!regions.length) return out;
+  for (const ns of ['mwg-rs', 'stArea', 'stDim', 'Iptc4xmpExt']) out = ensureNs(out, ns, NS[ns]);
+  const li = regions.map((r) => {
+    const link = (r.personId ? ` lens:PersonId="${escapeXml(r.personId)}"` : '') + (r.born ? ` lens:PersonBorn="${escapeXml(r.born)}"` : '') + (r.died ? ` lens:PersonDied="${escapeXml(r.died)}"` : '');
+    if (link) out = ensureNs(out, 'lens', NS.lens);
+    return `    <rdf:li rdf:parseType="Resource">\n     <mwg-rs:Name>${escapeXml(r.name)}</mwg-rs:Name>\n     <mwg-rs:Type>${escapeXml(r.type || 'Face')}</mwg-rs:Type>\n     <mwg-rs:Area stArea:x="${+r.area.x.toFixed(6)}" stArea:y="${+r.area.y.toFixed(6)}" stArea:w="${+r.area.w.toFixed(6)}" stArea:h="${+r.area.h.toFixed(6)}" stArea:unit="normalized"${link}/>\n    </rdf:li>`;
+  }).join('\n');
+  const dimEl = dims ? `\n   <mwg-rs:AppliedToDimensions stDim:w="${dims.w}" stDim:h="${dims.h}" stDim:unit="pixel"/>` : '';
+  const block = `<mwg-rs:Regions rdf:parseType="Resource">${dimEl}\n   <mwg-rs:RegionList>\n    <rdf:Bag>\n${li}\n    </rdf:Bag>\n   </mwg-rs:RegionList>\n  </mwg-rs:Regions>`;
+  out = insert(out, block);
+  const people = [...new Set(regions.map((r) => r.name).filter(Boolean))];
+  if (people.length) out = insert(out, listEl(ext, 'PersonInImage', 'bag', people));
+  return out;
+}

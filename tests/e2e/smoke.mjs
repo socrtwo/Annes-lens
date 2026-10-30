@@ -405,6 +405,41 @@ try {
   check('caption dialog saved the title and kept the rating', [md.d1, md.title, md.ratingKept], [true, 'E2E title', 4]);
   check('strip removed the packet', [md.d2, md.embeddedAfterStrip, md.smaller, md.md5], [true, null, true, 'd41d8cd98f00b204e9800998ecf8427e']);
 
+  // Region Tags: add a region from the selection, save it into the PNG, read it back.
+  const reg = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const M = await window.__qnMeta(), N = await window.__qnNative();
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop();
+    const title = (d) => d?.querySelector('h2')?.textContent || '';
+    const waitFor = async (pred, ms = 6000) => { for (let i = 0; i < ms / 50; i++) { const d = top(); if (d && pred(d)) return d; await wait(50); } throw new Error('dialog not found; top is ' + title(top())); };
+    const noDialog = async () => { for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50); };
+    const field = (d, key) => d.querySelector(`[id^="f_${key}_"]`);
+    const btn = (d, text) => [...d.querySelectorAll('button')].find((b) => b.textContent.trim().replace(/…$/, '') === text);
+    await noDialog();
+    const store = { parts: [] };
+    const handle = { name: qn.picture.name, kind: 'file', isSameEntry: async () => false, createWritable: async () => ({ write: async (b) => { store.parts.push(b); }, close: async () => {} }) };
+    qn.picture.entry.uri = 'fsa:' + (await N.handleId(handle));
+    qn.tab.setSelection({ x: 10, y: 8, w: 20, h: 16 });
+    const run = qn.exec('meta.regions');
+    let d = await waitFor((x) => title(x) === 'Region Tags');
+    btn(d, 'Add region').click();
+    d = await waitFor((x) => title(x) === 'Add Region' && !!field(x, 'name'));
+    field(d, 'name').value = 'Anne'; field(d, 'name').dispatchEvent(new Event('input', { bubbles: true }));
+    const fs = field(d, 'fromSel'); if (fs) { fs.checked = true; fs.dispatchEvent(new Event('change', { bubbles: true })); }
+    d.querySelector('.ql-primary').click();
+    // The Region Tags dialog reopens with the new region listed.
+    d = await waitFor((x) => title(x) === 'Region Tags' && /Anne/.test(x.textContent) && !!btn(x, 'Save'));
+    btn(d, 'Save').click();
+    await run; await noDialog();
+    for (let i = 0; i < 60 && !store.parts.length; i++) await wait(50);
+    await wait(150);
+    const view = await M.readMeta(qn, qn.picture.entry);
+    const doc = M.readRegions(view.embedded);
+    qn.tab.setSelection(null);
+    return { writes: store.parts.length, count: doc.regions.length, name: doc.regions[0]?.name, type: doc.regions[0]?.type, dimsOk: !!(doc.dims && doc.dims.w > 0 && doc.dims.h > 0), cx: doc.regions[0] ? Math.round(doc.regions[0].area.x * 100) : 0, person: view.props.personInImage, left: document.querySelectorAll('.ql-dialog').length };
+  });
+  check('region written to the PNG and read back', [reg.writes > 0, reg.count, reg.name, reg.type, reg.dimsOk, reg.cx > 0 && reg.cx < 100, reg.person, reg.left], [true, 1, 'Anne', 'Face', true, true, ['Anne'], 0]);
+
   // Find Duplicates: two byte-identical files plus a resized copy and a different picture, grouped through the dialog.
   const dup = await p.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -768,6 +803,7 @@ try {
     if (qn.tab.thumbs) { qn.tab.thumbs.filter = null; qn.tab.thumbs.filterLabel = ''; qn.tab.thumbs.refilter(); }
     // Find Similar by Content from the red picture: the other red one comes first.
     for (let i = 0; i < 6 && qn.picture?.name !== 'b-red.png'; i++) { await qn.exec('view.next'); await wait(250); }
+    out.simCur = qn.picture?.name;
     run = qn.exec('ai.findSimilarSemantic'); await done(run); await wait(300); d = await dialog(); out.similar = [...d.querySelectorAll('.qn-ai-card')].map((c) => c.textContent.split(' — ')[0]); d.querySelector('.ql-primary').click(); await noDialog();
     if (qn.tab.thumbs) { qn.tab.thumbs.filter = null; qn.tab.thumbs.filterLabel = ''; qn.tab.thumbs.refilter(); }
     // Several AIs (master): two members answer, the master combines; the discussion is shown.
