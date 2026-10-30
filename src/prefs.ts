@@ -85,6 +85,8 @@ export interface Prefs {
   metaTemplates: { name: string; fields: Record<string, string> }[];
   /** Keywords typed so far (autocomplete). */
   keywordHistory: string[];
+  /** Adjust presets: named lists of adjustment steps (command id and dialog values). */
+  adjustPresets: { name: string; steps: { id: string; values: Record<string, any> }[] }[];
   /** Custom Filter (Convolution): saved kernels. */
   convolutions: { name: string; size: number; kernel: number[]; divisor: number; bias: number }[];
   /** Thumbnails: size in CSS pixels and the last panel mode. */
@@ -133,7 +135,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -180,6 +182,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
   if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.adjustPresets) out.adjustPresets = out.adjustPresets.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.steps) && r.steps.every((x: any) => isObj(x) && typeof x.id === 'string' && isObj(x.values))).slice(0, 60);
   if (out.metaTemplates) out.metaTemplates = out.metaTemplates.filter((r: any) => isObj(r) && typeof r.name === 'string' && isObj(r.fields)).slice(0, 40);
   if (out.keywordHistory) out.keywordHistory = strings(out.keywordHistory).slice(0, 500);
   if (out.sidecarMode && !['embed', 'sidecar', 'both'].includes(out.sidecarMode)) delete out.sidecarMode;

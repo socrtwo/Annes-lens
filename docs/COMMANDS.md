@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **297 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **307 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -14,7 +14,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
 - **Edit**: Undo (2) · Clipboard (9) · Select (5) · Crop (4) · Add (2)
 - **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
-- **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
+- **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (5)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (5) · Rate and label (8) · Find and compare (3) · Catalog (1)
 - **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
@@ -30,15 +30,15 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 |---|---|---|
 | IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 121 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 24 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 88 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 58 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 42 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 89 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 59 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 43 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 28 |
 | Picasa style (`picasa`) | Picasa 3 | 40 |
 | Preview style (`preview`) | macOS Preview | 38 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 26 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 193 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 297 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 27 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 195 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 307 |
 
 ## File (59 of 82)
 
@@ -166,7 +166,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Swap Color Channels | Color depth and palette |  | `image.swapChannels` | has options menu; from IrfanView |
 | Transparent Color… | Color depth and palette |  | `image.transparentColor` | from IrfanView, Graphic Workshop |
 
-## Adjust (35 of 47)
+## Adjust (45 of 47)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -179,6 +179,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Brightness and Contrast… | Tone |  | `adjust.brightnessContrast` | from most picture viewers |
 | Clarity… | Tone |  | `adjust.clarity` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop) |
 | Color Corrections… | Tone | Shift+g | `adjust.colorCorrections` | from IrfanView |
+| Curves… | Tone | Ctrl+Shift+u | `adjust.curves` | from FastStone Image Viewer, XnView Classic and XnView MP, digiKam |
 | Dehaze… | Tone |  | `adjust.dehaze` | from Lightroom Classic (Library and Develop) |
 | Equalize Histogram | Tone |  | `adjust.equalize` | from XnView Classic and XnView MP |
 | Exposure… | Tone |  | `adjust.exposure` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
@@ -187,24 +188,33 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Levels… | Tone | Ctrl+l | `adjust.levels` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Normalize | Tone |  | `adjust.normalize` | from XnView Classic and XnView MP |
 | Shadows and Highlights… | Tone |  | `adjust.shadowsHighlights` | from FastStone Image Viewer, Lightroom Classic (Library and Develop) |
+| Tone Equalizer… | Tone |  | `adjust.toneEqualizer` | from ACDSee, JPEGView |
 | Vignette… | Tone |  | `adjust.vignette` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop), FastStone Image Viewer |
+| Apply LUT… | Color |  | `adjust.lut` | from new in Anne's Lens |
 | Black-and-White Mixer… | Color |  | `adjust.bwMixer` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
 | Channel Mixer… | Color |  | `adjust.channelMixer` | from XnView Classic and XnView MP, digiKam |
 | Color Balance… | Color |  | `adjust.colorBalance` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Hue, Saturation and Lightness… | Color |  | `adjust.hsl` | from XnView Classic and XnView MP, FastStone Image Viewer |
 | Posterize… | Color |  | `adjust.posterize` | from XnView Classic and XnView MP |
+| Selective Color… | Color |  | `adjust.selectiveColor` | from Apple Photos and iPhoto |
 | Tint and Sepia… | Color |  | `adjust.tint` | from Picasa, XnView Classic and XnView MP |
 | Vibrance… | Color |  | `adjust.vibrance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
 | Warmify | Color |  | `adjust.warmify` | from Picasa |
 | White Balance… | Color |  | `adjust.whiteBalance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
 | Blur… | Detail and retouch |  | `adjust.blur` | from IrfanView |
+| Descreen (moiré) | Detail and retouch |  | `adjust.descreen` | from new in Anne's Lens |
 | Despeckle | Detail and retouch |  | `adjust.despeckle` | from XnView Classic and XnView MP |
 | Noise Reduction… | Detail and retouch |  | `adjust.denoise` | from Lightroom Classic (Library and Develop), digiKam |
 | Red-Eye Reduction | Detail and retouch | Shift+y | `adjust.redEye` | from IrfanView, Picasa, Microsoft Photos |
+| Remove Dust and Scratches… | Detail and retouch |  | `adjust.dustScratches` | from new in Anne's Lens |
 | Restore Faded Colors | Detail and retouch |  | `adjust.restoreFaded` | from new in Anne's Lens |
 | Sharpen | Detail and retouch | Shift+s | `adjust.sharpen` | from IrfanView |
 | Unsharp Mask… | Detail and retouch |  | `adjust.unsharp` | from IrfanView, XnView Classic and XnView MP |
+| Apply Preset | Presets and history |  | `adjust.applyPreset` | has options menu; from Lightroom Classic (Library and Develop) |
 | Before / After | Presets and history | \ | `adjust.beforeAfter` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Copy Adjustments | Presets and history | Ctrl+Shift+c | `adjust.copySettings` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Paste Adjustments | Presets and history | Ctrl+Alt+v | `adjust.pasteSettings` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Save Adjustment Preset… | Presets and history |  | `adjust.savePreset` | from Lightroom Classic (Library and Develop), FastStone Image Viewer |
 
 ## Effects (46 of 47)
 
@@ -397,14 +407,14 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (260)
+## Planned, not yet built (250)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (23): `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
 - **Edit** (32): `edit.history`, `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
 - **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
-- **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
+- **Adjust** (2): `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (23): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`

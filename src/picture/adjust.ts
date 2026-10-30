@@ -302,3 +302,138 @@ export function clarity(src: Raster, amount: number): Raster {
 /** Auto-adjust: levels, a touch of saturation; One-Click Enhance adds gentle sharpening. */
 export const autoAdjust = (src: Raster): Raster => saturate(autoLevels(src), 0.1);
 export const enhance = (src: Raster): Raster => unsharpMask(saturate(autoLevels(src), 0.12), 40, 1, 2);
+
+// Curves, tone equalizer, selective color, 3-D LUTs, dust and scratches, descreen ------------------
+
+export type CurvePoint = [number, number];
+/** A monotone cubic (Fritsch–Carlson) interpolation through sorted points → 256-entry LUT. */
+export function curveLut(points: CurvePoint[]): Uint8ClampedArray {
+  const pts = [...points].sort((a, b) => a[0] - b[0]).filter((p, i, a) => !i || p[0] !== a[i - 1][0]);
+  if (pts.length === 0) pts.push([0, 0], [255, 255]);
+  if (pts.length === 1) pts.push([pts[0][0] === 255 ? 0 : 255, pts[0][1]]);
+  const n = pts.length, xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const d: number[] = [], m: number[] = [];
+  for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+  m.push(d[0]); for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2); m.push(d[n - 2]);
+  for (let i = 0; i < n - 1; i++) { if (!d[i]) { m[i] = m[i + 1] = 0; continue; } const a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b; if (s > 9) { const t = 3 / Math.sqrt(s); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i]; } }
+  const out = new Uint8ClampedArray(256);
+  for (let x = 0; x < 256; x++) {
+    if (x <= xs[0]) { out[x] = clamp(Math.round(ys[0])); continue; }
+    if (x >= xs[n - 1]) { out[x] = clamp(Math.round(ys[n - 1])); continue; }
+    let i = 0; while (xs[i + 1] < x) i++;
+    const h = xs[i + 1] - xs[i], t = (x - xs[i]) / h, t2 = t * t, t3 = t2 * t;
+    const y = (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1];
+    out[x] = clamp(Math.round(y));
+  }
+  return out;
+}
+/** Curves: the RGB curve applied to every channel, then the per-channel curves. */
+export function curves(src: Raster, c: { all?: CurvePoint[]; r?: CurvePoint[]; g?: CurvePoint[]; b?: CurvePoint[] }): Raster {
+  const id: CurvePoint[] = [[0, 0], [255, 255]];
+  const all = curveLut(c.all || id), lr = curveLut(c.r || id), lg = curveLut(c.g || id), lb = curveLut(c.b || id);
+  const comp = (l: Uint8ClampedArray) => { const t = new Uint8ClampedArray(256); for (let i = 0; i < 256; i++) t[i] = l[all[i]]; return t; };
+  return applyLut(src, comp(lr), comp(lg), comp(lb));
+}
+
+/** Tone equalizer: gains (−100…100) for five bands of a blurred luminance mask (blacks, shadows, midtones, highlights, whites); local contrast stays. */
+export function toneEqualizer(src: Raster, gains: [number, number, number, number, number], radius = 24): Raster {
+  const mask = gaussianBlur(src, radius), out = copy(src), d = out.data, mk = mask.data;
+  const centers = [0, 64, 128, 192, 255];
+  for (let i = 0; i < d.length; i += 4) {
+    const l = lumOf(mk[i], mk[i + 1], mk[i + 2]);
+    let g = 0, wsum = 0;
+    for (let b = 0; b < 5; b++) { const w = Math.max(0, 1 - Math.abs(l - centers[b]) / 64); g += gains[b] * w; wsum += w; }
+    if (wsum) g /= wsum;
+    if (!g) continue;
+    const k = Math.pow(2, g / 100); // ±1 EV at full gain
+    d[i] = clamp(d[i] * k); d[i + 1] = clamp(d[i + 1] * k); d[i + 2] = clamp(d[i + 2] * k);
+  }
+  return out;
+}
+
+export type SelectiveRange = 'reds' | 'yellows' | 'greens' | 'cyans' | 'blues' | 'magentas' | 'whites' | 'neutrals' | 'blacks';
+export interface SelectiveAdjust { hue?: number; saturation?: number; lightness?: number }
+const RANGE_HUE: Record<string, number> = { reds: 0, yellows: 60, greens: 120, cyans: 180, blues: 240, magentas: 300 };
+/** Selective color: hue shift (°), saturation and lightness (−100…100) applied to pixels in a color range, with soft edges. */
+export function selectiveColor(src: Raster, ranges: Partial<Record<SelectiveRange, SelectiveAdjust>>): Raster {
+  const out = copy(src), d = out.data;
+  const active = Object.entries(ranges).filter(([, a]) => a && (a.hue || a.saturation || a.lightness)) as [SelectiveRange, SelectiveAdjust][];
+  if (!active.length) return out;
+  for (let i = 0; i < d.length; i += 4) {
+    const hsl0 = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+    let h = hsl0[0] * 360, s = hsl0[1], l = hsl0[2];
+    let dh = 0, ds = 0, dl = 0;
+    for (const [name, a] of active) {
+      let w: number;
+      if (name === 'whites') w = Math.max(0, (l - 0.7) / 0.3) * Math.max(0, 1 - s * 2);
+      else if (name === 'blacks') w = Math.max(0, (0.3 - l) / 0.3) * Math.max(0, 1 - s * 2);
+      else if (name === 'neutrals') w = Math.max(0, 1 - s * 4) * (l > 0.15 && l < 0.85 ? 1 : 0);
+      else { let dist = Math.abs(((h - RANGE_HUE[name]) % 360 + 540) % 360 - 180); w = Math.max(0, 1 - dist / 45) * Math.min(1, s * 3); }
+      if (!w) continue;
+      dh += (a.hue || 0) * w; ds += (a.saturation || 0) * w; dl += (a.lightness || 0) * w;
+    }
+    if (!dh && !ds && !dl) continue;
+    h = (h + dh + 360) % 360; s = Math.max(0, Math.min(1, s * (1 + ds / 100))); l = Math.max(0, Math.min(1, l + (dl / 100) * (dl > 0 ? 1 - l : l)));
+    const [r, g, b] = hslToRgb(h / 360, s, l); d[i] = r; d[i + 1] = g; d[i + 2] = b;
+  }
+  return out;
+}
+
+export interface Lut3d { size: number; data: Float32Array; title: string; domainMin: [number, number, number]; domainMax: [number, number, number] }
+/** Parses an Adobe/Resolve .cube file (3-D; 1-D tables are expanded). */
+export function parseCube(text: string): Lut3d {
+  let size = 0, size1d = 0, title = ''; const dmin: [number, number, number] = [0, 0, 0], dmax: [number, number, number] = [1, 1, 1]; const vals: number[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line || line.startsWith('#')) continue;
+    const m = line.match(/^([A-Z_0-9]+)\s*(.*)$/);
+    if (m && /^[A-Z_]/.test(line) && !/^[-+.\d]/.test(line)) {
+      if (m[1] === 'LUT_3D_SIZE') size = +m[2]; else if (m[1] === 'LUT_1D_SIZE') size1d = +m[2]; else if (m[1] === 'TITLE') title = m[2].replace(/^"|"$/g, '');
+      else if (m[1] === 'DOMAIN_MIN') m[2].split(/\s+/).forEach((v, i) => { dmin[i] = +v; }); else if (m[1] === 'DOMAIN_MAX') m[2].split(/\s+/).forEach((v, i) => { dmax[i] = +v; });
+      continue;
+    }
+    const nums = line.split(/\s+/).map(Number); if (nums.length >= 3 && nums.every((n) => Number.isFinite(n))) vals.push(nums[0], nums[1], nums[2]);
+  }
+  if (size1d && !size) {
+    // Expand a 1-D table into a small 3-D one.
+    const s = Math.min(33, size1d), data = new Float32Array(s * s * s * 3);
+    const at = (c: number, t: number) => { const p = t * (size1d - 1), i0 = Math.floor(p), i1 = Math.min(size1d - 1, i0 + 1), f = p - i0; return vals[i0 * 3 + c] * (1 - f) + vals[i1 * 3 + c] * f; };
+    for (let b = 0; b < s; b++) for (let g = 0; g < s; g++) for (let r = 0; r < s; r++) { const o = ((b * s + g) * s + r) * 3; data[o] = at(0, r / (s - 1)); data[o + 1] = at(1, g / (s - 1)); data[o + 2] = at(2, b / (s - 1)); }
+    return { size: s, data, title, domainMin: dmin, domainMax: dmax };
+  }
+  if (!size || vals.length < size * size * size * 3) throw new Error(`Not a complete .cube file (${vals.length / 3} of ${size * size * size} entries).`);
+  return { size, data: Float32Array.from(vals.slice(0, size * size * size * 3)), title, domainMin: dmin, domainMax: dmax };
+}
+/** Applies a 3-D LUT with trilinear interpolation; `strength` 0–1 blends with the original. */
+export function applyLut3d(src: Raster, lut: Lut3d, strength = 1): Raster {
+  const out = copy(src), d = out.data, n = lut.size, L = lut.data, mx = n - 1;
+  const idx = (r: number, g: number, b: number) => ((b * n + g) * n + r) * 3;
+  for (let i = 0; i < d.length; i += 4) {
+    const rr = ((d[i] / 255 - lut.domainMin[0]) / (lut.domainMax[0] - lut.domainMin[0])) * mx, gg = ((d[i + 1] / 255 - lut.domainMin[1]) / (lut.domainMax[1] - lut.domainMin[1])) * mx, bb = ((d[i + 2] / 255 - lut.domainMin[2]) / (lut.domainMax[2] - lut.domainMin[2])) * mx;
+    const r0 = Math.max(0, Math.min(mx, Math.floor(rr))), g0 = Math.max(0, Math.min(mx, Math.floor(gg))), b0 = Math.max(0, Math.min(mx, Math.floor(bb)));
+    const r1 = Math.min(mx, r0 + 1), g1 = Math.min(mx, g0 + 1), b1 = Math.min(mx, b0 + 1);
+    const fr = Math.max(0, Math.min(1, rr - r0)), fg = Math.max(0, Math.min(1, gg - g0)), fb = Math.max(0, Math.min(1, bb - b0));
+    for (let c = 0; c < 3; c++) {
+      const c00 = L[idx(r0, g0, b0) + c] * (1 - fr) + L[idx(r1, g0, b0) + c] * fr, c10 = L[idx(r0, g1, b0) + c] * (1 - fr) + L[idx(r1, g1, b0) + c] * fr;
+      const c01 = L[idx(r0, g0, b1) + c] * (1 - fr) + L[idx(r1, g0, b1) + c] * fr, c11 = L[idx(r0, g1, b1) + c] * (1 - fr) + L[idx(r1, g1, b1) + c] * fr;
+      const v = ((c00 * (1 - fg) + c10 * fg) * (1 - fb) + (c01 * (1 - fg) + c11 * fg) * fb) * 255;
+      d[i + c] = clamp(d[i + c] + (v - d[i + c]) * strength);
+    }
+  }
+  return out;
+}
+
+/** Dust and scratches: pixels that differ from the local median by more than `threshold` take the median (radius 1–8). Returns the result and the mask of replaced pixels. */
+export function dustScratches(src: Raster, radius = 2, threshold = 24): { raster: Raster; mask: Uint8Array } {
+  const med = despeckle(src, radius), out = copy(src), d = out.data, m = med.data, mask = new Uint8Array(src.width * src.height);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const diff = Math.max(Math.abs(d[i] - m[i]), Math.abs(d[i + 1] - m[i + 1]), Math.abs(d[i + 2] - m[i + 2]));
+    if (diff > threshold) { d[i] = m[i]; d[i + 1] = m[i + 1]; d[i + 2] = m[i + 2]; mask[j] = 1; }
+  }
+  return { raster: out, mask };
+}
+
+/** Descreen: removes a halftone screen of about `period` pixels (blur at half the period, then a mild unsharp mask to bring back edges). */
+export function descreen(src: Raster, period = 4, restore = 40): Raster {
+  const soft = gaussianBlur(src, Math.max(1, period / 2));
+  return restore ? unsharpMask(soft, restore, Math.max(2, period), 4) : soft;
+}

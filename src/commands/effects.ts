@@ -9,7 +9,7 @@ import type { App } from '../app';
 import { openDialog, toast } from '../ui/dialog';
 import type { Field } from '../ui/dialog';
 import { h } from '../ui/dom';
-import { adjustDialog, range } from './adjust';
+import { adjustDialog, range, STEP_FNS, recordStep } from './adjust';
 import { editSelection, editRaster, frameRaster, rasterFrame } from '../picture/edit';
 import { crop, resample, hexToRgb } from '../picture/ops';
 import * as E from '../picture/effects';
@@ -30,9 +30,10 @@ async function runEffect(app: App, fx: Effect): Promise<void> {
     if (!r) return;
     editRaster(app, fx.title.replace(/…$/, ''), (x) => fx.fn(x, r));
     last = { fx, values: r };
+    STEP_FNS.set(fx.id, { fn: fx.fn, whole: true, label: fx.title.replace(/…$/, '') }); recordStep(app, { id: fx.id, values: r });
     return;
   }
-  const r = await adjustDialog(app, fx.title, fx.fields, fx.fn, { help: fx.help });
+  const r = await adjustDialog(app, fx.title, fx.fields, fx.fn, { help: fx.help, id: fx.id, label: fx.title.replace(/…$/, '') });
   if (r) last = { fx, values: r };
 }
 

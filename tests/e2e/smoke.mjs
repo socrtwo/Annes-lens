@@ -415,6 +415,27 @@ try {
   });
   check('duplicates grouped', [/1 group/.test(dup.title), dup.cards, dup.marked, dup.order], [true, 3, 2, 4]);
 
+  // Adjust: Curves with the Brighten preset through its dialog, then Copy / Paste Adjustments onto the next picture.
+  const cv = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const dialog = async () => { for (let i = 0; i < 60; i++) { if (document.querySelector('.ql-dialog .ql-primary') && document.querySelector('.ql-dialog-preview img')) return true; await wait(50); } return false; };
+    const before = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
+    const run = qn.exec('adjust.curves'); const d1 = await dialog();
+    const curve = !!document.querySelector('.ql-dialog canvas.qn-curve');
+    const presetSel = document.querySelectorAll('.ql-dialog select')[1]; presetSel.value = 'Brighten'; presetSel.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(300);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(200);
+    const after = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
+    await qn.exec('adjust.copySettings'); await wait(50);
+    await qn.exec('view.next'); await wait(500);
+    const name2 = qn.picture.name; const b2 = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
+    await qn.exec('adjust.pasteSettings'); await wait(200);
+    const a2 = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
+    return { d1, curve, before, after, name2, b2, a2, label: qn.tab.undoLabel };
+  });
+  check('curves preset brightens', [cv.d1, cv.curve, cv.after[1] > cv.before[1]], [true, true, true]);
+  check('paste adjustments replays the curve', [cv.a2[1] > cv.b2[1], cv.label], [true, 'Paste Adjustments']);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));
