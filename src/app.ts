@@ -168,6 +168,7 @@ export class App {
   private listeners = new Set<(app: App) => void>();
   lastCommand: { id: string; arg?: any } | null = null;
   keyIndex = new Map<string, string>();
+  keyCandidates = new Map<string, string[]>();
   /** Copied picture (for Paste as New Picture when the system clipboard is not readable). */
   clip: Picture | null = null;
   /** Copied pixels (the selection) when the system clipboard is not readable. */
@@ -187,9 +188,16 @@ export class App {
   savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
 
   rebuildKeyIndex(): void {
-    this.keyIndex.clear();
-    for (const c of allCommands()) for (const k of c.keys || []) this.keyIndex.set(canonicalKey(k), c.id);
-    for (const [k, id] of Object.entries(this.prefs.keymap)) { if (id) this.keyIndex.set(canonicalKey(k), id); else this.keyIndex.delete(canonicalKey(k)); }
+    this.keyIndex.clear(); this.keyCandidates.clear();
+    // The first registered command keeps a shared key; the others stay as candidates used when it is disabled (Space: Next Picture, or Pause while a slideshow runs).
+    for (const c of allCommands()) for (const k of c.keys || []) { const ck = canonicalKey(k); if (!this.keyIndex.has(ck)) this.keyIndex.set(ck, c.id); const l = this.keyCandidates.get(ck) || []; l.push(c.id); this.keyCandidates.set(ck, l); }
+    for (const [k, id] of Object.entries(this.prefs.keymap)) { const ck = canonicalKey(k); if (id) { this.keyIndex.set(ck, id); this.keyCandidates.set(ck, [id, ...(this.keyCandidates.get(ck) || []).filter((x) => x !== id)]); } else { this.keyIndex.delete(ck); this.keyCandidates.delete(ck); } }
+  }
+  /** The command a key should run now: the first candidate that is enabled. */
+  commandForKey(ck: string): string | undefined {
+    const list = this.keyCandidates.get(ck) || (this.keyIndex.has(ck) ? [this.keyIndex.get(ck)!] : []);
+    for (const id of list) { const c = getCommand(id); if (c && (!c.isEnabled || c.isEnabled(this))) return id; }
+    return list[0];
   }
 
   // ------------------------------------------------------------------------------------------

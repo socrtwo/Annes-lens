@@ -20,7 +20,7 @@ function nav(app: App, d: number): void {
   if (document.fullscreenElement || document.body.classList.contains('ql-fullscreen')) app.viewer.flash(`${f.index + 1} / ${f.length}  ${f.current?.name || ''}`);
 }
 
-function fullScreen(app: App, on: boolean): void {
+export function fullScreen(app: App, on: boolean): void {
   document.body.classList.toggle('ql-fullscreen', on);
   try { if (on) void document.documentElement.requestFullscreen?.(); else if (document.fullscreenElement) void document.exitFullscreen(); } catch { /* not allowed */ }
   void keepAwake(on);

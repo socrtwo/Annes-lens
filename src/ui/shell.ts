@@ -556,7 +556,7 @@ export class Shell {
     if (document.querySelector('.ql-overlay')) return;
     const t = e.target as HTMLElement;
     const inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
-    const id = this.app.keyIndex.get(canonicalKey(k));
+    const id = this.app.commandForKey(canonicalKey(k));
     if (!id) {
       // The plan's Alt+1…Alt+9 (Quick Move) and Alt+Shift+1…9 (Quick Copy): one command, nine slots.
       const q = canonicalKey(k).match(/^Alt-(Shift-)?([1-9])$/);

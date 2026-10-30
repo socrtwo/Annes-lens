@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **357 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **368 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -10,7 +10,7 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (5) · Organize (7) · View (3) · Share (4)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (5) · Organize (7) · View (4) · Share (4)
 - **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
 - **Edit**: Undo (3) · Clipboard (9) · Select (5) · Crop (5) · Add (5) · Paint and markup (1) · Find (1)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
@@ -23,6 +23,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (11) · Display (5) · Quick Access Bar and search (5)
+- **Slideshow**: Slideshow (11)
 - **Developer**: Developer (5)
 - **Help**: Help (8)
 
@@ -30,17 +31,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 129 |
-| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 26 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 130 |
+| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 27 |
 | XnView style (`xnview`) | XnView MP browser and viewer | 99 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 69 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 46 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 29 |
-| Picasa style (`picasa`) | Picasa 3 | 44 |
-| Preview style (`preview`) | macOS Preview | 41 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 30 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 218 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 357 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 72 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 47 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 30 |
+| Picasa style (`picasa`) | Picasa 3 | 45 |
+| Preview style (`preview`) | macOS Preview | 42 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 31 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 221 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 368 |
 
 ## File (59 of 82)
 
@@ -446,6 +447,22 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Search Commands | Quick Access Bar and search | Alt+q | `view.cmdSearch` | from the Anne's Office suite |
 | Show Quick Access Bar | Quick Access Bar and search |  | `view.qatShow` | not in tabs; from the Anne's Office suite |
 
+## Slideshow (11 of 13)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Captions | Slideshow |  | `show.captions` | from IrfanView, XnView Classic and XnView MP |
+| Export as HTML Slideshow… | Slideshow |  | `show.exportHtml` | from FastStone Image Viewer, IrfanView |
+| Kiosk Mode | Slideshow |  | `show.kiosk` | from new in Anne's Lens |
+| Loop | Slideshow |  | `show.loop` | from IrfanView |
+| Pause / Resume | Slideshow | Space | `show.pause` | from most picture viewers |
+| Random Order | Slideshow |  | `show.random` | from IrfanView |
+| Slideshow Settings… | Slideshow | w | `show.settings` | from IrfanView |
+| Start from Current | Slideshow | Shift+F5 | `show.fromCurrent` |  |
+| Start Slideshow | Slideshow | Ctrl+F5 | `show.start` | from IrfanView, most picture viewers |
+| Timing | Slideshow |  | `show.timing` | has options menu; from IrfanView |
+| Transition | Slideshow |  | `show.transition` | has options menu; from FastStone Image Viewer, Picasa, Google Photos |
+
 ## Developer (5 of 7)
 
 | Command | Group | Shortcut | ID | Notes |
@@ -469,7 +486,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (200)
+## Planned, not yet built (189)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -483,7 +500,7 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Create** (8): `create.panoramaStitch`, `create.movie`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.extractEmbedded`
 - **RAW** (1): `raw.develop`
 - **View** (21): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.filmstrip`, `view.navigator`, `view.infoPane`, `view.language`, `view.measure`, `view.colorManaged`, `view.stereo`, `view.sphere`, `view.twoPage`, `view.rtl`, `view.compare`, `view.compareSplit`, `view.diffOverlay`, `view.syncWindows`, `view.mediaPlay`, `view.mediaFrame`, `view.motionPhoto`
-- **Slideshow** (13): `show.start`, `show.fromCurrent`, `show.settings`, `show.transition`, `show.timing`, `show.loop`, `show.random`, `show.music`, `show.captions`, `show.pause`, `show.kiosk`, `show.remote`, `show.exportHtml`
+- **Slideshow** (2): `show.music`, `show.remote`
 - **Tools** (14): `tools.ocr`, `tools.ocrToPen`, `tools.readCode`, `tools.makeQr`, `tools.docCleanup`, `tools.restoreWizard`, `tools.preflight`, `tools.printCalc`, `tools.paletteExtract`, `tools.vectorize`, `tools.compareFolders`, `tools.backup`, `tools.plugins`, `tools.external`
 - **AI** (56): `ai.generate`, `ai.variations`, `ai.sketchToImage`, `ai.generateWithRefs`, `ai.generateBackground`, `ai.generateVector`, `ai.generateTile`, `ai.imageToPrompt`, `ai.generateCompare`, `ai.promptLibrary`, `ai.editInstruction`, `ai.fill`, `ai.erase`, `ai.expand`, `ai.replace`, `ai.removeBackground`, `ai.replaceBackground`, `ai.blurBackground`, `ai.relight`, `ai.recolor`, `ai.restyle`, `ai.upscale`, `ai.deblur`, `ai.denoise`, `ai.colorize`, `ai.repairDamage`, `ai.removeReflection`, `ai.translateText`, `ai.combineGroupShots`, `ai.smartCrop`, `ai.selectSubject`, `ai.selectByPrompt`, `ai.depth`, `ai.describe`, `ai.altText`, `ai.ask`, `ai.autoTag`, `ai.caption`, `ai.transcribe`, `ai.identify`, `ai.estimateDate`, `ai.cullAssist`, `ai.searchContent`, `ai.findSimilarSemantic`, `ai.batch`, `ai.contentCredentials`, `ai.history`, `ai.setup`, `ai.providers`, `ai.active`, `ai.privacy`, `ai.ensembleMode`, `ai.ensembleMembers`, `ai.showDeliberation`, `ai.stop`, `ai.deleteModels`
 - **Developer** (2): `dev.console`, `dev.cliHelp`

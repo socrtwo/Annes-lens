@@ -550,6 +550,26 @@ try {
   check('grayscale preview leaves the pixels', [Math.abs(ov.gray[0] - ov.gray[1]) < 3, ov.pixel[0] > 150 && ov.pixel[1] < 80], [true, true]);
   check('clipping marks the white area red', [ov.clipped[0] > 200, ov.clipped[1] < 80, ov.osd], [true, true, true]);
 
+  // Slideshow: a 1-second show over three pictures advances, pauses on Space and stops on Escape, restoring the view.
+  const sl = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const mk = (v) => { const c = document.createElement('canvas'); c.width = 30; c.height = 20; const x = c.getContext('2d'); x.fillStyle = v; x.fillRect(0, 0, 30, 20); return c; };
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await blob(mk('#f00'))], 's1.png'), new File([await blob(mk('#0f0'))], 's2.png'), new File([await blob(mk('#00f'))], 's3.png')]); await wait(600);
+    qn.prefs.slideshow = { seconds: 0.6, transition: 'fade', transitionMs: 100, loop: true, random: false, captions: true };
+    const SH = await window.__qnShow();
+    await qn.exec('show.start'); await wait(100);
+    const running = SH.show.running, full = document.body.classList.contains('ql-fullscreen'), osd = (await window.__qnOverlays()).viewState.osd;
+    const i0 = qn.folder.index; await wait(900); const i1 = qn.folder.index;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true })); await wait(50); const paused = SH.show.paused;
+    await wait(900); const i2 = qn.folder.index;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(100);
+    return { running, full, osd, i0, i1, paused, i2, stopped: !SH.show.running, fullAfter: document.body.classList.contains('ql-fullscreen'), osdAfter: (await window.__qnOverlays()).viewState.osd };
+  });
+  check('slideshow runs full screen with captions and advances', [sl.running, sl.full, sl.osd, sl.i0, sl.i1], [true, true, true, 0, 1]);
+  check('slideshow pauses on Space and stops on Escape', [sl.paused, sl.i2, sl.stopped, sl.fullAfter, sl.osdAfter], [true, 1, true, false, false]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

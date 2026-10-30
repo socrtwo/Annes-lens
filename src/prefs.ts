@@ -85,6 +85,8 @@ export interface Prefs {
   metaTemplates: { name: string; fields: Record<string, string> }[];
   /** Keywords typed so far (autocomplete). */
   keywordHistory: string[];
+  /** Slideshow settings (partial; defaults fill the rest). */
+  slideshow: Record<string, any>;
   /** Information Overlay template. */
   osdTemplate: string;
   /** Copy Color Under Pointer format. */
@@ -143,7 +145,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -190,6 +192,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
   if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.slideshow && !isObj(out.slideshow)) delete out.slideshow;
   if (out.batchRecipes) out.batchRecipes = out.batchRecipes.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.actions)).slice(0, 60);
   if (out.adjustPresets) out.adjustPresets = out.adjustPresets.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.steps) && r.steps.every((x: any) => isObj(x) && typeof x.id === 'string' && isObj(x.values))).slice(0, 60);
   if (out.metaTemplates) out.metaTemplates = out.metaTemplates.filter((r: any) => isObj(r) && typeof r.name === 'string' && isObj(r.fields)).slice(0, 40);

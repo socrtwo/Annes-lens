@@ -20,6 +20,7 @@ import './effects';
 import './lossless';
 import './view';
 import './viewTools';
+import './slideshow';
 import './pages';
 import './pagesEdit';
 import './meta';
