@@ -21,6 +21,7 @@ import './lossless';
 import './view';
 import './viewTools';
 import './slideshow';
+import './tools';
 import './pages';
 import './pagesEdit';
 import './meta';

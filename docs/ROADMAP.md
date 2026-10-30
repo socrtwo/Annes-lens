@@ -60,7 +60,8 @@
 - [x] Contact Sheet (pictures or PDF through the app's own PDF writer), Join Side by Side, Image Strip, Comparison Picture, Collage, Animation from Pictures, Multipage TIFF or PDF (own TIFF writer), Icon Set, Extract All Frames.
 - [ ] Stitch Panorama, Slideshow Video, Web Gallery, Calendar Page, Photo Book, Focus Stack, Exposure Merge, Extract Embedded Pictures.
 - [x] Loupe, rulers, grid and guides, clipping warnings, focus peaking, histogram and information overlays, copy color; display adjustments, grayscale preview, color-blindness simulation.
-- [ ] Compare up to four, before/after slider, difference overlay, synchronized windows, measure.
+- [x] Difference Overlay; Find Files (name, size, dimensions, dates, caption text); Compare Folders; the Tools tab's Print Size Calculator, Extract Palette, Make QR Code, Document Cleanup, Restore Old Photo, Print Check; Encrypt / Open Encrypted Picture (.qlpe), Save Selection As, Recover Pictures from Any File.
+- [ ] Compare up to four, before/after slider, synchronized windows, measure.
 - [x] Slideshow with transitions (fade, wipe, slide, zoom, pan and zoom, random), timing, order, loop, captions through the information overlay, kiosk mode, HTML export.
 - [ ] Background music and the phone remote.
 - [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.

@@ -36,6 +36,7 @@ app.ui.tabsChanged();
 (window as any).__qnEffects = () => import('./picture/effects');
 (window as any).__qnSimilar = () => import('./picture/similar');
 (window as any).__qnAnim = () => Promise.all([import('./codecs/pngenc'), import('./codecs/tiffwrite'), import('./commands/pagesEdit')]).then(([a, t, pe]) => ({ ...a, ...t, ...pe }));
+(window as any).__qnTools = () => Promise.all([import('./codecs/qr'), import('./codecs/carve'), import('./codecs/encrypt'), import('./commands/tools')]).then(([q, c, e, t]) => ({ ...q, ...c, ...e, ...t }));
 (window as any).__qnShow = () => import('./picture/slideshow');
 (window as any).__qnOverlays = () => import('./ui/overlays');
 (window as any).__qnNative = () => import('./platform/native');

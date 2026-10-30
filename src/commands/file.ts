@@ -32,6 +32,7 @@ export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Fo
 /** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder; an archive opens as a folder. */
 export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow?: boolean } = {}): Promise<void> {
   if (!files.length) return;
+  if (files.length === 1 && /\.qlpe$/i.test(files[0].name)) { const { openEncrypted } = await import('./tools'); await openEncrypted(app, files[0].name, new Uint8Array(files[0].data)); return; }
   if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name) || (files.length === 1 && new Uint8Array(files[0].data, 0, 4).join(',') === '80,75,3,4')) {
     const folder = await archiveFolder(files[0].name, files[0].data);
     if (folder) { await app.openFolder(folder, 0, opts); return; }

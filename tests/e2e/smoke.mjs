@@ -570,6 +570,29 @@ try {
   check('slideshow runs full screen with captions and advances', [sl.running, sl.full, sl.osd, sl.i0, sl.i1], [true, true, true, 0, 1]);
   check('slideshow pauses on Space and stops on Escape', [sl.paused, sl.i2, sl.stopped, sl.fullAfter, sl.osdAfter], [true, 1, true, false, false]);
 
+  // Tools: a QR code opened as a picture through its dialog, an encrypted package round trip, carving pictures out of junk, and Document Cleanup through its dialog.
+  const tl = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const T = await window.__qnTools();
+    const windows = qn.tabs.length;
+    const run = qn.exec('tools.makeQr'); for (let i = 0; i < 60 && !(document.querySelector('.ql-dialog .ql-primary') && document.querySelector('.ql-dialog-preview svg')); i++) await wait(50);
+    const ta = document.querySelector('.ql-dialog textarea'); ta.value = 'https://example.org/lens'; ta.dispatchEvent(new Event('input', { bubbles: true })); await wait(150);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(600);
+    const qrName = qn.picture?.name, qrSize = qn.picture?.width, qrWindows = qn.tabs.length;
+    const px = qn.viewer.pixelAt(0, 0); const corner = px ? px[0] : -1; const finder = qn.viewer.pixelAt(4 * 8 + 4, 4 * 8 + 4)[0];
+    const pkg = await T.encryptPicture(qn.picture.bytes, 'qr.png', 'pass-word-1', 3000); const back = await T.decryptPicture(pkg, 'pass-word-1');
+    let wrong = ''; try { await T.decryptPicture(pkg, 'nope'); } catch (e) { wrong = e.message; }
+    const junk = new Uint8Array(50).fill(7); const all = new Uint8Array([...junk, ...qn.picture.bytes, ...junk]); const carved = T.carvePictures(all);
+    const run2 = qn.exec('tools.docCleanup'); for (let i = 0; i < 80 && !(document.querySelector('.ql-dialog .ql-primary') && document.querySelector('.ql-dialog-preview img')); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run2; await wait(300);
+    return { qrName, qrSize, newWindow: qrWindows === windows + 1, corner, finder, back: back.name === 'qr.png' && back.bytes.length === qn.picture.bytes.length, wrong, carved: carved.map((c) => [c.format, c.offset, c.width]), label: qn.tab.undoLabel };
+  });
+  check('qr code opened as a picture', [tl.qrName, tl.newWindow, tl.corner, tl.finder], ['qr-code.png', true, 255, 0]);
+  check('qr size is version 2 with a quiet zone', tl.qrSize, (25 + 8) * 8);
+  check('encrypted package round trip', [tl.back, /Wrong password/.test(tl.wrong)], [true, true]);
+  check('carved the png out of junk', tl.carved, [['png', 50, (25 + 8) * 8]]);
+  check('document cleanup applied', tl.label, 'Document Cleanup');
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));
