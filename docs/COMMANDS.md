@@ -1,8 +1,8 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **104 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **220 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
-4 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
+7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
 This file is generated from the source by `npm run catalog`; a unit test fails when it is out of date.
 
@@ -10,11 +10,14 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (3) · Navigate (5) · Rotate (4) · View (3) · Share (3)
-- **File**: Open (7) · Save (5) · Print (3) · Share (2) · Close and options (10)
-- **Edit**: Undo (2) · Clipboard (3)
-- **Image**: Information (3) · Rotate and flip (6)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (5) · Organize (3) · View (3) · Share (4)
+- **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
+- **Edit**: Undo (2) · Clipboard (9) · Select (5) · Crop (4) · Add (2)
+- **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
+- **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
+- **Browse**: Views (5) · Rate and label (1) · Catalog (1)
 - **Metadata**: View and edit (1)
+- **Batch**: Batch (7)
 - **Pages and Frames** (contextual): Pages (3) · Frames (4)
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (2) · Display (2) · Quick Access Bar and search (5)
 - **Developer**: Developer (5)
@@ -24,38 +27,67 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 54 |
-| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 9 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 35 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 19 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 18 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 20 |
-| Picasa style (`picasa`) | Picasa 3 | 16 |
-| Preview style (`preview`) | macOS Preview | 31 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 8 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 64 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 104 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 98 |
+| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 23 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 74 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 50 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 35 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 27 |
+| Picasa style (`picasa`) | Picasa 3 | 30 |
+| Preview style (`preview`) | macOS Preview | 38 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 16 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 144 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 220 |
 
-## File (30 of 82)
+## File (59 of 82)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
 | Clear Recent Lists | Open |  | `file.clearRecent` | not in tabs |
+| Open and Repair… | Open |  | `file.openRepair` | from the Anne's Office suite |
+| Open as Hex | Open |  | `file.openHex` | from IrfanView, XnView Classic and XnView MP |
+| Open as Text | Open |  | `file.openText` | from IrfanView |
 | Open Folder… | Open | Ctrl+Shift+o | `file.openFolder` | from XnView Classic and XnView MP, FastStone Image Viewer, digiKam |
 | Open in New Window | Open | Ctrl+n | `file.newWindow` | from nomacs, Preview, IrfanView |
+| Open RAW Pixel Data… | Open |  | `file.openRawPixels` | from IrfanView |
+| Open URL… | Open |  | `file.openUrl` | from IrfanView, XnView Classic and XnView MP |
 | Open With (system) | Open |  | `file.openWith` | from Microsoft Photos, Preview, Android gallery apps |
+| Open with External Editor | Open | Shift+e | `file.openExternal` | has options menu; from IrfanView, XnView Classic and XnView MP |
 | Open… | Open | o, Ctrl+o | `file.open` | from IrfanView, most picture viewers |
 | Recent Files | Open |  | `file.openRecent` | has options menu; from IrfanView, XnView Classic and XnView MP |
 | Recent Folders | Open |  | `file.recentFolders` | has options menu; from XnView Classic and XnView MP, FastStone Image Viewer |
+| Recovery Report | Open |  | `file.recoveryReport` | from the Anne's Office suite |
 | Show in Folder | Open | Ctrl+Shift+e | `file.revealInFolder` | from IrfanView, XnView Classic and XnView MP, Microsoft Photos |
 | Reload | Save | Shift+r | `file.reload` | from IrfanView |
 | Save | Save | Ctrl+s | `file.save` | from IrfanView, most picture viewers |
 | Save a Copy… | Save |  | `file.saveCopy` |  |
 | Save All Changed | Save | Ctrl+Shift+s | `file.saveAll` | from new in Anne's Lens |
 | Save As… | Save | s | `file.saveAs` | from IrfanView |
+| Save for Web… | Save | Ctrl+Alt+s | `file.saveForWeb` | from IrfanView, XnView Classic and XnView MP |
+| Save to Target File Size… | Save |  | `file.saveTargetSize` | from IrfanView, new in Anne's Lens |
+| Export Animation (GIF, WebP, APNG)… | Export |  | `file.export.animation` | from XnView Classic and XnView MP, new in Anne's Lens |
+| Export as Icon (.ico, .icns)… | Export |  | `file.export.icon` | from Graphic Workshop, IrfanView |
+| Export Metadata as CSV… | Export |  | `file.export.metadataCsv` | from XnView Classic and XnView MP, digiKam |
+| Export Palette… | Export |  | `file.export.palette` | from IrfanView |
+| Change File Date/Time… | Files |  | `file.setFileTime` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Copy File Name | Files |  | `file.copyName` | not in tabs; from IrfanView |
 | Copy Full Path | Files |  | `file.copyPath` | not in tabs; from XnView Classic and XnView MP |
+| Copy To… | Files | F8 | `file.copyTo` | from IrfanView |
+| Delete | Files | Delete | `file.delete` | from IrfanView, most picture viewers |
+| Delete Permanently | Files | Shift+Delete | `file.deletePermanent` | from IrfanView, XnView Classic and XnView MP |
+| File Date from EXIF Date | Files |  | `file.fileTimeFromExif` | from XnView Classic and XnView MP, IrfanView |
+| Move To… | Files | F7 | `file.moveTo` | from IrfanView |
+| Quick Copy to Folder 1–9 | Files |  | `file.quickCopy` | has options menu; from FastStone Image Viewer, XnView Classic and XnView MP, FastPictureViewer |
+| Quick Move to Folder 1–9 | Files |  | `file.quickMove` | has options menu; from FastStone Image Viewer, XnView Classic and XnView MP, FastPictureViewer |
+| Rename… | Files | F2 | `file.rename` | from IrfanView, most picture viewers |
+| Undo File Operation | Files | Ctrl+Alt+z | `file.undoFileOp` | from new in Anne's Lens |
+| Camera Capture | Acquire |  | `file.captureCamera` | from new in Anne's Lens |
+| Screen Capture… | Acquire | c | `file.capture` | from IrfanView, Preview, FastStone Image Viewer |
+| Print at True Size… | Print |  | `file.printTrueSize` | from new in Anne's Lens |
+| Print Copies and Posters… | Print |  | `file.copyShop` | from IrfanView |
+| Print Layouts (several per page)… | Print |  | `file.printLayouts` | from Windows Photo Viewer and Windows Picture and Fax Viewer, Microsoft Photos, Picasa, FastStone Image Viewer |
 | Print Preview | Print |  | `file.printPreview` | from IrfanView, Microsoft Photos |
+| Print Setup… | Print |  | `file.printSetup` | not in tabs; from IrfanView |
 | Print… | Print | Ctrl+p | `file.print` | from IrfanView, most picture viewers |
 | Quick Print | Print |  | `file.quickPrint` |  |
 | Email… | Share | Ctrl+Shift+m | `file.email` | from IrfanView, Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa, FastStone Image Viewer |
@@ -71,35 +103,137 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Portable Mode | Close and options |  | `file.portableMode` | from IrfanView, XnView Classic and XnView MP |
 | Reset All Customizations | Close and options |  | `file.resetCustomizations` | from the Anne's Office suite |
 
-## Edit (5 of 55)
+## Edit (23 of 55)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
 | Redo | Undo | Ctrl+Shift+z | `edit.redo` | from most picture viewers |
 | Undo | Undo | Ctrl+z | `edit.undo` | from IrfanView, most picture viewers |
+| Clear Selection | Clipboard |  | `edit.clear` | from IrfanView |
 | Copy | Clipboard | Ctrl+c | `edit.copy` | from IrfanView, most picture viewers |
+| Cut | Clipboard | Ctrl+x | `edit.cut` | from IrfanView |
+| Cut Outside Selection | Clipboard | Ctrl+Shift+x | `edit.cutOutside` | from IrfanView |
+| Fill Selection… | Clipboard |  | `edit.fill` | from IrfanView, XnView Classic and XnView MP |
 | Paste | Clipboard | Ctrl+v | `edit.paste` | from IrfanView, most picture viewers |
 | Paste as New Picture | Clipboard | Ctrl+Shift+v | `edit.pasteAsNew` | from IrfanView, XnView Classic and XnView MP |
+| Paste Beside | Clipboard |  | `edit.pasteBeside` | has options menu; from IrfanView |
+| Paste into Selection | Clipboard |  | `edit.pasteInto` | from IrfanView |
+| Custom Selection… | Select | Shift+c | `edit.customSelection` | from IrfanView |
+| Maximize Selection to Aspect Ratio | Select |  | `edit.selectMaxAspect` | has options menu; from IrfanView |
+| Rectangle Selection | Select |  | `edit.selectRect` | from most picture viewers |
+| Select All | Select | Ctrl+a | `edit.selectAll` | from most picture viewers |
+| Select None | Select | Ctrl+d | `edit.selectNone` | from most picture viewers |
+| Selection Information | Select |  | `edit.selectionInfo` | not in tabs; from IrfanView |
+| Auto Crop Borders | Crop | Shift+x | `edit.autoCrop` | from IrfanView |
+| Crop for Print Size… | Crop |  | `edit.cropPrint` | from Picasa |
+| Crop Selection | Crop | Ctrl+y | `edit.crop` | from IrfanView |
+| Crop to Aspect Ratio… | Crop |  | `edit.cropAspect` | from Microsoft Photos, Preview, Apple Photos and iPhoto |
+| Add Border or Frame… | Add |  | `edit.border` | from IrfanView, FastStone Image Viewer |
+| Change Canvas Size… | Add | Shift+v | `edit.canvasSize` | from IrfanView |
 
-## Image (9 of 41)
+## Image (29 of 41)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
 | Count Unique Colors | Information |  | `image.countColors` | from IrfanView |
+| Estimate JPEG Quality | Information |  | `image.jpegQuality` | from XnView Classic and XnView MP, new in Anne's Lens |
 | Histogram | Information | Shift+h | `image.histogram` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
 | Picture Information | Information | i | `image.info` | from IrfanView, most picture viewers |
+| Show Channel | Information |  | `image.showChannel` | has options menu; not in tabs; from IrfanView, XnView Classic and XnView MP |
 | Auto-Rotate by EXIF Orientation | Rotate and flip |  | `image.autoRotateExif` | from IrfanView, XnView Classic and XnView MP |
+| Custom Rotation… | Rotate and flip | Ctrl+u | `image.rotateCustom` | from IrfanView |
 | Flip Horizontal | Rotate and flip | h | `image.flipH` | from IrfanView |
 | Flip Vertical | Rotate and flip | v | `image.flipV` | from IrfanView |
 | Rotate 180° | Rotate and flip |  | `image.rotate180` |  |
 | Rotate Left | Rotate and flip | l | `image.rotateLeft` | from IrfanView, most picture viewers |
 | Rotate Right | Rotate and flip | r | `image.rotateRight` | from IrfanView, most picture viewers |
+| Lossless Auto-Rotate by EXIF | Lossless JPEG |  | `image.losslessAutoRotate` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Lossless Crop | Lossless JPEG |  | `image.losslessCrop` | from IrfanView, XnView Classic and XnView MP |
+| Lossless JPEG Transformations… | Lossless JPEG | Shift+j | `image.losslessJpeg` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
+| Double Size | Size | Shift+= | `image.doubleSize` | from IrfanView |
+| Half Size | Size | Shift+- | `image.halfSize` | from IrfanView |
+| Resize / Resample… | Size | Ctrl+r | `image.resize` | from IrfanView |
+| Resize to Screen | Size |  | `image.resizeToScreen` | from IrfanView |
+| Set Print Resolution (DPI)… | Size |  | `image.setDpi` | from IrfanView |
+| Black and White (Threshold)… | Color depth and palette |  | `image.threshold` | from IrfanView |
+| Convert to Grayscale | Color depth and palette | Ctrl+g | `image.grayscale` | from IrfanView |
+| Decrease Color Depth… | Color depth and palette |  | `image.decreaseDepth` | from IrfanView |
+| Flatten Transparency | Color depth and palette |  | `image.flatten` |  |
+| Increase Color Depth | Color depth and palette |  | `image.increaseDepth` | from IrfanView |
+| Negative | Color depth and palette | Ctrl+Shift+n | `image.negative` | has options menu; from IrfanView |
+| Replace Color… | Color depth and palette |  | `image.replaceColor` | from IrfanView |
+| Swap Color Channels | Color depth and palette |  | `image.swapChannels` | has options menu; from IrfanView |
+| Transparent Color… | Color depth and palette |  | `image.transparentColor` | from IrfanView, Graphic Workshop |
+
+## Adjust (35 of 47)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Auto Color | Automatic |  | `adjust.autoColor` | from XnView Classic and XnView MP |
+| Auto Contrast | Automatic |  | `adjust.autoContrast` | from XnView Classic and XnView MP |
+| Auto Levels | Automatic |  | `adjust.autoLevels` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Auto White Balance | Automatic |  | `adjust.autoWhiteBalance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Auto-Adjust Colors | Automatic | Shift+u | `adjust.auto` | from IrfanView |
+| One-Click Enhance | Automatic | Ctrl+e | `adjust.enhance` | from Picasa, Microsoft Photos, Apple Photos and iPhoto |
+| Brightness and Contrast… | Tone |  | `adjust.brightnessContrast` | from most picture viewers |
+| Clarity… | Tone |  | `adjust.clarity` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop) |
+| Color Corrections… | Tone | Shift+g | `adjust.colorCorrections` | from IrfanView |
+| Dehaze… | Tone |  | `adjust.dehaze` | from Lightroom Classic (Library and Develop) |
+| Equalize Histogram | Tone |  | `adjust.equalize` | from XnView Classic and XnView MP |
+| Exposure… | Tone |  | `adjust.exposure` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Fill Light | Tone |  | `adjust.fillLight` | from Picasa |
+| Gamma… | Tone |  | `adjust.gamma` | from IrfanView |
+| Levels… | Tone | Ctrl+l | `adjust.levels` | from FastStone Image Viewer, XnView Classic and XnView MP |
+| Normalize | Tone |  | `adjust.normalize` | from XnView Classic and XnView MP |
+| Shadows and Highlights… | Tone |  | `adjust.shadowsHighlights` | from FastStone Image Viewer, Lightroom Classic (Library and Develop) |
+| Vignette… | Tone |  | `adjust.vignette` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop), FastStone Image Viewer |
+| Black-and-White Mixer… | Color |  | `adjust.bwMixer` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Channel Mixer… | Color |  | `adjust.channelMixer` | from XnView Classic and XnView MP, digiKam |
+| Color Balance… | Color |  | `adjust.colorBalance` | from FastStone Image Viewer, XnView Classic and XnView MP |
+| Hue, Saturation and Lightness… | Color |  | `adjust.hsl` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Posterize… | Color |  | `adjust.posterize` | from XnView Classic and XnView MP |
+| Tint and Sepia… | Color |  | `adjust.tint` | from Picasa, XnView Classic and XnView MP |
+| Vibrance… | Color |  | `adjust.vibrance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Warmify | Color |  | `adjust.warmify` | from Picasa |
+| White Balance… | Color |  | `adjust.whiteBalance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Blur… | Detail and retouch |  | `adjust.blur` | from IrfanView |
+| Despeckle | Detail and retouch |  | `adjust.despeckle` | from XnView Classic and XnView MP |
+| Noise Reduction… | Detail and retouch |  | `adjust.denoise` | from Lightroom Classic (Library and Develop), digiKam |
+| Red-Eye Reduction | Detail and retouch | Shift+y | `adjust.redEye` | from IrfanView, Picasa, Microsoft Photos |
+| Restore Faded Colors | Detail and retouch |  | `adjust.restoreFaded` | from new in Anne's Lens |
+| Sharpen | Detail and retouch | Shift+s | `adjust.sharpen` | from IrfanView |
+| Unsharp Mask… | Detail and retouch |  | `adjust.unsharp` | from IrfanView, XnView Classic and XnView MP |
+| Before / After | Presets and history | \ | `adjust.beforeAfter` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+
+## Browse (7 of 40)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Open Archive as Folder | Views |  | `browse.openArchive` | from Honeyview, XnView Classic and XnView MP |
+| Sort By | Views |  | `browse.sort` | has options menu; from IrfanView, XnView Classic and XnView MP |
+| Thumbnail Size | Views |  | `browse.thumbSize` | has options menu; from IrfanView, XnView Classic and XnView MP |
+| Thumbnails | Views | t | `browse.thumbnails` | from IrfanView |
+| View Mode | Views |  | `browse.viewMode` | has options menu; from XnView Classic and XnView MP, ACDSee |
+| Select by Pattern… | Rate and label |  | `browse.selectPattern` | from XnView Classic and XnView MP |
+| Refresh | Catalog | F5 | `browse.refresh` | from XnView Classic and XnView MP, IrfanView |
 
 ## Metadata (1 of 26)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
 | EXIF Information | View and edit | e | `meta.exif` | from IrfanView, most picture viewers |
+
+## Batch (7 of 13)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Batch Conversion and Rename… | Batch | b | `batch.convert` | from IrfanView |
+| Batch Lossless JPEG… | Batch |  | `batch.lossless` | from IrfanView, XnView Classic and XnView MP |
+| Batch Rename… | Batch | Ctrl+b | `batch.rename` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
+| Optimize Files… | Batch |  | `batch.optimize` | from IrfanView, new in Anne's Lens |
+| Preview Batch (Dry Run) | Batch |  | `batch.dryRun` | from new in Anne's Lens |
+| Undo Last Batch | Batch |  | `batch.undo` | from new in Anne's Lens |
+| Web and Email Sizes… | Batch |  | `batch.webPresets` | has options menu; from Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa |
 
 ## Pages and Frames (7 of 15)
 
@@ -127,7 +261,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Keep Position | Zoom |  | `view.keepPosition` | from XnView Classic and XnView MP, new in Anne's Lens |
 | Lock Zoom | Zoom |  | `view.zoomLock` | from IrfanView, XnView Classic and XnView MP |
 | Original Size | Zoom | Ctrl+h | `view.actualSize` | from IrfanView |
-| Zoom In | Zoom | =, Shift+= | `view.zoomIn` | from IrfanView, most picture viewers |
+| Zoom In | Zoom | = | `view.zoomIn` | from IrfanView, most picture viewers |
 | Zoom Out | Zoom | + | `view.zoomOut` | from IrfanView, most picture viewers |
 | First Picture | Navigate | Home | `view.first` | from IrfanView |
 | Go to Picture Number… | Navigate | Ctrl+Shift+j | `view.gotoIndex` | from new in Anne's Lens |
@@ -180,18 +314,18 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (453)
+## Planned, not yet built (337)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
-- **File** (52): `file.openUrl`, `file.openRawPixels`, `file.openHex`, `file.openText`, `file.openExternal`, `file.openRepair`, `file.recoverAny`, `file.recoveryReport`, `file.openEncrypted`, `file.saveSelection`, `file.saveForWeb`, `file.saveTargetSize`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.export.animation`, `file.export.icon`, `file.export.palette`, `file.export.metadataCsv`, `file.rename`, `file.moveTo`, `file.copyTo`, `file.delete`, `file.deletePermanent`, `file.quickMove`, `file.quickCopy`, `file.undoFileOp`, `file.copyAsFile`, `file.setFileTime`, `file.fileTimeFromExif`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.capture`, `file.captureCamera`, `file.printLayouts`, `file.printTrueSize`, `file.copyShop`, `file.printSetup`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
-- **Edit** (50): `edit.history`, `edit.cut`, `edit.cutOutside`, `edit.pasteInto`, `edit.pasteBeside`, `edit.clear`, `edit.fill`, `edit.selectAll`, `edit.selectNone`, `edit.selectInvert`, `edit.customSelection`, `edit.selectMaxAspect`, `edit.selectionInfo`, `edit.selectRect`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.crop`, `edit.cropAspect`, `edit.cropPrint`, `edit.autoCrop`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.border`, `edit.canvasSize`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
-- **Image** (32): `image.jpegQuality`, `image.showChannel`, `image.rotateCustom`, `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.losslessJpeg`, `image.losslessCrop`, `image.losslessAutoRotate`, `image.resize`, `image.halfSize`, `image.doubleSize`, `image.resizeToScreen`, `image.seamCarve`, `image.setDpi`, `image.grayscale`, `image.negative`, `image.decreaseDepth`, `image.increaseDepth`, `image.threshold`, `image.swapChannels`, `image.paletteEdit`, `image.paletteImport`, `image.replaceColor`, `image.transparentColor`, `image.flatten`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
-- **Adjust** (47): `adjust.auto`, `adjust.enhance`, `adjust.autoLevels`, `adjust.autoContrast`, `adjust.autoColor`, `adjust.autoWhiteBalance`, `adjust.colorCorrections`, `adjust.brightnessContrast`, `adjust.exposure`, `adjust.levels`, `adjust.curves`, `adjust.gamma`, `adjust.shadowsHighlights`, `adjust.fillLight`, `adjust.toneEqualizer`, `adjust.equalize`, `adjust.normalize`, `adjust.clarity`, `adjust.dehaze`, `adjust.vignette`, `adjust.whiteBalance`, `adjust.hsl`, `adjust.vibrance`, `adjust.colorBalance`, `adjust.selectiveColor`, `adjust.channelMixer`, `adjust.bwMixer`, `adjust.tint`, `adjust.warmify`, `adjust.posterize`, `adjust.lut`, `adjust.sharpen`, `adjust.unsharp`, `adjust.blur`, `adjust.denoise`, `adjust.despeckle`, `adjust.redEye`, `adjust.dustScratches`, `adjust.restoreFaded`, `adjust.descreen`, `adjust.beforeAfter`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
+- **File** (23): `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
+- **Edit** (32): `edit.history`, `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
+- **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
+- **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (47): `fx.browser`, `fx.repeatLast`, `fx.convolution`, `fx.plugins8bf`, `fx.emboss`, `fx.oilPaint`, `fx.edgeDetect`, `fx.median`, `fx.pencilSketch`, `fx.watercolor`, `fx.cartoon`, `fx.halftone`, `fx.mosaic`, `fx.pixelize`, `fx.solarize`, `fx.tiles`, `fx.button3d`, `fx.filmGrain`, `fx.softFocus`, `fx.glow`, `fx.focalBW`, `fx.graduatedTint`, `fx.orton`, `fx.crossProcess`, `fx.toyCamera`, `fx.tiltShift`, `fx.duotone`, `fx.noise`, `fx.swirl`, `fx.explosion`, `fx.rain`, `fx.fragment`, `fx.spread`, `fx.shift`, `fx.radialBlur`, `fx.zoomBlur`, `fx.fishEye`, `fx.wave`, `fx.glass`, `fx.ripple`, `fx.pinch`, `fx.polar`, `fx.dropShadow`, `fx.reflection`, `fx.roundCorners`, `fx.instantFrame`, `fx.vignetteFrame`
-- **Browse** (40): `browse.thumbnails`, `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.thumbSize`, `browse.viewMode`, `browse.sort`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.openArchive`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.rate`, `browse.colorLabel`, `browse.favorite`, `browse.pick`, `browse.reject`, `browse.unflag`, `browse.selectPattern`, `browse.selectRejected`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`, `browse.refresh`
+- **Browse** (33): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.rate`, `browse.colorLabel`, `browse.favorite`, `browse.pick`, `browse.reject`, `browse.unflag`, `browse.selectRejected`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (25): `meta.iptc`, `meta.xmp`, `meta.comment`, `meta.caption`, `meta.keywords`, `meta.copyright`, `meta.regions`, `meta.template`, `meta.copyFrom`, `meta.diff`, `meta.sidecarMode`, `meta.shiftDate`, `meta.geotag`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.removeGps`, `meta.strip`, `meta.privacyCheck`, `meta.provenance`, `meta.checksum`, `meta.fixity`, `meta.citation`, `meta.personLink`, `meta.exportCsv`, `meta.importCsv`
-- **Batch** (13): `batch.convert`, `batch.rename`, `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.lossless`, `batch.watermark`, `batch.webPresets`, `batch.multipage`, `batch.optimize`, `batch.dryRun`, `batch.undo`
+- **Batch** (6): `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.watermark`, `batch.multipage`
 - **Create** (17): `create.contactSheet`, `create.panoramaJoin`, `create.panoramaStitch`, `create.imageStrip`, `create.collage`, `create.movie`, `create.animation`, `create.multipage`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.icon`, `create.comparison`, `create.extractFrames`, `create.extractEmbedded`
 - **Pages and Frames** (8): `pages.insert`, `pages.delete`, `pages.extract`, `pages.reorder`, `frames.editor`, `frames.reverse`, `frames.loopCount`, `frames.optimize`
 - **RAW** (4): `raw.preview`, `raw.develop`, `raw.preferPreview`, `raw.extractPreview`

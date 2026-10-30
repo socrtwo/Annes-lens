@@ -65,6 +65,23 @@ export interface Prefs {
   /** Saving */
   jpegQuality: number;
   defaultSaveFormat: string;
+  /** Save and Save As: carry EXIF, XMP and the color profile into JPEG, PNG and WebP output. */
+  keepMetadata: boolean;
+  /** Save As: run-length encode TGA files. */
+  tgaRle: boolean;
+  /** Print at True Size: measured ÷ expected length from the calibration ruler (1 = the printer is exact). */
+  printScale: number;
+  /** Print Setup: paper, orientation, margins (mm), captions, default fit. */
+  print: { paper: string; orientation: 'auto' | 'portrait' | 'landscape'; margin: number; captions: boolean; fit: 'page' | 'actual' };
+  /** Open with External Editor: up to nine programs (desktop). */
+  externalEditors: { name: string; path: string }[];
+  /** Quick Move / Quick Copy targets 1–9 (Alt+1…9, Alt+Shift+1…9); an empty uri is an unset slot. */
+  quickFolders: { name: string; uri: string }[];
+  /** Ask before deleting a file. */
+  confirmDelete: boolean;
+  /** Thumbnails: size in CSS pixels and the last panel mode. */
+  thumbSize: number;
+  thumbMode: 'grid' | 'strip';
   /** Sort order for folders */
   sort: 'name' | 'natural' | 'date' | 'size' | 'type';
   sortDescending: boolean;
@@ -106,7 +123,9 @@ export function defaultPrefs(): Prefs {
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
-    jpegQuality: 90, defaultSaveFormat: 'png',
+    jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
+    print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
+    quickFolders: [], confirmDelete: true, thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -152,6 +171,9 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
       .map((t: any) => ({ ...t, label: String(t.label ?? t.id), groups: t.groups.filter(isObj).map((g: any) => ({ ...g, id: String(g.id ?? ''), label: String(g.label ?? ''), items: strings(g.items) })) }));
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
+  if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.print) out.print = { ...d.print, ...Object.fromEntries(Object.entries(out.print).filter(([k, v]) => k in d.print && typeof v === typeof (d.print as any)[k])) };
   if (out.macros) out.macros = out.macros.filter((m: any) => isObj(m) && typeof m.name === 'string' && Array.isArray(m.steps) && m.steps.every((s: any) => isObj(s) && typeof s.id === 'string'));
   if (typeof out.jpegQuality === 'number') out.jpegQuality = Math.max(1, Math.min(100, Math.round(out.jpegQuality)));
   if (typeof out.prefetch === 'number') out.prefetch = Math.max(0, Math.min(8, Math.round(out.prefetch)));

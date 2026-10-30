@@ -9,9 +9,12 @@ import { toast } from './ui/dialog';
 import { canonicalKey } from './util/keys';
 import type { Shell } from './ui/shell';
 import type { Viewer } from './ui/viewer';
+import type { ThumbPanel } from './ui/thumbs';
 import { Folder, type Entry } from './picture/folder';
 import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
+import { Journal } from './picture/journal';
+import { decodeOptions } from './codecs/registry';
 
 let tabCounter = 0;
 
@@ -21,12 +24,19 @@ export class PictureTab {
   id = `t${Date.now().toString(36)}${tabCounter++}`;
   el!: HTMLElement;
   ui!: Viewer;
+  thumbs!: ThumbPanel;
+  /** Pictures marked in the thumbnail panel (for batch and file commands). */
+  marked = new Set<Entry>();
   folder: Folder;
   /** The picture shown, or null while loading / when nothing is open. */
   picture: Picture | null = null;
   loading: Entry | null = null;
   error = '';
   dirty = false;
+  /** The rectangle selection (picture pixels, integers), or null. */
+  selection: { x: number; y: number; w: number; h: number } | null = null;
+  /** Left-drag draws a selection instead of panning (Edit ▸ Rectangle Selection). */
+  selectTool = false;
   created = Date.now();
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
@@ -50,10 +60,23 @@ export class PictureTab {
     const p = this.picture!;
     p.pages = s.pages; p.page = s.page; p.frame = s.frame;
     p.version++;
+    if (this.selection && (this.selection.x + this.selection.w > p.width || this.selection.y + this.selection.h > p.height)) this.selection = null;
+  }
+  setSelection(r: { x: number; y: number; w: number; h: number } | null): void {
+    const p = this.picture;
+    if (!r || !p) this.selection = null;
+    else {
+      const x = Math.max(0, Math.min(p.width, Math.round(r.x))), y = Math.max(0, Math.min(p.height, Math.round(r.y)));
+      const x2 = Math.max(0, Math.min(p.width, Math.round(r.x + r.w))), y2 = Math.max(0, Math.min(p.height, Math.round(r.y + r.h)));
+      this.selection = x2 > x && y2 > y ? { x, y, w: x2 - x, h: y2 - y } : null;
+    }
+    this.ui.draw();
+    this.app.refresh();
   }
   /** Runs an edit as one undoable step. `fn` returns the new pages (never mutating the old ones). */
   edit(label: string, fn: (p: Picture) => void): void {
     if (!this.picture) throw new Error('No picture is open.');
+    if (this.stash) this.showOriginal(false);
     const before = this.snapshot(label);
     fn(this.picture);
     this.picture.version++;
@@ -78,7 +101,18 @@ export class PictureTab {
     this.afterChange();
     return true;
   }
-  clearHistory(): void { this.undoStack = []; this.redoStack = []; }
+  clearHistory(): void { this.undoStack = []; this.redoStack = []; this.stash = null; }
+  private stash: Snapshot | null = null;
+  /** Before / After: shows the picture as it was before the first edit while `on`, without touching the history. */
+  showOriginal(on: boolean): boolean {
+    const p = this.picture;
+    if (!p) return false;
+    if (on) { if (this.stash || !this.undoStack.length) return false; this.stash = this.snapshot('current'); this.restore(this.undoStack[0]); }
+    else { if (!this.stash) return false; this.restore(this.stash); this.stash = null; }
+    this.ui.pictureChanged(); this.app.refresh();
+    return true;
+  }
+  get showingOriginal(): boolean { return !!this.stash; }
   afterChange(): void {
     this.dirty = this.undoStack.length > 0;
     this.ui.pictureChanged();
@@ -102,7 +136,7 @@ export class PictureTab {
     try {
       const pic = await this.loader.get(e);
       if (this.folder.current !== e) return; // the user moved on
-      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory();
+      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory(); this.selection = null;
       pic.loadMs = Math.round(performance.now() - t0);
       this.ui.pictureChanged(true);
       this.app.addRecent(e);
@@ -110,14 +144,14 @@ export class PictureTab {
       if (this.folder.current !== e) return;
       this.picture = null; this.loading = null; this.error = err?.message || String(err);
       this.ui.pictureChanged(true);
-      toast(`Could not open ${e.name}: ${this.error}`, { ms: 6000 });
+      toast(`Could not open ${e.name}: ${this.error}`, { ms: 8000, action: 'Repair…', onAction: () => this.app.exec('file.openRepair') });
     }
     this.app.ui.tabsChanged();
     this.app.refresh();
     this.loader.prefetch(this.app.prefs.prefetch);
   }
 
-  destroy(): void { this.loader.clear(); this.ui.destroy(); }
+  destroy(): void { this.loader.clear(); this.ui.destroy(); this.thumbs?.destroy(); }
 }
 
 export class App {
@@ -133,8 +167,12 @@ export class App {
   keyIndex = new Map<string, string>();
   /** Copied picture (for Paste as New Picture when the system clipboard is not readable). */
   clip: Picture | null = null;
+  /** Copied pixels (the selection) when the system clipboard is not readable. */
+  clipRaster: import('./codecs/raster').Raster | null = null;
+  /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
+  journal = new Journal();
 
-  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); }
+  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
 
   get tab(): PictureTab { return this.active; }
   /** The picture in the active window, or null. */
@@ -143,7 +181,7 @@ export class App {
   get folder(): Folder { return this.active.folder; }
 
   onRefresh(fn: (app: App) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); }
+  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
 
   rebuildKeyIndex(): void {
     this.keyIndex.clear();
@@ -210,6 +248,7 @@ export class App {
       this.refreshQueued = false;
       if (!this.active) return;
       this.ui.refresh();
+      this.active.thumbs?.sync();
       for (const l of this.listeners) l(this);
     });
   }

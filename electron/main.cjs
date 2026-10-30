@@ -8,7 +8,7 @@
 // File access is limited to files the user opened or saved through a dialog, opened the app with, or
 // that sit in a folder the user opened, so picture content cannot use the bridge to read arbitrary files.
 'use strict';
-const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu, session, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL, fileURLToPath } = require('node:url');
@@ -26,10 +26,14 @@ app.setPath('sessionData', app.getPath('userData'));
 const DIST = path.join(__dirname, '..', 'dist');
 const SCHEME = 'app';
 const ORIGIN = `${SCHEME}://quilllens`;
-const OPENABLE = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'heic', 'heif', 'hif', 'bmp', 'dib', 'rle', 'ico', 'cur', 'tif', 'tiff', 'svg', 'svgz', 'jxl', 'psd', 'tga'];
+const OPENABLE = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'heic', 'heif', 'hif', 'bmp', 'dib', 'rle', 'ico', 'cur', 'tif', 'tiff', 'svg', 'svgz', 'jxl', 'psd', 'psb', 'tga', 'tpic', 'icb', 'vda', 'vst',
+  'pnm', 'ppm', 'pgm', 'pbm', 'pam', 'pfm', 'qoi', 'pcx', 'dcx', 'xpm', 'xbm', 'wbmp', 'icns', 'dds', 'hdr', 'pic', 'rgbe',
+  'cr2', 'cr3', 'crw', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'raf', 'orf', 'rw2', 'rwl', 'pef', 'dng', '3fr', 'fff', 'iiq', 'x3f', 'srw', 'mrw', 'erf', 'mef', 'mos', 'kdc', 'dcr', 'raw', 'eps', 'epsf', 'ai', 'zip', 'cbz'];
 const MIME = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', apng: 'image/apng', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif', hif: 'image/heif',
-  bmp: 'image/bmp', dib: 'image/bmp', rle: 'image/bmp', ico: 'image/x-icon', cur: 'image/x-icon', tif: 'image/tiff', tiff: 'image/tiff', svg: 'image/svg+xml', svgz: 'image/svg+xml', jxl: 'image/jxl', psd: 'image/vnd.adobe.photoshop', tga: 'image/x-tga',
+  bmp: 'image/bmp', dib: 'image/bmp', rle: 'image/bmp', ico: 'image/x-icon', cur: 'image/x-icon', tif: 'image/tiff', tiff: 'image/tiff', svg: 'image/svg+xml', svgz: 'image/svg+xml', jxl: 'image/jxl', psd: 'image/vnd.adobe.photoshop', psb: 'image/vnd.adobe.photoshop', tga: 'image/x-tga',
+  pnm: 'image/x-portable-anymap', ppm: 'image/x-portable-pixmap', pgm: 'image/x-portable-graymap', pbm: 'image/x-portable-bitmap', pam: 'image/x-portable-anymap', pfm: 'image/x-portable-floatmap', qoi: 'image/qoi', pcx: 'image/x-pcx', dcx: 'image/x-pcx',
+  xpm: 'image/x-xpixmap', xbm: 'image/x-xbitmap', wbmp: 'image/vnd.wap.wbmp', icns: 'image/icns', dds: 'image/vnd-ms.dds', hdr: 'image/vnd.radiance', pic: 'image/vnd.radiance', rgbe: 'image/vnd.radiance', dng: 'image/x-adobe-dng', eps: 'application/postscript', epsf: 'application/postscript', ai: 'application/postscript', zip: 'application/zip', cbz: 'application/vnd.comicbook+zip',
 };
 
 protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
@@ -195,6 +199,99 @@ function registerIpc() {
     win.setContentSize(Math.max(360, Math.min(area.width, Math.round(width))), Math.max(300, Math.min(area.height, Math.round(height))));
   });
   handle('getArgs', async () => ({ args: process.argv.slice(1) }));
+
+  // File operations (M2). Every source must be a granted file; every destination a granted folder.
+  const grantedDir = (uri) => {
+    if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a folder address');
+    const dir = path.resolve(fileURLToPath(uri));
+    if (!grantedDirs.has(dir)) throw new Error('Anne\'s Lens has no permission for this folder; choose it again.');
+    return dir;
+  };
+  const safeName = (name) => { const n = path.basename(String(name || '')).trim(); if (!n || n === '.' || n === '..' || /[\\/:*?"<>|\0]/.test(n)) throw new Error('That is not a valid file name.'); return n; };
+  const freeName = (dir, name, allowSame) => {
+    if (allowSame || !fs.existsSync(path.join(dir, name))) return name;
+    const ext = path.extname(name), base = name.slice(0, name.length - ext.length);
+    for (let i = 2; i < 10000; i++) { const n = `${base} (${i})${ext}`; if (!fs.existsSync(path.join(dir, n))) return n; }
+    throw new Error('No free file name');
+  };
+  const done = (p) => { grant(p); grantDir(path.dirname(p)); return { uri: pathToFileURL(p).href, name: path.basename(p) }; };
+  handle('renameDocument', async ({ uri, name }) => {
+    const p = grantedPath(uri, true);
+    const target = path.join(path.dirname(p), safeName(name));
+    if (target !== p && fs.existsSync(target) && target.toLowerCase() !== p.toLowerCase()) throw new Error(`A file named "${path.basename(target)}" already exists.`);
+    fs.renameSync(p, target);
+    return done(target);
+  });
+  handle('deleteDocument', async ({ uri, permanent }) => {
+    const p = grantedPath(uri, true);
+    if (permanent) { fs.unlinkSync(p); return { ok: true, trashed: false }; }
+    try { await shell.trashItem(p); return { ok: true, trashed: true }; }
+    catch (e) { throw new Error(`Could not move the file to the ${process.platform === 'win32' ? 'Recycle Bin' : 'Trash'}: ${e && e.message ? e.message : e}`); }
+  });
+  handle('pickFolder', async ({ title }) => {
+    const r = await dialog.showOpenDialog(win, { title: String(title || 'Choose a folder'), properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return { canceled: true };
+    const dir = r.filePaths[0];
+    grantDir(dir);
+    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir };
+  });
+  const transfer = (move) => async ({ uri, dirUri, name }) => {
+    const p = grantedPath(uri, true);
+    const dir = grantedDir(dirUri);
+    const target = path.join(dir, freeName(dir, safeName(name || path.basename(p)), false));
+    if (move) { try { fs.renameSync(p, target); } catch { fs.copyFileSync(p, target, fs.constants.COPYFILE_EXCL); fs.unlinkSync(p); } }
+    else fs.copyFileSync(p, target, fs.constants.COPYFILE_EXCL);
+    return done(target);
+  };
+  handle('moveFile', transfer(true));
+  handle('copyFile', transfer(false));
+  handle('createInFolder', async ({ dirUri, name, data }) => {
+    const dir = grantedDir(dirUri);
+    const target = path.join(dir, safeName(name));
+    fs.writeFileSync(target, Buffer.from(String(data || ''), 'base64'));
+    return done(target);
+  });
+  // Open URL: fetched here so picture hosts need no CORS headers; the renderer gets bytes and a name.
+  handle('fetchUrl', async ({ url }) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('Only http(s) addresses can be opened');
+    const res = await net.fetch(url, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`The server answered ${res.status} ${res.statusText}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > 256 * 1024 * 1024) throw new Error('The file is larger than 256 MB');
+    let name = '';
+    const cd = res.headers.get('content-disposition') || '';
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) { try { name = decodeURIComponent(m[1]); } catch { name = m[1]; } }
+    if (!name) { try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ } }
+    return { name: name || 'picture', mime: res.headers.get('content-type') || 'application/octet-stream', data: buf.toString('base64') };
+  });
+  // Open with External Editor: a configured program (picked through a dialog) gets the file's path.
+  handle('pickProgram', async () => {
+    const filters = process.platform === 'win32' ? [{ name: 'Programs', extensions: ['exe', 'bat', 'cmd'] }, { name: 'All files', extensions: ['*'] }] : undefined;
+    const r = await dialog.showOpenDialog(win, { title: 'Choose a program', properties: ['openFile'], filters });
+    if (r.canceled || !r.filePaths[0]) return { canceled: true };
+    return { path: r.filePaths[0], name: path.basename(r.filePaths[0]).replace(/\.(exe|app)$/i, '') };
+  });
+  handle('openWithProgram', async ({ uri, program }) => {
+    const p = grantedPath(uri);
+    if (typeof program !== 'string' || !program) throw new Error('No program configured');
+    const { spawn } = require('node:child_process');
+    try {
+      let child;
+      if (process.platform === 'darwin' && /\.app$/i.test(program)) child = spawn('open', ['-a', program, p], { detached: true, stdio: 'ignore' });
+      else child = spawn(program, [p], { detached: true, stdio: 'ignore' });
+      child.on('error', () => undefined);
+      child.unref();
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e && e.message ? e.message : String(e) }; }
+  });
+  handle('setFileTime', async ({ uri, mtime }) => {
+    const p = grantedPath(uri, true);
+    const t = new Date(Number(mtime));
+    if (Number.isNaN(t.getTime())) throw new Error('Bad time');
+    fs.utimesSync(p, t, t);
+    return { ok: true };
+  });
   handle('getPortableMode', async () => {
     let available = true;
     try { fs.accessSync(exeDir, fs.constants.W_OK); } catch { available = false; }
@@ -236,6 +333,18 @@ const CSP = [
   "base-uri 'self'",
   "frame-src 'none'",
 ].join('; ');
+
+// Screen Capture: getDisplayMedia in the renderer is answered with the primary screen (or a window by name).
+function setupDisplayMedia() {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } }).then((sources) => {
+      const want = String(request.frame && request.frame.url && new URL(request.frame.url).searchParams.get('capture') || '');
+      const pick = (want && sources.find((s) => s.id === want)) || sources.find((s) => s.id.startsWith('screen')) || sources[0];
+      if (!pick) { callback({}); return; }
+      callback({ video: pick });
+    }).catch(() => callback({}));
+  }, { useSystemPicker: true });
+}
 
 function serveApp() {
   protocol.handle(SCHEME, async (req) => {
@@ -310,6 +419,7 @@ app.whenReady().then(() => {
   for (const f of pendingFiles) { grant(f); grantDir(path.dirname(f)); }
   serveApp();
   registerIpc();
+  try { setupDisplayMedia(); } catch (e) { console.warn('display media handler', e); }
   buildMenu();
   createWindow();
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });

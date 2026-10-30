@@ -8,6 +8,7 @@ import { prettyKey, canonicalKey, keyName } from '../util/keys';
 import { customizeQat, customizeRibbon, customizeKeyboard } from './customize';
 import { renderBackstage } from './backstage';
 import { Viewer } from './viewer';
+import { ThumbPanel } from './thumbs';
 import { QAT_STANDARD, QAT_EXTRAS } from '../prefs';
 import { CLASSIC_MENUS, DEFAULT_LAYOUT, type ClassicItem } from './classicMenus';
 import { PLAN_COMMANDS } from '../plan.generated';
@@ -76,7 +77,8 @@ export class Shell {
   mountTab(tab: PictureTab): void {
     const v = new Viewer(this.app, tab);
     tab.ui = v;
-    tab.el = h('div', { class: 'qn-window' }, v.el);
+    tab.thumbs = new ThumbPanel(this.app, tab);
+    tab.el = h('div', { class: 'qn-window' }, v.el, tab.thumbs.el);
     this.workspace.appendChild(tab.el);
     v.onPointer = (info) => { this.pixelText = info ? `${info.x}, ${info.y}  RGB ${info.rgba[0]}, ${info.rgba[1]}, ${info.rgba[2]}${info.rgba[3] < 255 ? ` α ${info.rgba[3]}` : ''}  #${hex(info.rgba)}` : ''; this.updatePixel(); };
     requestAnimationFrame(() => v.layout());
@@ -363,6 +365,8 @@ export class Shell {
       this.statusEl.appendChild(item(fmtSize(pic.bytes.length), () => app.exec('image.info'), 'File size'));
       if (pic.loadMs) this.statusEl.appendChild(h('span', { class: 'ql-status-item ql-help' }, `${pic.loadMs} ms`));
       if (pic.warnings.length) this.statusEl.appendChild(item(`⚠ ${pic.warnings.length}`, () => app.exec('image.info'), pic.warnings.join('\n'), 'ql-status-track'));
+      if (tab.selection) this.statusEl.appendChild(item(`▭ ${tab.selection.w} × ${tab.selection.h} at ${tab.selection.x}, ${tab.selection.y}`, () => app.exec('edit.customSelection'), 'Selection (click to edit; Ctrl+Y crops)'));
+      else if (tab.selectTool) this.statusEl.appendChild(item('▭ drag to select', () => app.exec('edit.selectRect'), 'Rectangle Selection tool is on (click to turn off)'));
     } else if (tab.loading) this.statusEl.appendChild(h('span', { class: 'ql-status-msg' }, `Loading ${tab.loading.name}…`));
     if (app.recording) this.statusEl.appendChild(item(app.recordingPaused ? '⏸ Paused' : '● REC', () => app.exec('dev.stopRecording'), 'Stop recording macro', 'ql-status-rec'));
     if (this.statusMsg) this.statusEl.appendChild(h('span', { class: 'ql-status-msg' }, this.statusMsg));
@@ -499,7 +503,7 @@ export class Shell {
   pictureContextMenu(x: number, y: number): void {
     const app = this.app;
     const ids = app.picture
-      ? ['view.next', 'view.previous', '|', 'view.fitWindow', 'view.actualSize', 'view.fullScreen', '|', 'image.rotateLeft', 'image.rotateRight', 'image.flipH', 'image.flipV', '|', 'edit.copy', 'file.saveAs', 'file.share', 'file.revealInFolder', 'file.openWith', '|', 'image.info', 'meta.exif']
+      ? ['view.next', 'view.previous', '|', 'view.fitWindow', 'view.actualSize', 'view.fullScreen', '|', ...(app.tab.selection ? ['edit.crop', 'edit.cut', 'edit.copy', 'edit.selectNone', '|'] : ['edit.selectAll', 'edit.copy', '|']), 'image.rotateLeft', 'image.rotateRight', 'image.flipH', 'image.flipV', 'image.resize', '|', 'file.saveAs', 'file.share', 'file.revealInFolder', 'file.openWith', '|', 'image.info', 'meta.exif']
       : ['file.open', 'file.openFolder', 'edit.pasteAsNew'];
     const entries: MenuEntry[] = [];
     for (const id of ids) {
@@ -547,12 +551,18 @@ export class Shell {
     if (e.key === 'Escape') {
       if (document.querySelector('.ql-menu')) { closeMenus(); return; }
       if (this.root.classList.contains('ql-backstage-open')) { this.hideBackstage(); return; }
+      if (this.app.tab.selection && !document.querySelector('.ql-overlay')) { this.app.tab.setSelection(null); return; }
     }
     if (document.querySelector('.ql-overlay')) return;
     const t = e.target as HTMLElement;
     const inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     const id = this.app.keyIndex.get(canonicalKey(k));
-    if (!id) return;
+    if (!id) {
+      // The plan's Alt+1…Alt+9 (Quick Move) and Alt+Shift+1…9 (Quick Copy): one command, nine slots.
+      const q = canonicalKey(k).match(/^Alt-(Shift-)?([1-9])$/);
+      if (q && !inField && this.app.picture) { e.preventDefault(); this.app.exec(q[1] ? 'file.quickCopy' : 'file.quickMove', +q[2]); }
+      return;
+    }
     if (inField) { if (!/^(file\.|view\.cmdSearch)/.test(id) || !(e.ctrlKey || e.metaKey || /^F\d+$/.test(e.key))) return; }
     const c = getCommand(id);
     if (c?.isEnabled && !c.isEnabled(this.app)) return;

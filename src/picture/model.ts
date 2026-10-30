@@ -35,6 +35,8 @@ export interface Page {
 export class Picture {
   /** Bumped whenever pages change (viewer cache key). */
   version = 0;
+  /** The EXIF orientation was applied to the pixels (on decode by the auto-rotate option, or by the command). */
+  orientationApplied = false;
   page = 0;
   frame = 0;
   loadMs = 0;

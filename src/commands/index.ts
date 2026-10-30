@@ -1,7 +1,17 @@
 /** Registers every command module. */
 import './file';
+import './fileTools';
+import './fileOps';
+import './acquire';
+import './print';
+import './browse';
+import './batch';
+import './export';
 import './edit';
 import './image';
+import './imageOps';
+import './adjust';
+import './lossless';
 import './view';
 import './pages';
 import './meta';

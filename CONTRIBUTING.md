@@ -1,6 +1,6 @@
 # Contributing to Anne's Lens
 
-Thank you for your interest. Anne's Lens has reached **milestone 1 (shell and viewer)**; the rest of the plan is open. Useful contributions:
+Thank you for your interest. Anne's Lens has finished **milestone 1 (shell and viewer)** and is in the middle of **milestone 2 (files, formats and lossless)**; the rest of the plan is open. Useful contributions:
 
 - **Feedback on the plan:** missing commands, wrong command placement, menu arrangements that differ from the programs they model, ideas from other picture viewers, and corrections to [docs/INNOVATIONS.md](docs/INNOVATIONS.md), [docs/MENUS-PLAN.md](docs/MENUS-PLAN.md) or [docs/QAT.md](docs/QAT.md). Edit [docs/commands-plan.src.txt](docs/commands-plan.src.txt) or [docs/menus-plan.src.txt](docs/menus-plan.src.txt) and run `python3 scripts/gen-plan.py`; it fails on unknown ids, duplicate ids and shortcut conflicts. Open an issue with the *Feature request* template.
 - **Test files:** pictures you made yourself (or that are openly licensed) in unusual formats, camera RAW samples you may redistribute, multipage and animated files, and damaged files for the recovery engine. Do not attach files you do not have the right to share or that contain private information.

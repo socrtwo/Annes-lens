@@ -3,16 +3,39 @@ import { def } from './registry';
 import type { App, PictureTab } from '../app';
 import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, type Entry } from '../picture/folder';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
-import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, formatById } from '../codecs/registry';
+import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
 import { openDialog, toast, confirmDialog, choiceDialog } from '../ui/dialog';
 import { sanitizePrefs, parseKeyList, DEFAULT_QAT, type Prefs } from '../prefs';
 import { allCommands, getCommand } from './registry';
 import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
+import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 
-/** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder. */
+/** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
+export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
+  const u8 = new Uint8Array(data);
+  const { isZip, readZip, readZipEntry } = await import('../codecs/zip');
+  if (!isZip(u8)) return null;
+  const { entries, warnings } = readZip(u8);
+  const pics = entries.filter((e) => isPictureName(e.name) && !/(^|\/)(__MACOSX|\.)/.test(e.name));
+  if (!pics.length) { toast(`${name} holds no pictures Anne's Lens can open${warnings.length ? ` (${warnings[0]})` : ''}.`); return null; }
+  const list: Entry[] = pics.map((e) => ({
+    name: e.name.split('/').pop() || e.name, uri: null, size: e.size, mtime: e.mtime,
+    read: async () => { const b = readZipEntry(u8, e); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer; },
+  }));
+  const folder = new Folder(list, name);
+  folder.sort('natural');
+  if (warnings.length) toast(`${name}: ${warnings[0]}`, { ms: 6000 });
+  return folder;
+}
+
+/** Opens a set of files (picker, drop, launch). One file on the desktop pulls in its folder; an archive opens as a folder. */
 export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow?: boolean } = {}): Promise<void> {
   if (!files.length) return;
+  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name) || (files.length === 1 && new Uint8Array(files[0].data, 0, 4).join(',') === '80,75,3,4')) {
+    const folder = await archiveFolder(files[0].name, files[0].data);
+    if (folder) { await app.openFolder(folder, 0, opts); return; }
+  }
   const entries = files.map((f) => entryFromBytes(f.name, f.data, f.uri));
   let folder = new Folder(entries, files.length === 1 ? 'Opened file' : `${files.length} files`);
   let index = 0;
@@ -32,6 +55,7 @@ export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow
 }
 
 export async function openDroppedFiles(app: App, files: File[]): Promise<void> {
+  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name)) { const folder = await archiveFolder(files[0].name, await files[0].arrayBuffer()); if (folder) await app.openFolder(folder, 0); return; }
   const list = files.filter((f) => isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name));
   if (!list.length) { toast('None of the dropped files is a picture Anne\'s Lens can open.'); return; }
   const folder = new Folder(list.map(entryFromFile), list.length === 1 ? list[0].name : `${list.length} dropped files`);
@@ -62,34 +86,50 @@ async function openFolderFromDialog(app: App): Promise<void> {
   await app.openFolder(folder, 0);
 }
 
-export type SaveFormat = 'png' | 'jpeg' | 'webp' | 'bmp';
-const EXT: Record<SaveFormat, string> = { png: 'png', jpeg: 'jpg', webp: 'webp', bmp: 'bmp' };
+export type SaveFormat = EncodeFormat;
+const EXT = Object.fromEntries(Object.entries(ENCODERS).map(([k, v]) => [k, v.ext])) as Record<SaveFormat, string>;
+const SAVE_OPTIONS = Object.entries(ENCODERS).map(([value, v]) => ({ value, label: v.label }));
 
 /** Encodes the active picture's current page in the format chosen (asking for options unless given). */
 async function produce(app: App, format?: SaveFormat, quality?: number): Promise<{ blob: Blob; name: string } | null> {
   const pic = app.picture!;
   const base = pic.name.replace(/\.[^.]+$/, '') || 'picture';
   let fmt = format, q = quality;
+  let opts: { rle?: boolean; threshold?: number } = { rle: app.prefs.tgaRle };
   if (!fmt) {
-    const current = (['png', 'jpeg', 'webp', 'bmp'] as SaveFormat[]).find((f) => formatById(f)?.id === pic.format.id || (f === 'jpeg' && pic.format.id === 'jpeg')) || (app.prefs.defaultSaveFormat as SaveFormat) || 'png';
+    const current = encoderFor(pic.format.id) || (ENCODERS[app.prefs.defaultSaveFormat as SaveFormat] ? (app.prefs.defaultSaveFormat as SaveFormat) : 'png');
     const r = await openDialog({ title: 'Save As', fields: [
-      { key: 'format', label: 'Format', type: 'select', options: [{ value: 'png', label: 'PNG (lossless)' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }, { value: 'bmp', label: 'Windows Bitmap' }], value: current },
-      { key: 'quality', label: 'Quality', type: 'range', min: 1, max: 100, value: app.prefs.jpegQuality, visibleIf: (v) => v.format === 'jpeg' || v.format === 'webp' },
-      { key: 'i', type: 'info', label: pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP and BMP; flattened onto white in JPEG. Metadata is not carried over yet (planned for M2).' : 'Metadata is not carried over yet (planned for M2).' },
+      { key: 'format', label: 'Format', type: 'select', options: SAVE_OPTIONS, value: current },
+      { key: 'quality', label: 'Quality', type: 'range', min: 1, max: 100, value: app.prefs.jpegQuality, visibleIf: (v) => !!ENCODERS[v.format as SaveFormat]?.lossy },
+      { key: 'rle', label: 'Compress runs (RLE)', type: 'checkbox', value: app.prefs.tgaRle, visibleIf: (v) => v.format === 'tga' },
+      { key: 'threshold', label: 'Black below this brightness', type: 'range', min: 1, max: 254, value: 128, visibleIf: (v) => v.format === 'wbmp' },
+      { key: 'keepMeta', label: 'Keep metadata (EXIF, XMP, color profile)', type: 'checkbox', value: app.prefs.keepMetadata, visibleIf: (v) => ['jpeg', 'png', 'webp'].includes(v.format) },
+      { key: 'i', type: 'info', label: `${pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP, BMP, TGA, PAM and QOI; flattened onto white in JPEG, PPM, PGM and WBMP. ' : ''}${hasMeta(extractMeta(pic.bytes)) ? 'The file\'s EXIF, XMP and color profile go into JPEG, PNG and WebP output when "Keep metadata" is on; the orientation tag is reset when the picture was turned upright.' : 'This file carries no EXIF, XMP or color profile to pass on.'}` },
     ], ok: 'Save' });
     if (!r) return null;
-    fmt = r.format; q = r.quality; app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.savePrefs();
+    fmt = r.format; q = r.quality; opts = { rle: !!r.rle, threshold: +r.threshold || 128 };
+    app.prefs.jpegQuality = q!; app.prefs.defaultSaveFormat = fmt!; app.prefs.tgaRle = !!r.rle; app.prefs.keepMetadata = !!r.keepMeta; app.savePrefs();
   }
   const c = pic.frameCanvas();
-  const blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100);
+  let blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
+  if (app.prefs.keepMetadata && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty);
   return { blob, name: `${base}.${EXT[fmt!]}` };
+}
+
+/** Adds the source file's EXIF, XMP and ICC profile to an encoded JPEG, PNG or WebP; `upright` resets the Orientation tag. */
+export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg' | 'png' | 'webp', upright: boolean): Promise<Blob> {
+  const meta = extractMeta(source);
+  if (!hasMeta(meta)) return blob;
+  if (meta.exif && upright) meta.exif = setExifOrientation(meta.exif, 1);
+  const bytes = injectMeta(new Uint8Array(await blob.arrayBuffer()), format, meta);
+  return new Blob([bytes as BlobPart], { type: blob.type });
 }
 
 /** Save: back into the same file when the format can be written and the file is writable; otherwise Save As. */
 export async function saveTab(app: App, tab: PictureTab, opts: { as?: boolean; format?: SaveFormat; copy?: boolean } = {}): Promise<boolean> {
   const pic = tab.picture;
   if (!pic) return false;
-  const writable = (['png', 'jpeg', 'webp', 'bmp'] as SaveFormat[]).find((f) => f === pic.format.id);
+  const writable = encoderFor(pic.format.id);
   if (!opts.as && !opts.copy && pic.entry.uri && writable) {
     try {
       const out = await produce(app, writable, app.prefs.jpegQuality);
@@ -190,7 +230,7 @@ def([
 // Save ----------------------------------------------------------------------------------------
 
 def([
-  { id: 'file.save', icon: 'save', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, tip: 'Writes back to the same file when its format can be written (PNG, JPEG, WebP, BMP); otherwise asks where', run: (app) => saveTab(app, app.tab) },
+  { id: 'file.save', icon: 'save', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, tip: 'Writes back to the same file when its format can be written (PNG, JPEG, WebP, BMP, TGA, PPM, QOI, WBMP); otherwise asks where', run: (app) => saveTab(app, app.tab) },
   { id: 'file.saveAs', icon: 'save_as', popular: true, noRecord: true, isEnabled: (app) => !!app.picture, run: (app, format?: SaveFormat) => saveTab(app, app.tab, { as: true, format: format && EXT[format] ? format : undefined }) },
   { id: 'file.saveCopy', icon: 'file_copy', noRecord: true, isEnabled: (app) => !!app.picture, run: (app) => saveTab(app, app.tab, { as: true, copy: true }) },
   { id: 'file.saveAll', icon: 'library_add_check', noRecord: true, run: async (app) => { for (const t of app.tabs) if (t.dirty && t.picture) { app.activate(t); await saveTab(app, t); } } },
@@ -208,16 +248,18 @@ def([
 
 // Print, share ----------------------------------------------------------------------------------
 
-async function printPicture(app: App, opts: { fit: 'page' | 'actual'; title?: boolean } = { fit: 'page' }): Promise<void> {
+/** Prints the active picture: fitted to the page, or at `dpi` (the file's, or given) times the calibration `scale`. */
+export async function printPicture(app: App, opts: { fit: 'page' | 'actual'; title?: boolean; dpi?: number; scale?: number; extra?: HTMLElement } = { fit: 'page' }): Promise<void> {
   const pic = app.picture;
   if (!pic) return;
   const blob = await encodeCanvas(pic.frameCanvas(), 'png');
   const url = URL.createObjectURL(blob);
   const root = document.getElementById('ql-print-root') || document.body.appendChild(h('div', { id: 'ql-print-root' }));
   root.innerHTML = '';
-  const dpi = pic.current.dpi?.[0] || 96;
-  const img = h('img', { src: url, alt: pic.name, style: opts.fit === 'actual' ? `width:${(pic.width / dpi).toFixed(3)}in;height:auto` : 'max-width:100%;max-height:95vh;object-fit:contain' });
-  root.appendChild(h('div', { class: 'ql-print-page' }, img, opts.title ? h('div', { style: 'font:11px sans-serif;margin-top:4px' }, pic.name) : null));
+  const dpi = opts.dpi || pic.current.dpi?.[0] || 96;
+  const scale = opts.scale || 1;
+  const img = h('img', { src: url, alt: pic.name, style: opts.fit === 'actual' ? `width:${((pic.width / dpi) * scale).toFixed(4)}in;height:auto;max-width:none` : 'max-width:100%;max-height:95vh;object-fit:contain' });
+  root.appendChild(h('div', { class: 'ql-print-page' }, img, opts.title ? h('div', { style: 'font:11px sans-serif;margin-top:4px' }, pic.name) : null, opts.extra || null));
   await new Promise((r) => { img.onload = () => r(null); img.onerror = () => r(null); });
   document.body.classList.add('ql-printing');
   try { await printDocument(pic.name); } finally { setTimeout(() => { document.body.classList.remove('ql-printing'); root.innerHTML = ''; URL.revokeObjectURL(url); }, 1000); }
@@ -228,10 +270,10 @@ def([
     id: 'file.print', icon: 'print', popular: true, noRecord: true, isEnabled: (app) => !!app.picture,
     run: async (app) => {
       const r = await openDialog({ title: 'Print', fields: [
-        { key: 'fit', label: 'Size', type: 'radio', options: [{ value: 'page', label: 'Fit to the page' }, { value: 'actual', label: `Actual size at the picture's resolution (${app.picture!.current.dpi?.[0] || 96} dpi)` }], value: 'page' },
-        { key: 'title', label: 'Print the file name under the picture', type: 'checkbox', value: false },
-        { key: 'i', type: 'info', label: 'Position, scaling, captions and several pictures per page come with M2 (Print Layouts).' },
-      ], ok: 'Print' });
+        { key: 'fit', label: 'Size', type: 'radio', options: [{ value: 'page', label: 'Fit to the page' }, { value: 'actual', label: `Actual size at the picture's resolution (${app.picture!.current.dpi?.[0] || 96} dpi)` }], value: app.prefs.print.fit },
+        { key: 'title', label: 'Print the file name under the picture', type: 'checkbox', value: app.prefs.print.captions },
+        { key: 'i', type: 'info', label: 'Several pictures per page: Print Layouts. Copies and posters: Print Copies and Posters. Paper and margins: Print Setup.' },
+      ], ok: 'Print', buttons: [{ label: 'Setup…', onClick: (_v, ctl) => { ctl.close(null); app.exec('file.printSetup'); } }] });
       if (!r) return;
       app.ui.hideBackstage();
       await printPicture(app, { fit: r.fit, title: r.title });
@@ -322,9 +364,12 @@ def([
         { key: 'statusBar', label: 'Status bar', type: 'checkbox', value: p.statusBar, half: true },
         { key: 'escExits', label: 'Esc closes the app (IrfanView habit; desktop)', type: 'checkbox', value: p.escExits, half: true },
         { key: 'confirmClose', label: 'Ask to save when leaving an edited picture', type: 'checkbox', value: p.confirmClose, half: true },
+        { key: 'confirmDelete', label: 'Ask before deleting a file (Del)', type: 'checkbox', value: p.confirmDelete, half: true },
+        { key: 'bqf', type: 'button', label: 'Quick Move / Quick Copy folders (Alt+1…9)…', onClick: () => app.exec('file.quickMove', 'setup') },
         { key: 'h4', type: 'heading', label: 'Saving' },
         { key: 'jpegQuality', label: 'JPEG / WebP quality', type: 'range', min: 1, max: 100, value: p.jpegQuality, half: true },
-        { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: ['png', 'jpeg', 'webp', 'bmp'], value: p.defaultSaveFormat, half: true },
+        { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: SAVE_OPTIONS, value: p.defaultSaveFormat, half: true },
+        { key: 'keepMetadata', label: 'Keep EXIF, XMP and color profile when saving JPEG, PNG, WebP', type: 'checkbox', value: p.keepMetadata, half: true },
         { key: 'h5', type: 'heading', label: 'Customize' },
         { key: 'bq', type: 'button', label: 'Customize Quick Access Bar…', onClick: () => app.exec('file.customizeQat') },
         { key: 'br', type: 'button', label: 'Customize Tabs (Ribbon)…', onClick: () => app.exec('file.customizeRibbon') },
@@ -337,8 +382,8 @@ def([
         zoomMode: r.zoomMode, wheel: r.wheel, zoomLock: r.zoomLock, keepPosition: r.keepPosition, wrap: r.wrap, autoRotateExif: r.autoRotateExif, smoothZoom: r.smoothZoom, pixelInfo: r.pixelInfo, prefetch: Math.max(0, Math.min(8, +r.prefetch || 0)),
         alphaDisplay: r.alphaDisplay, alphaColor: r.alphaColor, background: String(r.background || '').trim(), fullScreenBackground: r.fullScreenBackground,
         sort: r.sort, sortDescending: r.sortDescending,
-        theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose,
-        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat,
+        theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose, confirmDelete: r.confirmDelete,
+        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat, keepMetadata: !!r.keepMetadata,
       } satisfies Partial<Prefs>);
       app.savePrefs();
       app.ui.applyPrefs();

@@ -15,7 +15,7 @@ export interface Entry {
   read(): Promise<ArrayBuffer>;
 }
 
-const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|ico|cur|tiff?|svgz?|jxl|psd|tga)$/i;
+const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|rle|ico|cur|tiff?|svgz?|jxl|psd|psb|tga|tpic|icb|vda|vst|pnm|ppm|pgm|pbm|pam|pfm|qoi|pcx|dcx|xpm|xbm|wbmp|icns|dds|hdr|pic|rgbe|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|dng|3fr|fff|iiq|x3f|srw|mrw|erf|mef|mos|kdc|dcr|raw|eps|epsf|ai)$/i;
 
 export function isPictureName(name: string): boolean { return PICTURE_EXT.test(name); }
 
@@ -41,9 +41,11 @@ export function entryFromUri(e: FolderEntry): Entry {
 }
 export function entryFromHandle(name: string, handle: any): Entry {
   let uri: string | null = null;
+  const id = async () => { if (!uri) { const { handleId } = await import('../platform/native'); uri = 'fsa:' + (await handleId(handle)); } return uri; };
+  void id();
   return {
     name, get uri() { return uri; }, set uri(v) { uri = v; },
-    read: async () => { const f: File = await handle.getFile(); if (!uri) { const { handleId } = await import('../platform/native'); uri = 'fsa:' + (await handleId(handle)); } return f.arrayBuffer(); },
+    read: async () => { const f: File = await handle.getFile(); await id(); return f.arrayBuffer(); },
   } as Entry;
 }
 
@@ -53,7 +55,7 @@ export class Folder {
   entries: Entry[] = [];
   index = -1;
   name = '';
-  /** Platform address of the folder itself, when known. */
+  /** Platform address of the folder itself, when known (file: URL, Android tree URI, fsadir: handle id). */
   uri: string | null = null;
   private listeners = new Set<() => void>();
 
