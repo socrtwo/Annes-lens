@@ -265,6 +265,132 @@ function registerIpc() {
     if (!name) { try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ } }
     return { name: name || 'picture', mime: res.headers.get('content-type') || 'application/octet-stream', data: buf.toString('base64') };
   });
+  // AI services: an HTTP request from the main process (no cross-origin limits). Body and answer as base64.
+  handle('request', async ({ url, method, headers, body, timeoutMs }) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('Only http(s) addresses can be requested');
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), Math.min(Math.max(Number(timeoutMs) || 180000, 1000), 600000));
+    try {
+      const h = {};
+      for (const [k, v] of Object.entries(headers || {})) if (typeof v === 'string' && /^[\w-]+$/.test(k)) h[k] = v;
+      const res = await net.fetch(url, { method: method === 'POST' ? 'POST' : 'GET', headers: h, body: body ? Buffer.from(String(body), 'base64') : undefined, signal: ctl.signal, redirect: 'follow' });
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 256 * 1024 * 1024) throw new Error('The answer is larger than 256 MB');
+      const out = {}; res.headers.forEach((v, k) => { out[k] = v; });
+      return { status: res.status, headers: out, data: buf.toString('base64') };
+    } catch (e) {
+      if (ctl.signal.aborted) throw new Error('The service did not answer in time');
+      throw e;
+    } finally { clearTimeout(timer); }
+  });
+  // Platform-bound file commands: wallpaper, the OS properties window, Copy as File, file associations,
+  // scanners (SANE on Linux, WIA on Windows) and subfolders for Import from Camera.
+  const { execFile, spawn: spawnProc } = require('node:child_process');
+  const os = require('node:os');
+  const run = (cmd, args, opts = {}) => new Promise((res) => execFile(cmd, args, { timeout: opts.timeout || 60000, maxBuffer: 64 * 1024 * 1024, windowsHide: true, ...opts }, (err, stdout, stderr) => res({ err, stdout: String(stdout || ''), stderr: String(stderr || '') })));
+  const which = (cmd) => new Promise((res) => execFile(process.platform === 'win32' ? 'where' : 'which', [cmd], { windowsHide: true }, (err) => res(!err)));
+  const ps = (script) => run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeout: 180000 });
+  const tempPng = (prefix) => path.join(app.getPath('userData'), `${prefix}-${Date.now()}.png`);
+
+  handle('setWallpaper', async ({ data, which: target }) => {
+    const file = tempPng('wallpaper');
+    fs.writeFileSync(file, Buffer.from(String(data || ''), 'base64'));
+    if (process.platform === 'win32') {
+      const r = await ps(`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class W { [DllImport("user32.dll", SetLastError = true)] public static extern bool SystemParametersInfo(int a, int b, string c, int d); }'; [W]::SystemParametersInfo(20, 0, '${file.replace(/'/g, "''")}', 3)`);
+      if (r.err) throw new Error(r.stderr.trim() || r.err.message);
+      return { ok: true, how: 'SystemParametersInfo' };
+    }
+    if (process.platform === 'darwin') {
+      const r = await run('osascript', ['-e', `tell application "System Events" to set picture of every desktop to POSIX file "${file.replace(/"/g, '\\"')}"`]);
+      if (r.err) throw new Error(r.stderr.trim() || r.err.message);
+      return { ok: true, how: 'System Events' };
+    }
+    const url = pathToFileURL(file).href;
+    if (await which('gsettings')) {
+      const a = await run('gsettings', ['set', 'org.gnome.desktop.background', 'picture-uri', url]);
+      await run('gsettings', ['set', 'org.gnome.desktop.background', 'picture-uri-dark', url]);
+      if (target === 'lock' || target === 'both') await run('gsettings', ['set', 'org.gnome.desktop.screensaver', 'picture-uri', url]);
+      if (!a.err) return { ok: true, how: 'gsettings' };
+    }
+    if (await which('plasma-apply-wallpaperimage')) { const r = await run('plasma-apply-wallpaperimage', [file]); if (!r.err) return { ok: true, how: 'plasma-apply-wallpaperimage' }; }
+    if (await which('xfconf-query')) { const r = await run('xfconf-query', ['-c', 'xfce4-desktop', '-p', '/backdrop/screen0/monitor0/workspace0/last-image', '-s', file]); if (!r.err) return { ok: true, how: 'xfconf-query' }; }
+    if (await which('feh')) { const r = await run('feh', ['--bg-fill', file]); if (!r.err) return { ok: true, how: 'feh' }; }
+    if (await which('pcmanfm')) { const r = await run('pcmanfm', ['--set-wallpaper', file]); if (!r.err) return { ok: true, how: 'pcmanfm' }; }
+    throw new Error(`No supported desktop found to set the wallpaper; the picture is saved at ${file}`);
+  });
+  handle('showProperties', async ({ uri }) => {
+    const p = grantedPath(uri);
+    const st = fs.statSync(p);
+    const info = { path: p, size: st.size, mtime: st.mtimeMs, ctime: st.birthtimeMs || st.ctimeMs, mode: (st.mode & 0o777).toString(8), uid: st.uid, gid: st.gid, os: process.platform };
+    if (process.platform === 'win32') {
+      const child = spawnProc('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', `$s = New-Object -ComObject Shell.Application; $f = $s.Namespace('${path.dirname(p).replace(/'/g, "''")}').ParseName('${path.basename(p).replace(/'/g, "''")}'); $f.InvokeVerb('Properties'); Start-Sleep -Seconds 900`], { detached: true, stdio: 'ignore', windowsHide: true });
+      child.unref();
+      return { ...info, opened: true };
+    }
+    if (process.platform === 'darwin') {
+      const r = await run('osascript', ['-e', `tell application "Finder" to open information window of (POSIX file "${p.replace(/"/g, '\\"')}" as alias)`, '-e', 'tell application "Finder" to activate']);
+      return { ...info, opened: !r.err };
+    }
+    return { ...info, opened: false };
+  });
+  handle('copyFileToClipboard', async ({ uri }) => {
+    const p = grantedPath(uri);
+    if (process.platform === 'win32') { clipboard.writeBuffer('FileNameW', Buffer.from(p + '\0', 'ucs2')); return { ok: true, how: 'CF_HDROP-compatible FileNameW' }; }
+    if (process.platform === 'darwin') { clipboard.writeBuffer('public.file-url', Buffer.from(pathToFileURL(p).href)); return { ok: true, how: 'public.file-url' }; }
+    clipboard.writeBuffer('text/uri-list', Buffer.from(pathToFileURL(p).href + '\r\n'));
+    return { ok: true, how: 'text/uri-list' };
+  });
+  handle('setAssociations', async ({ exts }) => {
+    const list = Array.isArray(exts) ? exts.filter((e) => typeof e === 'string' && /^[a-z0-9]{1,6}$/i.test(e)) : [];
+    const mimes = { jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', apng: 'image/apng', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', svg: 'image/svg+xml', ico: 'image/vnd.microsoft.icon', jxl: 'image/jxl', psd: 'image/vnd.adobe.photoshop', tga: 'image/x-tga', pdf: 'application/pdf' };
+    if (process.platform === 'linux') {
+      const desktopFile = 'quilllens.desktop';
+      const done = [], failed = [];
+      for (const ext of list) { const m = mimes[ext.toLowerCase()]; if (!m) continue; const r = await run('xdg-mime', ['default', desktopFile, m]); (r.err ? failed : done).push(ext); }
+      return { ok: !failed.length, how: 'xdg-mime', done, failed };
+    }
+    if (process.platform === 'win32') { await shell.openExternal('ms-settings:defaultapps'); return { ok: true, how: 'Settings ▸ Default apps (the installer registered the types; pick Anne\'s Lens there)', done: [], failed: [] }; }
+    return { ok: false, how: 'Finder: Get Info ▸ Open with ▸ Change All…', done: [], failed: list };
+  });
+  handle('listScanners', async () => {
+    if (process.platform === 'linux') {
+      if (!(await which('scanimage'))) return { devices: [], note: 'SANE (scanimage) is not installed' };
+      const r = await run('scanimage', ['-L'], { timeout: 30000 });
+      const devices = [...r.stdout.matchAll(/device `([^']+)' is a (.+)/g)].map((m) => ({ id: m[1], name: m[2].trim() }));
+      return { devices, note: devices.length ? '' : 'No scanner found by SANE' };
+    }
+    if (process.platform === 'win32') {
+      const r = await ps(`$m = New-Object -ComObject WIA.DeviceManager; foreach ($d in $m.DeviceInfos) { if ($d.Type -eq 1) { Write-Output ($d.DeviceID + '|' + $d.Properties.Item('Name').Value) } }`);
+      const devices = r.stdout.split(/\r?\n/).filter((l) => l.includes('|')).map((l) => { const [id, ...n] = l.split('|'); return { id: id.trim(), name: n.join('|').trim() }; });
+      return { devices, note: devices.length ? '' : (r.stderr.trim() || 'No WIA scanner found') };
+    }
+    return { devices: [], note: 'Scanning through the system is not available on this platform; use the camera' };
+  });
+  handle('scan', async ({ device, dpi, mode }) => {
+    const res = Math.max(50, Math.min(2400, Number(dpi) || 300)), gray = mode === 'gray';
+    const file = tempPng('scan');
+    try {
+      if (process.platform === 'linux') {
+        const args = ['--resolution', String(res), '--mode', gray ? 'Gray' : 'Color', '--format=png', '-o', file];
+        if (device) args.unshift('-d', String(device));
+        const r = await run('scanimage', args, { timeout: 300000 });
+        if (r.err) throw new Error(r.stderr.trim() || r.err.message);
+      } else if (process.platform === 'win32') {
+        const r = await ps(`$m = New-Object -ComObject WIA.DeviceManager; $info = $null; foreach ($d in $m.DeviceInfos) { if ($d.Type -eq 1 -and (('${String(device || '').replace(/'/g, "''")}' -eq '') -or ($d.DeviceID -eq '${String(device || '').replace(/'/g, "''")}'))) { $info = $d; break } }; if ($info -eq $null) { throw 'No scanner' }; $dev = $info.Connect(); $item = $dev.Items.Item(1); foreach ($p in $item.Properties) { if ($p.PropertyID -eq 6146) { $p.Value = ${gray ? 2 : 1} }; if ($p.PropertyID -eq 6147 -or $p.PropertyID -eq 6148) { $p.Value = ${res} } }; $img = $item.Transfer('{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}'); $img.SaveFile('${file.replace(/'/g, "''")}')`);
+        if (r.err) throw new Error(r.stderr.trim() || r.err.message);
+      } else throw new Error('Scanning through the system is not available on this platform');
+      const data = fs.readFileSync(file);
+      return { name: path.basename(file), mime: 'image/png', data: data.toString('base64') };
+    } finally { try { fs.unlinkSync(file); } catch { /* */ } }
+  });
+  handle('createSubfolder', async ({ dirUri, name }) => {
+    const dir = grantedDir(dirUri);
+    const target = path.join(dir, safeName(name));
+    fs.mkdirSync(target, { recursive: true });
+    grantDir(target);
+    return { uri: pathToFileURL(target).href, name: path.basename(target) };
+  });
+  void os;
   // Open with External Editor: a configured program (picked through a dialog) gets the file's path.
   handle('pickProgram', async () => {
     const filters = process.platform === 'win32' ? [{ name: 'Programs', extensions: ['exe', 'bat', 'cmd'] }, { name: 'All files', extensions: ['*'] }] : undefined;

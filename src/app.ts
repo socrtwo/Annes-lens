@@ -239,6 +239,7 @@ export class App {
   /** Opens a folder (a set of entries) in the active window, or a new one, and shows `index`. */
   async openFolder(folder: Folder, index = 0, opts: { newWindow?: boolean } = {}): Promise<PictureTab> {
     let tab = this.active;
+    if (this.prefs.hiddenFiles.length) { const hidden = new Set(this.prefs.hiddenFiles); const key = folder.uri || folder.name; const kept = folder.entries.filter((e) => !hidden.has(`${key}|${e.name}`)); if (kept.length !== folder.entries.length) { folder.entries = kept; index = Math.min(index, Math.max(0, kept.length - 1)); } }
     if (opts.newWindow || (tab.picture && tab.dirty)) tab = this.createTab(folder);
     else { tab.folder = folder; tab.loader.setFolder(folder); }
     folder.select(index);

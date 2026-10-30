@@ -38,6 +38,16 @@ interface QuillNativePlugin {
   readClipboard(): Promise<{ text?: string | null }>;
   writeClipboard(opts: { text: string; sensitive?: boolean }): Promise<void>;
   openInApp?(opts: { packageName: string; name: string; mime: string; data: string }): Promise<{ opened: boolean; reason?: string }>;
+  /** Platform-bound file commands (Android). */
+  setWallpaper?(opts: { data: string; which: 'home' | 'lock' | 'both' }): Promise<{ ok: boolean }>;
+  attachData?(opts: { name: string; mime: string; data: string }): Promise<{ ok: boolean }>;
+  openCastSettings?(): Promise<{ ok: boolean; action?: string }>;
+  copyFileToClipboard?(opts: { name?: string; mime?: string; data?: string; uri?: string }): Promise<{ ok: boolean; uri?: string; how?: string }>;
+  capturePhoto?(): Promise<{ canceled?: boolean; name?: string; mime?: string; data?: string }>;
+  createSubfolder?(opts: { dirUri: string; name: string }): Promise<{ uri: string; name: string }>;
+  openDefaultApps?(): Promise<{ ok: boolean }>;
+  /** HTTP request for AI services through the native layer (Android: HttpURLConnection). */
+  request?(opts: { url: string; method: string; headers: Record<string, string>; body?: string; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; data: string }>;
   /** File operations (M2). Android: Storage Access Framework; desktop: the file system. */
   renameDocument?(opts: { uri: string; name: string }): Promise<{ uri: string; name: string }>;
   deleteDocument?(opts: { uri: string; permanent?: boolean }): Promise<{ ok: boolean; trashed?: boolean }>;
@@ -84,6 +94,16 @@ interface DesktopBridge extends QuillNativePlugin {
   fetchUrl(opts: { url: string }): Promise<{ name: string; mime: string; data: string }>;
   pickProgram(): Promise<{ canceled?: boolean; path?: string; name?: string }>;
   openWithProgram(opts: { uri: string; program: string }): Promise<{ ok: boolean; error?: string }>;
+  /** Platform-bound file commands (desktop). */
+  setWallpaper(opts: { data: string; which: 'home' | 'lock' | 'both' }): Promise<{ ok: boolean; how?: string }>;
+  showProperties(opts: { uri: string }): Promise<{ path: string; size: number; mtime: number; ctime: number; mode: string; os: string; opened: boolean }>;
+  copyFileToClipboard(opts: { name?: string; mime?: string; data?: string; uri?: string }): Promise<{ ok: boolean; uri?: string; how?: string }>;
+  setAssociations(opts: { exts: string[] }): Promise<{ ok: boolean; how: string; done: string[]; failed: string[] }>;
+  listScanners(): Promise<{ devices: { id: string; name: string }[]; note: string }>;
+  scan(opts: { device?: string; dpi: number; mode: 'color' | 'gray' }): Promise<{ name: string; mime: string; data: string }>;
+  createSubfolder(opts: { dirUri: string; name: string }): Promise<{ uri: string; name: string }>;
+  /** HTTP request for AI services (no cross-origin limits). Body and answer travel as base64. */
+  request(opts: { url: string; method: string; headers: Record<string, string>; body?: string; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; data: string }>;
 }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
@@ -299,6 +319,37 @@ export async function fetchPicture(url: string): Promise<OpenedFile> {
   try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ }
   return { name: name || 'picture', data: await res.arrayBuffer(), uri: null, mime: res.headers.get('content-type') || undefined };
 }
+
+/** An HTTP request through the native layer; null when running in a plain browser (use fetch). */
+export async function nativeRequest(o: { url: string; method: string; headers: Record<string, string>; body?: string | Uint8Array; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; bytes: Uint8Array } | null> {
+  const bridge: any = desktop || (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('QuillNative') ? Native : null);
+  if (!bridge?.request) return null;
+  const body = o.body === undefined ? undefined : typeof o.body === 'string' ? b64FromBuffer(new TextEncoder().encode(o.body).buffer as ArrayBuffer) : b64FromBuffer(o.body.buffer.slice(o.body.byteOffset, o.body.byteOffset + o.body.byteLength) as ArrayBuffer);
+  const r = await bridge.request({ url: o.url, method: o.method, headers: o.headers, body, timeoutMs: o.timeoutMs });
+  const headers: Record<string, string> = {}; for (const [k, v] of Object.entries(r.headers || {})) headers[k.toLowerCase()] = String(v);
+  return { status: r.status, headers, bytes: new Uint8Array(bufferFromB64(r.data || '')) };
+}
+
+// ------------------------------------------------------------------------------------------
+// Platform-bound file commands: what each shell can do, and the calls.
+
+export interface PlatformCaps { wallpaper: boolean; lockScreen: boolean; contactPhoto: boolean; cast: boolean; copyAsFile: boolean; properties: boolean; associations: boolean; scanner: boolean; cameraIntent: boolean; subfolders: boolean }
+export function platformCaps(): PlatformCaps {
+  const android = Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('QuillNative');
+  const d = !!desktop;
+  return { wallpaper: android || d, lockScreen: android || (d && desktop!.platform === 'linux'), contactPhoto: android, cast: android, copyAsFile: android || d, properties: d, associations: android || d, scanner: d && (desktop!.platform === 'linux' || desktop!.platform === 'win32'), cameraIntent: android, subfolders: android || d };
+}
+const nativeOnly = (): QuillNativePlugin => { if (desktop) throw new Error('Not on the desktop'); return Native; };
+export const setWallpaper = (png: ArrayBuffer, which: 'home' | 'lock' | 'both') => (desktop ? desktop.setWallpaper({ data: b64FromBuffer(png), which }) : nativeOnly().setWallpaper!({ data: b64FromBuffer(png), which }));
+export const attachData = (name: string, mime: string, data: ArrayBuffer) => nativeOnly().attachData!({ name, mime, data: b64FromBuffer(data) });
+export const openCastSettings = () => nativeOnly().openCastSettings!();
+export const copyFileToClipboard = (o: { uri: string | null; name: string; mime: string; data?: ArrayBuffer }) => (desktop ? desktop.copyFileToClipboard({ uri: o.uri! }) : nativeOnly().copyFileToClipboard!({ name: o.name, mime: o.mime, data: b64FromBuffer(o.data!) }));
+export const showProperties = (uri: string) => desktop!.showProperties({ uri });
+export const setAssociations = (exts: string[]) => (desktop ? desktop.setAssociations({ exts }) : nativeOnly().openDefaultApps!().then((r) => ({ ok: r.ok, how: 'Settings ▸ Default apps', done: [], failed: [] })));
+export const listScanners = () => (desktop ? desktop.listScanners() : Promise.resolve({ devices: [], note: 'No scanner support in this shell' }));
+export async function scanPage(o: { device?: string; dpi: number; mode: 'color' | 'gray' }): Promise<OpenedFile> { const r = await desktop!.scan(o); return { name: r.name, data: bufferFromB64(r.data), uri: null, mime: r.mime }; }
+export async function capturePhoto(): Promise<OpenedFile | null> { const r = await nativeOnly().capturePhoto!(); if (r.canceled || !r.data) return null; return { name: r.name || 'photo.jpg', data: bufferFromB64(r.data), uri: null, mime: r.mime }; }
+export const createSubfolder = (dirUri: string, name: string) => (desktop ? desktop.createSubfolder({ dirUri, name }) : nativeOnly().createSubfolder!({ dirUri, name }));
 
 export async function setFileTime(uri: string, mtime: number): Promise<boolean> {
   if (desktop) return (await desktop.setFileTime({ uri, mtime })).ok;

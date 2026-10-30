@@ -1,6 +1,11 @@
 package io.github.socrtwo.quilllens;
 
 import android.app.Activity;
+import android.app.WallpaperManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.provider.MediaStore;
+import android.provider.Settings;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -38,6 +43,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +73,14 @@ import java.util.concurrent.Executors;
  *   <li>pickFolder({title}) -> {uri, name} | {canceled: true}: ACTION_OPEN_DOCUMENT_TREE with a persisted permission</li>
  *   <li>listFolder({uri}) -> {uri, name, entries: [{uri, name, size, mtime}]}: the pictures in a picked folder</li>
  *   <li>createInFolder({dirUri, name, mime, data}) -> {uri, name}: a new file in a picked folder (replaces a same-named file)</li>
+ *   <li>request({url, method, headers, body, timeoutMs}) -> {status, headers, data}: an HTTP request for AI services (body and answer as base64)</li>
+ *   <li>setWallpaper({data, which}) -> {ok}: the PNG as the home ('home'), lock ('lock') or both wallpapers</li>
+ *   <li>attachData({name, mime, data}) -> {ok}: ACTION_ATTACH_DATA (Set as contact photo and similar)</li>
+ *   <li>openCastSettings() -> {ok}: the system Cast / wireless display picker</li>
+ *   <li>copyFileToClipboard({name, mime, data}) -> {ok}: a content URI on the clipboard for file managers that paste files</li>
+ *   <li>capturePhoto() -> {name, mime, data} | {canceled: true}: ACTION_IMAGE_CAPTURE through the camera app</li>
+ *   <li>createSubfolder({dirUri, name}) -> {uri, name}: a child folder of a picked folder (existing one reused)</li>
+ *   <li>openDefaultApps() -> {ok}: the system Default apps settings (file associations)</li>
  * </ul>
  */
 @CapacitorPlugin(name = "QuillNative")
@@ -599,6 +614,341 @@ public class QuillNativePlugin extends Plugin {
                 });
             } catch (Throwable e) {
                 call.reject("Could not share document: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** HTTP request for AI services: no WebView cross-origin limits. Body and answer travel as base64. */
+    @PluginMethod
+    public void request(PluginCall call) {
+        final String url = call.getString("url", "");
+        final String method = "POST".equalsIgnoreCase(call.getString("method", "GET")) ? "POST" : "GET";
+        final JSObject headers = call.getObject("headers", new JSObject());
+        final String body = call.getString("body");
+        final int timeout = (int) Math.min(Math.max(call.getInt("timeoutMs", 180000), 1000), 600000);
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            call.reject("Only http(s) addresses can be requested");
+            return;
+        }
+        io.execute(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(url).openConnection();
+                c.setRequestMethod(method);
+                c.setConnectTimeout(timeout);
+                c.setReadTimeout(timeout);
+                c.setInstanceFollowRedirects(true);
+                java.util.Iterator<String> keys = headers.keys();
+                while (keys.hasNext()) {
+                    String k = keys.next();
+                    String v = headers.optString(k, null);
+                    if (v != null) {
+                        c.setRequestProperty(k, v);
+                    }
+                }
+                if (body != null && "POST".equals(method)) {
+                    byte[] bytes = decodeBase64(body);
+                    c.setDoOutput(true);
+                    c.setFixedLengthStreamingMode(bytes.length);
+                    try (OutputStream out = c.getOutputStream()) {
+                        out.write(bytes);
+                    }
+                }
+                int status = c.getResponseCode();
+                InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
+                ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                if (in != null) {
+                    byte[] chunk = new byte[65536];
+                    int n;
+                    long total = 0;
+                    while ((n = in.read(chunk)) > 0) {
+                        total += n;
+                        if (total > 256L * 1024 * 1024) {
+                            throw new IOException("The answer is larger than 256 MB");
+                        }
+                        buf.write(chunk, 0, n);
+                    }
+                    in.close();
+                }
+                JSObject outHeaders = new JSObject();
+                for (java.util.Map.Entry<String, java.util.List<String>> e : c.getHeaderFields().entrySet()) {
+                    if (e.getKey() != null && e.getValue() != null && !e.getValue().isEmpty()) {
+                        outHeaders.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().get(e.getValue().size() - 1));
+                    }
+                }
+                JSObject result = new JSObject();
+                result.put("status", status);
+                result.put("headers", outHeaders);
+                result.put("data", Base64.encodeToString(buf.toByteArray(), Base64.NO_WRAP));
+                call.resolve(result);
+            } catch (Throwable e) {
+                call.reject("Could not reach the service: " + e.getMessage(), asException(e));
+            } finally {
+                if (c != null) {
+                    c.disconnect();
+                }
+            }
+        });
+    }
+
+    // Platform-bound file commands --------------------------------------------------------------
+
+    private File sharedFile(String name, byte[] bytes) throws IOException {
+        Context context = getContext();
+        File dir = new File(context.getCacheDir(), SHARE_DIR);
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            throw new IOException("Cannot create " + dir.getAbsolutePath());
+        }
+        pruneOldShares(dir);
+        File file = new File(dir, sanitizeFileName(name));
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(bytes);
+        }
+        return file;
+    }
+
+    private Uri providerUri(File file) {
+        Context context = getContext();
+        return FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+    }
+
+    /** Sets the picture as the home, lock or both wallpapers (the web side renders it at the screen size). */
+    @PluginMethod
+    public void setWallpaper(PluginCall call) {
+        final String data = call.getString("data");
+        final String which = call.getString("which", "home");
+        if (data == null) {
+            call.reject("setWallpaper requires 'data'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                byte[] bytes = decodeBase64(data);
+                Bitmap bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (bmp == null) {
+                    throw new IOException("The picture could not be decoded");
+                }
+                WallpaperManager wm = WallpaperManager.getInstance(getContext());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    int flags = "lock".equals(which) ? WallpaperManager.FLAG_LOCK : "both".equals(which) ? WallpaperManager.FLAG_SYSTEM | WallpaperManager.FLAG_LOCK : WallpaperManager.FLAG_SYSTEM;
+                    wm.setBitmap(bmp, null, true, flags);
+                } else {
+                    wm.setBitmap(bmp);
+                }
+                JSObject r = new JSObject();
+                r.put("ok", true);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Could not set the wallpaper: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** ACTION_ATTACH_DATA: the system offers the apps that attach a picture to something (Contacts: Set as contact photo). */
+    @PluginMethod
+    public void attachData(PluginCall call) {
+        final String name = call.getString("name", "picture.png");
+        final String mime = call.getString("mime", "image/png");
+        final String data = call.getString("data");
+        if (data == null) {
+            call.reject("attachData requires 'data'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Uri uri = providerUri(sharedFile(name, decodeBase64(data)));
+                Intent intent = new Intent(Intent.ACTION_ATTACH_DATA);
+                intent.setDataAndType(uri, mime);
+                intent.putExtra("mimeType", mime);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                final Intent chooser = Intent.createChooser(intent, "Set as");
+                chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                final Activity activity = getActivity();
+                if (activity == null) {
+                    call.reject("Not available right now");
+                    return;
+                }
+                activity.runOnUiThread(() -> {
+                    try {
+                        activity.startActivity(chooser);
+                        JSObject r = new JSObject();
+                        r.put("ok", true);
+                        call.resolve(r);
+                    } catch (ActivityNotFoundException e) {
+                        call.reject("No app can use this picture that way", e);
+                    }
+                });
+            } catch (Throwable e) {
+                call.reject("Could not hand the picture over: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** Opens the system Cast (wireless display) picker; the app then shows the picture full screen. */
+    @PluginMethod
+    public void openCastSettings(PluginCall call) {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.reject("Not available right now");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            for (String action : new String[] { "android.settings.CAST_SETTINGS", "android.settings.WIFI_DISPLAY_SETTINGS", Settings.ACTION_DISPLAY_SETTINGS }) {
+                try {
+                    activity.startActivity(new Intent(action));
+                    JSObject r = new JSObject();
+                    r.put("ok", true);
+                    r.put("action", action);
+                    call.resolve(r);
+                    return;
+                } catch (ActivityNotFoundException ignored) {
+                    // try the next one
+                }
+            }
+            call.reject("This device has no Cast settings screen");
+        });
+    }
+
+    /** Puts a content URI on the clipboard: file managers that paste files (and apps that accept pictures) can take it. */
+    @PluginMethod
+    public void copyFileToClipboard(PluginCall call) {
+        final String name = call.getString("name", "picture.png");
+        final String mime = call.getString("mime", "image/png");
+        final String data = call.getString("data");
+        if (data == null) {
+            call.reject("copyFileToClipboard requires 'data'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Context context = getContext();
+                Uri uri = providerUri(sharedFile(name, decodeBase64(data)));
+                ClipData clip = ClipData.newUri(context.getContentResolver(), name, uri);
+                final ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                getActivity().runOnUiThread(() -> {
+                    try {
+                        cm.setPrimaryClip(clip);
+                        JSObject r = new JSObject();
+                        r.put("ok", true);
+                        r.put("uri", uri.toString());
+                        call.resolve(r);
+                    } catch (Throwable e) {
+                        call.reject("Could not copy the file: " + e.getMessage(), asException(e));
+                    }
+                });
+            } catch (Throwable e) {
+                call.reject("Could not copy the file: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    private File pendingCapture;
+
+    /** Takes a picture with the camera app (ACTION_IMAGE_CAPTURE into a cache file). */
+    @PluginMethod
+    public void capturePhoto(PluginCall call) {
+        try {
+            Context context = getContext();
+            File dir = new File(context.getCacheDir(), SHARE_DIR);
+            if (!dir.isDirectory() && !dir.mkdirs()) {
+                throw new IOException("Cannot create " + dir.getAbsolutePath());
+            }
+            pendingCapture = new File(dir, "capture-" + System.currentTimeMillis() + ".jpg");
+            Uri uri = providerUri(pendingCapture);
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            startActivityForResult(call, intent, "capturePhotoResult");
+        } catch (ActivityNotFoundException e) {
+            call.reject("No camera app is available", e);
+        } catch (Throwable e) {
+            call.reject("Could not start the camera: " + e.getMessage(), asException(e));
+        }
+    }
+
+    @ActivityCallback
+    private void capturePhotoResult(PluginCall call, ActivityResult result) {
+        if (call == null) {
+            return;
+        }
+        final File file = pendingCapture;
+        pendingCapture = null;
+        if (result.getResultCode() != Activity.RESULT_OK || file == null || !file.isFile()) {
+            JSObject r = new JSObject();
+            r.put("canceled", true);
+            call.resolve(r);
+            return;
+        }
+        io.execute(() -> {
+            try {
+                byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+                JSObject r = new JSObject();
+                r.put("name", file.getName());
+                r.put("mime", "image/jpeg");
+                r.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Could not read the photo: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** A child folder of a picked tree folder (reused when one of that name exists). */
+    @PluginMethod
+    public void createSubfolder(PluginCall call) {
+        final String dirUri = call.getString("dirUri");
+        final String name = call.getString("name", "").trim();
+        if (dirUri == null || name.isEmpty()) {
+            call.reject("createSubfolder requires 'dirUri' and 'name'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                ContentResolver resolver = getContext().getContentResolver();
+                Uri tree = Uri.parse(dirUri);
+                Uri parent = DocumentsContract.isDocumentUri(getContext(), tree) ? tree : DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent));
+                Uri found = null;
+                try (Cursor c = resolver.query(children, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE }, null, null, null)) {
+                    while (c != null && c.moveToNext()) {
+                        if (name.equals(c.getString(1)) && DocumentsContract.Document.MIME_TYPE_DIR.equals(c.getString(2))) {
+                            found = DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0));
+                            break;
+                        }
+                    }
+                }
+                if (found == null) {
+                    found = DocumentsContract.createDocument(resolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name);
+                }
+                if (found == null) {
+                    throw new IOException("The folder could not be created");
+                }
+                JSObject r = new JSObject();
+                r.put("uri", found.toString());
+                r.put("name", name);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Could not create the folder: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** The system's Default apps settings, where picture types are associated with apps. */
+    @PluginMethod
+    public void openDefaultApps(PluginCall call) {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.reject("Not available right now");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                activity.startActivity(new Intent(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS : Settings.ACTION_APPLICATION_SETTINGS));
+                JSObject r = new JSObject();
+                r.put("ok", true);
+                call.resolve(r);
+            } catch (ActivityNotFoundException e) {
+                call.reject("No Default apps screen on this device", e);
             }
         });
     }

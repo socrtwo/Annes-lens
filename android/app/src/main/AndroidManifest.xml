@@ -205,9 +205,19 @@
         <package android:name="io.github.socrtwo.quillloom" />
         <package android:name="io.github.socrtwo.quillpress" />
         <package android:name="io.github.socrtwo.quillfolio" />
+        <!-- Scan… (the camera app) and Set as Contact Photo -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.ATTACH_DATA" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Set as Wallpaper / Set as Lock Screen -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 </manifest>

@@ -22,8 +22,8 @@
     "cap:sync": "npx cap sync android",
     "android:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
     "ios:sync": "npm run build && npx cap sync ios",
-    "desktop": "npm run build && node scripts/prepare-desktop.mjs && electron build/desktop-app",
-    "desktop:dist": "npm run build && node scripts/prepare-desktop.mjs && electron-builder --config electron-builder.config.cjs",
+    "desktop": "QN_ORT_LOCAL=1 npm run build && node scripts/prepare-desktop.mjs && electron build/desktop-app",
+    "desktop:dist": "QN_ORT_LOCAL=1 npm run build && node scripts/prepare-desktop.mjs && electron-builder --config electron-builder.config.cjs",
     "icons": "node resources/gen-icon.mjs && node scripts/gen-android-icons.mjs && node scripts/gen-platform-icons.mjs"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
     "electron": "^43.7.7",
     "electron-builder": "^26.17.0",
     "jsdom": "^29.1.1",
+    "onnxruntime-web": "^1.31.1",
     "playwright": "^1.64.1",
     "typescript": "^5.9.3",
     "vite": "^8.3.4",

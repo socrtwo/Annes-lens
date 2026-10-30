@@ -1,4 +1,5 @@
 /** Application preferences (per device), persisted to localStorage (or beside the program in portable mode). */
+import { defaultAiPrefs, type AiPrefs } from './ai/types';
 import { PLAN_LAYOUTS } from './plan.generated';
 
 export interface CustomGroup { id: string; label: string; items: string[] }
@@ -100,6 +101,14 @@ export interface Prefs {
   /** Custom Filter (Convolution): saved kernels. */
   convolutions: { name: string; size: number; kernel: number[]; divisor: number; bias: number }[];
   /** Thumbnails: size in CSS pixels and the last panel mode. */
+  /** AI tab: services, active choices, privacy, ensemble, prompt library (src/ai/types.ts). */
+  ai: AiPrefs;
+  /** Hidden pictures: `${folder uri or name}|${file name}` (the file is not changed). */
+  hiddenFiles: string[];
+  /** The default scanner (device id) for Scan…; '' = ask. */
+  scanSource: string;
+  /** Import with Rules presets. */
+  importRules: { name: string; subfolder: string; rename: string; skipDuplicates: boolean; deleteAfter: boolean }[];
   thumbSize: number;
   thumbMode: 'grid' | 'strip';
   /** Sort order for folders */
@@ -146,6 +155,7 @@ export function defaultPrefs(): Prefs {
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
     quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
+    ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [],
     sort: 'natural', sortDescending: false,
   };
 }
@@ -200,11 +210,31 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   if (out.sidecarMode && !['embed', 'sidecar', 'both'].includes(out.sidecarMode)) delete out.sidecarMode;
   if (out.convolutions) out.convolutions = out.convolutions.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.kernel) && r.kernel.every((x: any) => typeof x === 'number')).slice(0, 40);
   if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.ai) out.ai = sanitizeAi(out.ai);
+  if (out.hiddenFiles) out.hiddenFiles = strings(out.hiddenFiles).slice(0, 5000);
+  if (out.importRules) out.importRules = out.importRules.filter((r: any) => isObj(r) && typeof r.name === 'string').map((r: any) => ({ name: r.name, subfolder: String(r.subfolder ?? ''), rename: String(r.rename ?? '{name}'), skipDuplicates: r.skipDuplicates !== false, deleteAfter: !!r.deleteAfter })).slice(0, 40);
   if (out.print) out.print = { ...d.print, ...Object.fromEntries(Object.entries(out.print).filter(([k, v]) => k in d.print && typeof v === typeof (d.print as any)[k])) };
   if (out.macros) out.macros = out.macros.filter((m: any) => isObj(m) && typeof m.name === 'string' && Array.isArray(m.steps) && m.steps.every((s: any) => isObj(s) && typeof s.id === 'string'));
   if (typeof out.jpegQuality === 'number') out.jpegQuality = Math.max(1, Math.min(100, Math.round(out.jpegQuality)));
   if (typeof out.prefetch === 'number') out.prefetch = Math.max(0, Math.min(8, Math.round(out.prefetch)));
   return out as Partial<Prefs>;
+}
+
+function sanitizeAi(raw: any): AiPrefs {
+  const d = defaultAiPrefs();
+  const out: any = { ...d };
+  if (Array.isArray(raw.services)) out.services = raw.services.filter((s: any) => isObj(s) && typeof s.id === 'string' && ['openai', 'anthropic', 'gemini'].includes(s.api))
+    .map((s: any) => ({ id: s.id, name: String(s.name ?? s.id), api: s.api, baseUrl: String(s.baseUrl ?? ''), key: String(s.key ?? ''), textModel: String(s.textModel ?? ''), imageModel: String(s.imageModel ?? ''), preset: typeof s.preset === 'string' ? s.preset : undefined })).slice(0, 40);
+  for (const k of ['textService', 'imageService', 'runtimeUrl']) if (typeof raw[k] === 'string') out[k] = raw[k];
+  if (['device', 'service'].includes(raw.prefer)) out.prefer = raw.prefer;
+  if (['new', 'replace'].includes(raw.result)) out.result = raw.result;
+  if (['quantized', 'fp32'].includes(raw.modelDtype)) out.modelDtype = raw.modelDtype;
+  if (typeof raw.credentials === 'boolean') out.credentials = raw.credentials;
+  if (typeof raw.historyMax === 'number' && Number.isFinite(raw.historyMax)) out.historyMax = Math.max(0, Math.min(2000, Math.round(raw.historyMax)));
+  if (isObj(raw.privacy)) out.privacy = { maxEdge: typeof raw.privacy.maxEdge === 'number' ? Math.max(256, Math.min(8192, Math.round(raw.privacy.maxEdge))) : d.privacy.maxEdge, confirmSend: typeof raw.privacy.confirmSend === 'boolean' ? raw.privacy.confirmSend : d.privacy.confirmSend, allowRemote: typeof raw.privacy.allowRemote === 'boolean' ? raw.privacy.allowRemote : d.privacy.allowRemote };
+  if (isObj(raw.ensemble)) out.ensemble = { mode: ['single', 'master', 'quaker'].includes(raw.ensemble.mode) ? raw.ensemble.mode : 'single', members: strings(raw.ensemble.members), master: typeof raw.ensemble.master === 'string' ? raw.ensemble.master : '', showDeliberation: !!raw.ensemble.showDeliberation };
+  if (Array.isArray(raw.prompts)) out.prompts = raw.prompts.filter((x: any) => isObj(x) && typeof x.name === 'string' && typeof x.prompt === 'string').map((x: any) => ({ name: x.name, prompt: x.prompt, negative: String(x.negative ?? ''), kind: x.kind === 'edit' ? 'edit' : 'generate' })).slice(0, 200);
+  return out as AiPrefs;
 }
 
 export function savePrefs(p: Prefs): void {

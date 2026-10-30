@@ -25,6 +25,10 @@ export interface XmpProps {
   city?: string; state?: string; country?: string; location?: string; headline?: string; credit?: string; source?: string; instructions?: string; writer?: string; jobTitle?: string;
   lat?: number; lon?: number;
   digitalSourceType?: string; personInImage?: string[]; usageTerms?: string;
+  /** Accessibility (IPTC 2021): alt text and extended description. */
+  altText?: string; extDescription?: string;
+  /** AI provenance written by the AI tab (Anne's Lens namespace). */
+  aiCommand?: string; aiProvider?: string; aiModel?: string; aiPrompt?: string; aiDate?: string;
   citation?: Citation;
 }
 
@@ -34,6 +38,8 @@ const PROP: Record<string, { ns: string; name: string; kind: 'text' | 'alt' | 'b
   favorite: { ns: 'lens', name: 'Favorite', kind: 'bool' }, flag: { ns: 'lens', name: 'Flag', kind: 'text' },
   dateCreated: { ns: 'photoshop', name: 'DateCreated', kind: 'text' }, city: { ns: 'photoshop', name: 'City', kind: 'text' }, state: { ns: 'photoshop', name: 'State', kind: 'text' }, country: { ns: 'photoshop', name: 'Country', kind: 'text' }, headline: { ns: 'photoshop', name: 'Headline', kind: 'text' }, credit: { ns: 'photoshop', name: 'Credit', kind: 'text' }, source: { ns: 'photoshop', name: 'Source', kind: 'text' }, instructions: { ns: 'photoshop', name: 'Instructions', kind: 'text' }, writer: { ns: 'photoshop', name: 'CaptionWriter', kind: 'text' }, jobTitle: { ns: 'photoshop', name: 'AuthorsPosition', kind: 'text' },
   location: { ns: 'Iptc4xmpCore', name: 'Location', kind: 'text' }, digitalSourceType: { ns: 'Iptc4xmpExt', name: 'DigitalSourceType', kind: 'text' }, personInImage: { ns: 'Iptc4xmpExt', name: 'PersonInImage', kind: 'bag' }, usageTerms: { ns: 'xmpRights', name: 'UsageTerms', kind: 'alt' },
+  altText: { ns: 'Iptc4xmpCore', name: 'AltTextAccessibility', kind: 'alt' }, extDescription: { ns: 'Iptc4xmpCore', name: 'ExtDescrAccessibility', kind: 'alt' },
+  aiCommand: { ns: 'lens', name: 'AiCommand', kind: 'text' }, aiProvider: { ns: 'lens', name: 'AiProvider', kind: 'text' }, aiModel: { ns: 'lens', name: 'AiModel', kind: 'text' }, aiPrompt: { ns: 'lens', name: 'AiPrompt', kind: 'text' }, aiDate: { ns: 'lens', name: 'AiDate', kind: 'text' },
 };
 const CITATION: (keyof Citation)[] = ['repository', 'collection', 'callNumber', 'item', 'page', 'accessed', 'text'];
 const citName = (k: string) => 'Citation' + k[0].toUpperCase() + k.slice(1);

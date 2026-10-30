@@ -1,8 +1,8 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **402 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **470 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
-7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
+9 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
 This file is generated from the source by `npm run catalog`; a unit test fails when it is out of date.
 
@@ -10,8 +10,8 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (5) · Organize (7) · View (4) · Share (4)
-- **File**: Open (16) · Save (9) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (6) · Organize (7) · View (4) · Share (4)
+- **File**: Open (16) · Save (9) · Export (4) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (11)
 - **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (1) · Find (2)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (5)
@@ -25,6 +25,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (11) · Display (5) · Compare (1) · Quick Access Bar and search (5)
 - **Slideshow**: Slideshow (11)
 - **Tools**: Text and codes (1) · Documents and print (4) · Color and vector (1) · Organize (1)
+- **AI**: Generate (9) · Edit (20) · Select (3) · Understand (12) · Provenance (2) · Providers (9)
 - **Developer**: Developer (5)
 - **Help**: Help (8)
 
@@ -32,19 +33,19 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 135 |
-| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 29 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 103 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 74 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 51 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 30 |
-| Picasa style (`picasa`) | Picasa 3 | 48 |
-| Preview style (`preview`) | macOS Preview | 43 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 37 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 234 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 402 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 195 |
+| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 84 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 160 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 131 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 110 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 88 |
+| Picasa style (`picasa`) | Picasa 3 | 106 |
+| Preview style (`preview`) | macOS Preview | 100 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 95 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 299 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 470 |
 
-## File (63 of 82)
+## File (76 of 82)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -79,19 +80,27 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Export Metadata as CSV… | Export |  | `file.export.metadataCsv` | from XnView Classic and XnView MP, digiKam |
 | Export Palette… | Export |  | `file.export.palette` | from IrfanView |
 | Change File Date/Time… | Files |  | `file.setFileTime` | from FastStone Image Viewer, XnView Classic and XnView MP |
+| Copy as File (for pasting in file managers) | Files |  | `file.copyAsFile` | not in tabs; from XnView Classic and XnView MP |
 | Copy File Name | Files |  | `file.copyName` | not in tabs; from IrfanView |
 | Copy Full Path | Files |  | `file.copyPath` | not in tabs; from XnView Classic and XnView MP |
 | Copy To… | Files | F8 | `file.copyTo` | from IrfanView |
 | Delete | Files | Delete | `file.delete` | from IrfanView, most picture viewers |
 | Delete Permanently | Files | Shift+Delete | `file.deletePermanent` | from IrfanView, XnView Classic and XnView MP |
 | File Date from EXIF Date | Files |  | `file.fileTimeFromExif` | from XnView Classic and XnView MP, IrfanView |
+| File Properties (system) | Files | Alt+Enter | `file.sysProperties` | not in tabs; from Windows Photo Viewer and Windows Picture and Fax Viewer, XnView Classic and XnView MP |
+| Hide Picture | Files |  | `file.hide` | has options menu; from Picasa, Apple Photos and iPhoto, Google Photos |
 | Move To… | Files | F7 | `file.moveTo` | from IrfanView |
 | Quick Copy to Folder 1–9 | Files |  | `file.quickCopy` | has options menu; from FastStone Image Viewer, XnView Classic and XnView MP, FastPictureViewer |
 | Quick Move to Folder 1–9 | Files |  | `file.quickMove` | has options menu; from FastStone Image Viewer, XnView Classic and XnView MP, FastPictureViewer |
 | Rename… | Files | F2 | `file.rename` | from IrfanView, most picture viewers |
 | Undo File Operation | Files | Ctrl+Alt+z | `file.undoFileOp` | from new in Anne's Lens |
+| Batch Scanning… | Acquire |  | `file.batchScan` | from IrfanView |
 | Camera Capture | Acquire |  | `file.captureCamera` | from new in Anne's Lens |
+| Import from Camera or Phone… | Acquire |  | `file.importCamera` | from Picasa, gThumb, digiKam, Preview, Microsoft Photos, Apple Photos and iPhoto |
+| Import with Rules… | Acquire |  | `file.importRules` | has options menu; from digiKam, Lightroom Classic (Library and Develop) |
+| Scan… | Acquire | Ctrl+Shift+a | `file.scan` | from IrfanView, Preview, Kodak/Wang Imaging for Windows |
 | Screen Capture… | Acquire | c | `file.capture` | from IrfanView, Preview, FastStone Image Viewer |
+| Select Scan Source… | Acquire |  | `file.selectSource` | from IrfanView |
 | Print at True Size… | Print |  | `file.printTrueSize` | from new in Anne's Lens |
 | Print Copies and Posters… | Print |  | `file.copyShop` | from IrfanView |
 | Print Layouts (several per page)… | Print |  | `file.printLayouts` | from Windows Photo Viewer and Windows Picture and Fax Viewer, Microsoft Photos, Picasa, FastStone Image Viewer |
@@ -99,7 +108,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Print Setup… | Print |  | `file.printSetup` | not in tabs; from IrfanView |
 | Print… | Print | Ctrl+p | `file.print` | from IrfanView, most picture viewers |
 | Quick Print | Print |  | `file.quickPrint` |  |
+| Cast to Display | Share |  | `file.cast` | from Google Photos, Android gallery apps |
 | Email… | Share | Ctrl+Shift+m | `file.email` | from IrfanView, Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa, FastStone Image Viewer |
+| Set as Contact Photo | Share |  | `file.contactPhoto` | from Android gallery apps |
+| Set as Lock Screen | Share |  | `file.lockScreen` | from Microsoft Photos, Android gallery apps |
+| Set as Wallpaper | Share | Ctrl+Shift+w | `file.wallpaper` | has options menu; from IrfanView, XnView Classic and XnView MP, Windows Photo Viewer and Windows Picture and Fax Viewer |
 | Share… | Share |  | `file.share` | from Microsoft Photos, Android gallery apps, Preview |
 | Close | Close and options | Ctrl+w | `file.close` |  |
 | Close All | Close and options |  | `file.closeAll` |  |
@@ -108,6 +121,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Customize Tabs… | Close and options |  | `file.customizeRibbon` | from the Anne's Office suite |
 | Exit | Close and options | Escape, Alt+F4 | `file.exit` | from IrfanView |
 | Export / Import Settings… | Close and options |  | `file.exportSettings` | from the Anne's Office suite, IrfanView |
+| File Associations… | Close and options |  | `file.associations` | from IrfanView, XnView Classic and XnView MP |
 | Options… | Close and options | p | `file.options` | from IrfanView |
 | Portable Mode | Close and options |  | `file.portableMode` | from IrfanView, XnView Classic and XnView MP |
 | Reset All Customizations | Close and options |  | `file.resetCustomizations` | from the Anne's Office suite |
@@ -503,6 +517,66 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Extract Palette… | Color and vector |  | `tools.paletteExtract` | from new in Anne's Lens |
 | Compare Folders… | Organize |  | `tools.compareFolders` | from new in Anne's Lens |
 
+## AI (55 of 56)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Compare Providers… | Generate |  | `ai.generateCompare` | from new in Anne's Lens |
+| Generate Background… | Generate |  | `ai.generateBackground` | from Microsoft Photos, Generative-AI picture services and editors |
+| Generate Picture… | Generate | Ctrl+Alt+g | `ai.generate` | from Generative-AI picture services and editors |
+| Generate with References… | Generate |  | `ai.generateWithRefs` | from Generative-AI picture services and editors |
+| Picture to Prompt | Generate |  | `ai.imageToPrompt` | from Generative-AI picture services and editors |
+| Prompt Library… | Generate |  | `ai.promptLibrary` | from the Anne's Office suite |
+| Seamless Pattern… | Generate |  | `ai.generateTile` | from Generative-AI picture services and editors |
+| Sketch to Picture… | Generate |  | `ai.sketchToImage` | from Generative-AI picture services and editors |
+| Variations | Generate |  | `ai.variations` | from Generative-AI picture services and editors |
+| AI Noise Reduction | Edit |  | `ai.denoise` | from Lightroom Classic (Library and Develop), Generative-AI picture services and editors |
+| Blur Background | Edit |  | `ai.blurBackground` | from Microsoft Photos, Google Photos |
+| Colorize | Edit |  | `ai.colorize` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), Generative-AI picture services and editors |
+| Combine Group Shots… | Edit |  | `ai.combineGroupShots` | from Windows Live Photo Gallery, Google Photos |
+| Edit by Instruction… | Edit | Ctrl+Alt+e | `ai.editInstruction` | from Generative-AI picture services and editors |
+| Erase Object | Edit | Ctrl+Alt+x | `ai.erase` | from Microsoft Photos, Google Photos, Apple Photos and iPhoto |
+| Expand Picture… | Edit |  | `ai.expand` | from Generative-AI picture services and editors |
+| Generative Fill… | Edit |  | `ai.fill` | from Generative-AI picture services and editors |
+| Recolor Object… | Edit |  | `ai.recolor` | from Generative-AI picture services and editors |
+| Relight… | Edit |  | `ai.relight` | from Google Photos |
+| Remove Background | Edit | Ctrl+Alt+b | `ai.removeBackground` | from Microsoft Photos, Preview, Apple Photos and iPhoto |
+| Remove Glare and Reflections | Edit |  | `ai.removeReflection` | from Generative-AI picture services and editors |
+| Repair Damage | Edit |  | `ai.repairDamage` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration), Generative-AI picture services and editors |
+| Replace Background… | Edit |  | `ai.replaceBackground` | from Microsoft Photos |
+| Replace Object… | Edit |  | `ai.replace` | from Generative-AI picture services and editors |
+| Restyle… | Edit |  | `ai.restyle` | from Microsoft Photos, Generative-AI picture services and editors |
+| Smart Crop | Edit |  | `ai.smartCrop` | from Generative-AI picture services and editors |
+| Translate Text in Picture… | Edit |  | `ai.translateText` | from Google Photos |
+| Unblur | Edit |  | `ai.deblur` | from Google Photos |
+| Upscale | Edit | Ctrl+Alt+u | `ai.upscale` | from Microsoft Photos, Generative-AI picture services and editors |
+| Depth Map | Select |  | `ai.depth` | from Generative-AI picture services and editors |
+| Select by Description… | Select |  | `ai.selectByPrompt` | from Generative-AI picture services and editors |
+| Select Subject | Select |  | `ai.selectSubject` | from Apple Photos and iPhoto, Preview |
+| Alt Text | Understand |  | `ai.altText` | from the Anne's Office suite |
+| Ask About This Picture… | Understand |  | `ai.ask` | from Generative-AI picture services and editors |
+| Culling Assistant | Understand |  | `ai.cullAssist` | from Lightroom Classic (Library and Develop), Generative-AI picture services and editors |
+| Describe | Understand |  | `ai.describe` | from Generative-AI picture services and editors |
+| Estimate Date | Understand |  | `ai.estimateDate` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration) |
+| Find Similar by Content | Understand |  | `ai.findSimilarSemantic` | from Google Photos, Generative-AI picture services and editors |
+| Identify | Understand |  | `ai.identify` | from Google Photos, Apple Photos and iPhoto |
+| Run on Selection… | Understand |  | `ai.batch` | from new in Anne's Lens |
+| Search by Content… | Understand | Ctrl+Alt+f | `ai.searchContent` | from Google Photos, Apple Photos and iPhoto |
+| Suggest Keywords | Understand |  | `ai.autoTag` | from digiKam, Generative-AI picture services and editors |
+| Transcribe Handwriting | Understand |  | `ai.transcribe` | from Archive and genealogy tools (handwriting transcription, photo dating, restoration) |
+| Write Caption | Understand |  | `ai.caption` | from Generative-AI picture services and editors |
+| AI History | Provenance |  | `ai.history` | from new in Anne's Lens |
+| Content Credentials on AI Results | Provenance |  | `ai.contentCredentials` | from Generative-AI picture services and editors |
+| Active AI | Providers |  | `ai.active` | from the Anne's Office suite |
+| AI and Privacy | Providers |  | `ai.privacy` | from the Anne's Office suite |
+| Choose AIs… | Providers |  | `ai.ensembleMembers` | from the Anne's Office suite |
+| Delete Downloaded Models | Providers |  | `ai.deleteModels` | from the Anne's Office suite |
+| Providers and Models… | Providers |  | `ai.providers` | from the Anne's Office suite |
+| Set Up AI… | Providers |  | `ai.setup` | from the Anne's Office suite |
+| Several AIs | Providers |  | `ai.ensembleMode` | has options menu; from the Anne's Office suite |
+| Show AI Discussion | Providers |  | `ai.showDeliberation` | from the Anne's Office suite |
+| Stop AI | Providers | Escape | `ai.stop` | from the Anne's Office suite |
+
 ## Developer (5 of 7)
 
 | Command | Group | Shortcut | ID | Notes |
@@ -526,11 +600,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (155)
+## Planned, not yet built (87)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
-- **File** (19): `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
+- **File** (6): `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.customizeMenus`
 - **Edit** (19): `edit.paint`, `edit.markup`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`
 - **Image** (3): `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (2): `adjust.resetAll`, `adjust.revertOriginal`
@@ -542,5 +616,5 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **View** (20): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.filmstrip`, `view.navigator`, `view.infoPane`, `view.language`, `view.measure`, `view.colorManaged`, `view.stereo`, `view.sphere`, `view.twoPage`, `view.rtl`, `view.compare`, `view.compareSplit`, `view.syncWindows`, `view.mediaPlay`, `view.mediaFrame`, `view.motionPhoto`
 - **Slideshow** (2): `show.music`, `show.remote`
 - **Tools** (7): `tools.ocr`, `tools.ocrToPen`, `tools.readCode`, `tools.vectorize`, `tools.backup`, `tools.plugins`, `tools.external`
-- **AI** (56): `ai.generate`, `ai.variations`, `ai.sketchToImage`, `ai.generateWithRefs`, `ai.generateBackground`, `ai.generateVector`, `ai.generateTile`, `ai.imageToPrompt`, `ai.generateCompare`, `ai.promptLibrary`, `ai.editInstruction`, `ai.fill`, `ai.erase`, `ai.expand`, `ai.replace`, `ai.removeBackground`, `ai.replaceBackground`, `ai.blurBackground`, `ai.relight`, `ai.recolor`, `ai.restyle`, `ai.upscale`, `ai.deblur`, `ai.denoise`, `ai.colorize`, `ai.repairDamage`, `ai.removeReflection`, `ai.translateText`, `ai.combineGroupShots`, `ai.smartCrop`, `ai.selectSubject`, `ai.selectByPrompt`, `ai.depth`, `ai.describe`, `ai.altText`, `ai.ask`, `ai.autoTag`, `ai.caption`, `ai.transcribe`, `ai.identify`, `ai.estimateDate`, `ai.cullAssist`, `ai.searchContent`, `ai.findSimilarSemantic`, `ai.batch`, `ai.contentCredentials`, `ai.history`, `ai.setup`, `ai.providers`, `ai.active`, `ai.privacy`, `ai.ensembleMode`, `ai.ensembleMembers`, `ai.showDeliberation`, `ai.stop`, `ai.deleteModels`
+- **AI** (1): `ai.generateVector`
 - **Developer** (2): `dev.console`, `dev.cliHelp`

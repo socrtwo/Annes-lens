@@ -579,3 +579,20 @@ body.qn-slideshow .qn-viewer { cursor: none; }
 body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important; }
 .qn-thumb-group { flex-basis: 100%; width: 100%; font-weight: 600; font-size: 12px; padding: 8px 4px 2px; border-bottom: 1px solid var(--border); margin-bottom: 4px; color: var(--muted); }
 .qn-timeline-row { text-align: left; }
+
+/* AI tab: the status bar of a running AI command (Stop AI), and the result views. */
+.qn-ai-status { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); max-width: min(92vw, 640px); }
+.qn-ai-status-text { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qn-ai-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent, #4a7); animation: qn-ai-spin 0.9s linear infinite; flex: none; }
+@keyframes qn-ai-spin { to { transform: rotate(360deg); } }
+.qn-ai-text { white-space: pre-wrap; font-size: 14px; line-height: 1.45; max-height: 50vh; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2, transparent); }
+.qn-ai-chat { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; padding: 4px 0; }
+.qn-ai-msg { padding: 8px 10px; border-radius: 10px; white-space: pre-wrap; font-size: 14px; line-height: 1.4; max-width: 92%; }
+.qn-ai-msg.user { align-self: flex-end; background: var(--accent, #4a7); color: #fff; }
+.qn-ai-msg.assistant { align-self: flex-start; border: 1px solid var(--border); }
+.qn-ai-label { font-size: 12px; opacity: 0.75; }
+.qn-ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.qn-ai-card { border: 1px solid var(--border); border-radius: 8px; padding: 6px; cursor: pointer; text-align: center; font-size: 12px; background: none; color: inherit; }
+.qn-ai-card img, .qn-ai-card canvas { max-width: 100%; height: 110px; object-fit: contain; display: block; margin: 0 auto 4px; }
+.qn-ai-card.qn-picked { outline: 2px solid var(--accent, #4a7); }
+.qn-ai-model { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }

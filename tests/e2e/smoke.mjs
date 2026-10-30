@@ -2,8 +2,19 @@
 // walks the folder, zooms, rotates, undoes, reads pixel info, switches menus and saves a copy.
 // Usage: npm run build && npm run e2e   (set QN_URL to test an already-running server instead)
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { startMockAi } from './mockAi.mjs';
+
+// The on-device AI runtime and the tiny fixture models are served from dist/ (never committed there).
+const ORT_FILES = ['ort.webgpu.bundle.min.mjs', 'ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm', 'ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm'];
+if (existsSync('dist')) {
+  mkdirSync('dist/ort', { recursive: true }); mkdirSync('dist/ai-fixtures', { recursive: true });
+  for (const f of ORT_FILES) if (existsSync(`node_modules/onnxruntime-web/dist/${f}`)) copyFileSync(`node_modules/onnxruntime-web/dist/${f}`, `dist/ort/${f}`);
+  for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
+}
+const AI_PORT = 4193;
+const mockAi = await startMockAi(AI_PORT, 'tests/fixtures/ai');
 
 const PORT = 4192;
 let server = null;
@@ -20,7 +31,7 @@ if (!url) {
 const exe = existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {};
 const browser = await chromium.launch(exe);
 const failures = [];
-const check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) failures.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const check = (name, got, want, note) => { if (JSON.stringify(got) !== JSON.stringify(want)) failures.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}${note ? ' [' + note + ']' : ''}`); };
 
 try {
   const p = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -33,7 +44,7 @@ try {
   await p.waitForTimeout(500);
 
   check('commands registered', await p.evaluate(() => window.__qnAllIds.length > 70), true);
-  check('menu bar', await p.evaluate(() => [...document.querySelectorAll('.ql-menubar-item')].map((b) => b.textContent)), ['File', 'Edit', 'Image', 'Options', 'View', 'AI', 'Help'].filter((m) => m !== 'AI'));
+  check('menu bar', await p.evaluate(() => [...document.querySelectorAll('.ql-menubar-item')].map((b) => b.textContent)), ['File', 'Edit', 'Image', 'Options', 'View', 'AI', 'Help']);
 
   // Three generated pictures (PNG, JPEG, BMP via the app's writer) dropped at once.
   const opened = await p.evaluate(async () => {
@@ -680,10 +691,120 @@ try {
   await p.evaluate(() => qn.exec('view.qatAddAll'));
   check('qat add all idempotent', await p.evaluate(() => qn.prefs.qat.length), qat1);
 
+  // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
+  // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
+  const ai = await p.evaluate(async (AI_PORT) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const noDialog = async () => { for (let i = 0; i < 60 && document.querySelector('.ql-dialog'); i++) await wait(50); };
+    const dialog = async () => { for (let i = 0; i < 100; i++) { const d = [...document.querySelectorAll('.ql-dialog')].pop(); if (d && d.querySelector('.ql-primary')) return d; await wait(50); } throw new Error('no dialog; toasts: ' + seen.join(' | ') + '; tab ' + (qn.picture && qn.picture.name) + ' tabs ' + qn.tabs.length); };
+    const field = (d, key) => d.querySelector(`[id^="f_${key}_"]`);
+    const setField = (d, key, value) => { const f = field(d, key); if (!f) throw new Error('no field ' + key); if (f.type === 'checkbox') f.checked = !!value; else f.value = String(value); f.dispatchEvent(new Event(f.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); };
+    const seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('ql-toast')) seen.push(n.textContent); }).observe(document.body, { childList: true, subtree: true });
+    const toasts = () => seen.slice();
+    const done = (p) => Promise.race([p, wait(60000).then(() => { throw new Error('timeout; toasts: ' + seen.join(' | ') + '; dialogs ' + document.querySelectorAll('.ql-dialog').length + ' ' + [...document.querySelectorAll('.ql-dialog h2, .ql-dialog .ql-dialog-title')].map((e) => e.textContent).join('/')); })]);
+    const pixel = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data];
+    const out = {};
+    const A = await window.__qnAi();
+    window.__qnOrtBase = './ort/';
+    const MAP = { modnet: 'matte-test.onnx', 'depth-anything-v2-small': 'depth-test.onnx', lama: 'inpaint-test.onnx', 'swin2sr-x2': 'sr-x2-test.onnx', 'swin2sr-x4-real': 'sr-x4-test.onnx' };
+    A.device.setModelUrlOverride((spec, path) => `./ai-fixtures/${MAP[spec.id] || ({ 'onnx/vision_model_quantized.onnx': 'clip-vision-test.onnx', 'onnx/text_model_quantized.onnx': 'clip-text-test.onnx' })[path] || path.split('/').pop()}`);
+    for (const spec of A.device.MODELS) await A.device.ensureModel(spec, 'quantized'); // the fixtures: no download dialog later
+    const mk = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    const files = [
+      new File([await mk(160, 120, (x) => { x.fillStyle = '#000'; x.fillRect(0, 0, 160, 120); x.fillStyle = '#fff'; x.fillRect(40, 30, 80, 60); })], 'a-subject.png', { type: 'image/png' }),
+      new File([await mk(40, 40, (x) => { x.fillStyle = '#f00'; x.fillRect(0, 0, 40, 40); })], 'b-red.png', { type: 'image/png' }),
+      new File([await mk(40, 40, (x) => { x.fillStyle = '#0f0'; x.fillRect(0, 0, 40, 40); })], 'c-green.png', { type: 'image/png' }),
+      new File([await mk(40, 40, (x) => { x.fillStyle = '#e00'; x.fillRect(0, 0, 40, 40); })], 'd-red2.png', { type: 'image/png' }),
+    ];
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', files); await wait(600);
+    const aiTab = qn.tab; const back = async () => { if (qn.tab !== aiTab) qn.closeTab(qn.tab); qn.activate(aiTab); await wait(300); };
+    qn.prefs.ai.services = [{ id: 'mock', name: 'Mock', api: 'openai', baseUrl: `http://localhost:${AI_PORT}/v1`, key: 'k', textModel: 'mock-vision', imageModel: 'mock-image' }, { id: 'mock2', name: 'Mock Two', api: 'openai', baseUrl: `http://localhost:${AI_PORT}/v1`, key: 'k2', textModel: 'mock-vision', imageModel: '' }];
+    qn.prefs.ai.textService = 'mock'; qn.prefs.ai.imageService = 'mock'; qn.prefs.ai.privacy.confirmSend = false; qn.prefs.ai.prefer = 'device'; qn.savePrefs();
+    out.enabled = ['ai.describe', 'ai.generate', 'ai.fill', 'ai.removeBackground', 'ai.stop'].map((id) => { const c = window.__qnGetCommand(id); return !c.isEnabled || c.isEnabled(qn); });
+    out.first = qn.picture.name;
+    // Describe: the answer appears in a text dialog.
+    let run = qn.exec('ai.describe'); let d = await dialog(); out.describe = field(d, 'text').value; d.querySelector('.ql-primary').click(); await done(run); await noDialog();
+    // Alt Text: JSON parsed into two fields.
+    run = qn.exec('ai.altText'); d = await dialog(); out.alt = [field(d, 'alt').value, field(d, 'ext').value]; d.querySelector('.ql-cancel, .ql-btn:not(.ql-primary)').click(); await done(run); await noDialog();
+    // Suggest Keywords: one checkbox per keyword.
+    run = qn.exec('ai.autoTag'); d = await dialog(); out.tags = [...d.querySelectorAll('input[type=checkbox]')].map((c) => c.parentElement.textContent.trim()).filter((t) => t && !/existing/i.test(t)).slice(0, 3); d.querySelector('.ql-cancel, .ql-btn:not(.ql-primary)').click(); await done(run); await noDialog();
+    // Select by Description: a normalized box becomes the selection.
+    run = qn.exec('ai.selectByPrompt'); d = await dialog(); setField(d, 'what', 'the square'); d.querySelector('.ql-primary').click(); await done(run); await wait(200); out.box = qn.tab.selection && [qn.tab.selection.x, qn.tab.selection.y, qn.tab.selection.w, qn.tab.selection.h];
+    // Generate: a new picture with provenance metadata opens in a new window.
+    const tabs0 = qn.tabs.length;
+    run = qn.exec('ai.generate'); d = await dialog(); setField(d, 'prompt', 'a bicycle'); d.querySelector('.ql-primary').click(); await done(run); await wait(800);
+    const M = await window.__qnMeta();
+    out.gen = { tabs: qn.tabs.length - tabs0, name: qn.picture.name, w: qn.picture.width, center: pixel(32, 32).slice(0, 3), xmp: (M.extractMeta(qn.picture.bytes).xmp ? new TextDecoder().decode(M.extractMeta(qn.picture.bytes).xmp) : '') };
+    out.genProv = { source: /trainedAlgorithmicMedia/.test(out.gen.xmp), prompt: /AiPrompt>a bicycle</.test(out.gen.xmp), provider: /AiProvider>Mock</.test(out.gen.xmp) }; delete out.gen.xmp;
+    await back();
+    // Generative Fill: the service's blue answer is blended inside the selection only.
+    qn.tab.setSelection({ x: 50, y: 40, w: 30, h: 20 });
+    run = qn.exec('ai.fill'); d = await dialog(); setField(d, 'prompt', 'a pond'); d.querySelector('.ql-primary').click(); await done(run); await wait(800);
+    out.fill = { name: qn.picture.name, size: [qn.picture.width, qn.picture.height], inside: pixel(65, 50).slice(0, 3), outsideWhite: pixel(100, 60).slice(0, 3), outsideBlack: pixel(5, 5).slice(0, 3) };
+    await back();
+    // Remove Background on the device: the matting fixture keeps the white subject.
+    qn.tab.setSelection(null);
+    run = qn.exec('ai.removeBackground'); d = await dialog(); setField(d, 'where', 'device'); d.querySelector('.ql-primary').click(); await done(run); await wait(1500);
+    out.rb = { name: qn.picture.name, subjectA: pixel(80, 60)[3], cornerA: pixel(5, 5)[3], provider: A.device.runtimeStatus.provider };
+    await back();
+    // Erase Object on the device: the inpainting fixture fills the selection with mid-gray.
+    qn.tab.setSelection({ x: 50, y: 40, w: 30, h: 20 });
+    run = qn.exec('ai.erase'); d = await dialog(); setField(d, 'where', 'device'); d.querySelector('.ql-primary').click(); await done(run); await wait(1500);
+    out.erase = { inside: pixel(65, 50)[0], outside: pixel(100, 60)[0], black: pixel(5, 5)[0] };
+    await back();
+    // Upscale 2× on the device.
+    qn.tab.setSelection(null);
+    run = qn.exec('ai.upscale'); d = await dialog(); d.querySelector('.ql-primary').click(); await done(run); await wait(2500);
+    out.up = { size: [qn.picture.width, qn.picture.height], center: pixel(160, 120)[0], corner: pixel(2, 2)[0] };
+    await back();
+    // Depth Map as a selection by distance: the near (white) subject.
+    run = qn.exec('ai.depth'); d = await dialog(); setField(d, 'out', 'selection'); d.querySelector('.ql-primary').click(); await done(run); await wait(1500);
+    out.depthSel = qn.tab.selection && [qn.tab.selection.x, qn.tab.selection.y, qn.tab.selection.w, qn.tab.selection.h];
+    qn.tab.setSelection(null);
+    // Search by Content (CLIP fixture): every picture scores; the thumbnails are filtered.
+    run = qn.exec('ai.searchContent'); d = await dialog(); setField(d, 'q', 'red'); setField(d, 'min', 0); d.querySelector('.ql-primary').click(); await done(run); await wait(500);
+    d = await dialog(); out.search = { hits: d.querySelectorAll('.qn-ai-card').length, top: (d.querySelector('.qn-ai-card') || {}).textContent, label: qn.tab.thumbs ? qn.tab.thumbs.filterLabel : '' }; d.querySelector('.ql-primary').click(); await noDialog();
+    if (qn.tab.thumbs) { qn.tab.thumbs.filter = null; qn.tab.thumbs.filterLabel = ''; qn.tab.thumbs.refilter(); }
+    // Find Similar by Content from the red picture: the other red one comes first.
+    for (let i = 0; i < 6 && qn.picture?.name !== 'b-red.png'; i++) { await qn.exec('view.next'); await wait(250); }
+    run = qn.exec('ai.findSimilarSemantic'); await done(run); await wait(300); d = await dialog(); out.similar = [...d.querySelectorAll('.qn-ai-card')].map((c) => c.textContent.split(' — ')[0]); d.querySelector('.ql-primary').click(); await noDialog();
+    if (qn.tab.thumbs) { qn.tab.thumbs.filter = null; qn.tab.thumbs.filterLabel = ''; qn.tab.thumbs.refilter(); }
+    // Several AIs (master): two members answer, the master combines; the discussion is shown.
+    qn.prefs.ai.ensemble = { mode: 'master', members: ['mock', 'mock2'], master: 'mock', showDeliberation: true }; qn.savePrefs();
+    run = qn.exec('ai.describe'); d = await dialog(); out.ensemble = { text: field(d, 'text').value, discussion: /## Mock .*round 1[\s\S]*## Mock Two[\s\S]*## Master: Mock/.test(field(d, 'delib').value) }; d.querySelector('.ql-primary').click(); await done(run); await noDialog();
+    qn.prefs.ai.ensemble.mode = 'single'; qn.savePrefs();
+    out.history = A.history.readHistory().map((e) => `${e.command}:${e.service}`);
+    out.models = (await A.device.downloadedModels()).map((m) => m.spec.id).sort();
+    out.toasts = toasts();
+    return out;
+  }, AI_PORT);
+  check('ai commands enabled with a service', ai.enabled, [true, true, false, true, false]);
+  check('ai describe', ai.describe, 'A red rectangle on a white background.');
+  check('ai alt text', ai.alt, ['A red square', 'A plain red square on a white background.']);
+  check('ai keywords', ai.tags, ['sunset', 'beach', 'sea']);
+  check('ai select by description', ai.box, [40, 30, 80, 60]);
+  check('ai generate opens a labeled picture', [ai.gen.tabs, ai.gen.w, ai.gen.center, ai.genProv], [1, 64, [255, 220, 0], { source: true, prompt: true, provider: true }]);
+  check('ai fill blends inside the selection', [ai.fill.size, ai.fill.inside, ai.fill.outsideWhite, ai.fill.outsideBlack, /AI edit/.test(ai.fill.name)], [[160, 120], [0, 0, 255], [255, 255, 255], [0, 0, 0], true]);
+  check('ai remove background on the device', [ai.rb.subjectA, ai.rb.cornerA, ai.rb.provider], [255, 0, 'wasm']);
+  check('ai erase on the device', [Math.abs(ai.erase.inside - 128) < 6, ai.erase.outside, ai.erase.black], [true, 255, 0]);
+  check('ai upscale on the device', [ai.up.size, ai.up.center, ai.up.corner], [[320, 240], 255, 0]);
+  check('ai depth selection', ai.depthSel, [40, 30, 80, 60]);
+  check('ai search by content filters the panel to matches', [ai.search.hits >= 1 && ai.search.hits <= 4, /^[bd]-red/.test(ai.search.top || ''), ai.search.label], [true, true, 'Search: red']);
+  check('ai find similar by content ranks a red picture first', [/red/.test(ai.similar[0] || ''), ai.simCur], [true, 'b-red.png']);
+  check('ai block started on the subject picture', ai.first, 'a-subject.png');
+  check('ai ensemble master', [ai.ensemble.text, ai.ensemble.discussion], ['Combined: a red rectangle on a white background.', true]);
+  check('ai history', [ai.history.includes('ai.generate:Mock'), ai.history.includes('ai.describe:Mock (master of 2)'), ai.history.some((h) => /^ai\.upscale:this device/.test(h))], [true, true, true]);
+  check('ai models cached', ai.models, ['clip-vit-b32', 'depth-anything-v2-small', 'lama', 'modnet', 'swin2sr-x2', 'swin2sr-x4-real']);
+  const sent = mockAi.requests;
+  check('ai requests carried the picture and the key', [sent.find((r) => r.kind === 'chat')?.images, sent.find((r) => r.kind === 'chat')?.auth, sent.find((r) => r.kind === 'generate')?.prompt, sent.find((r) => r.kind === 'edit')?.hasMask, sent.filter((r) => r.kind === 'chat' && r.json).length > 0], [1, 'Bearer k', 'a bicycle', true, true]);
+  if (ai.toasts.some((t) => /: the service|Could not|failed|stopped/i.test(t))) failures.push('ai toasts: ' + ai.toasts.join(' | '));
+
   if (errs.length) failures.push(...errs);
 } finally {
   await browser.close();
   if (server) try { process.kill(-server.pid); } catch { /* already gone */ }
+  mockAi.close();
 }
 
 if (failures.length) { console.error('E2E failures:\n' + failures.join('\n')); process.exit(1); }
