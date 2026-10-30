@@ -42,7 +42,8 @@
 - [x] Insert Text (with fields), Insert Watermark or Overlay, Signature; Redact Region; History Panel; Go to File by Name.
 - [x] Straighten and Auto Straighten (gradient-orientation histogram), Deskew Scanned Page (projection-profile variance), Perspective Correction and Crop Page from Photo (homography; bright-page corner detection), Lens Correction (Brown radial model, vignetting gain, per-channel scale for lateral color).
 - [x] Batch Steps (ordered actions run per picture by the batch engine, text sizes relative to the width), Recipe Editor (saved in the preferences, JSON copy and paste), Batch Queue (silent runs with progress, pause, cancel; each job one journal entry), Batch Watermark, Batch Metadata (in place, keywords added or replaced), Batch Multipage (split to pages, join through Multipage TIFF or PDF).
-- [ ] Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; content-aware resize; palette editing; color profiles.
+- [x] Pages and Frames editing (insert, delete, extract, reorder pages; frame editor, reverse, loop count, optimize) and the RAW preview commands (show, extract, prefer the embedded JPEG).
+- [ ] Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; content-aware resize; palette editing; color profiles; RAW development.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 
 ## M4 — Adjust, effects and organize (started)

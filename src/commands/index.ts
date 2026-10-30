@@ -20,6 +20,7 @@ import './effects';
 import './lossless';
 import './view';
 import './pages';
+import './pagesEdit';
 import './meta';
 import './dev';
 import './help';

@@ -499,6 +499,32 @@ try {
   });
   check('batch steps ran in order', [bs.n, bs.names[0].endsWith('-steps.png'), bs.size, bs.corner, bs.rights, bs.keywords, bs.desc], [2, true, [110, 85], [255, 0, 0], '© test', ['batch'], 'Border 5 px']);
 
+  // Frames and pages: an APNG with three frames reversed and its loop count set; a two-page TIFF with a page deleted.
+  const pf = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const A = await window.__qnAnim();
+    const mkr = (w, h, v) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4).fill(255).map((x, i) => (i % 4 === 0 ? v : i % 4 === 3 ? 255 : 0)) });
+    const apng = await A.encodeApng([{ raster: mkr(16, 16, 10), delay: 100 }, { raster: mkr(16, 16, 120), delay: 100 }, { raster: mkr(16, 16, 250), delay: 100 }], 0);
+    const tif = A.encodeTiff([{ raster: mkr(20, 10, 30) }, { raster: mkr(12, 8, 200) }]);
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([apng], 'a-anim.png'), new File([tif], 'b-pages.tif')]);
+    await wait(700);
+    const frames = qn.picture.current.frames.length;
+    const first = qn.picture.frameCanvas(qn.picture.current.frames[0]).getContext('2d').getImageData(0, 0, 1, 1).data[0];
+    await qn.exec('frames.reverse'); await wait(100);
+    const firstAfter = qn.picture.frameCanvas(qn.picture.current.frames[0]).getContext('2d').getImageData(0, 0, 1, 1).data[0];
+    const run = qn.exec('frames.loopCount'); for (let i = 0; i < 40 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    const inp = document.querySelector('.ql-dialog input[type=number]'); inp.value = '3'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(100);
+    const loops = qn.picture.current.loops;
+    await qn.exec('view.next'); await wait(600);
+    const pages = qn.picture.pages.length;
+    await qn.exec('pages.delete'); await wait(100);
+    return { frames, first, firstAfter, loops, pages, pagesAfter: qn.picture.pages.length, width: qn.picture.width, label: qn.tab.undoLabel };
+  });
+  check('frames reversed and loop count set', [pf.frames, pf.first, pf.firstAfter, pf.loops], [3, 10, 250, 3]);
+  check('page deleted', [pf.pages, pf.pagesAfter, pf.width, pf.label], [2, 1, 12, 'Delete page 1']);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **334 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **345 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -20,7 +20,8 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Metadata**: View and edit (11) · Date and place (3) · Privacy and integrity (5) · Records and genealogy (3)
 - **Batch**: Batch (13)
 - **Create**: Create (9)
-- **Pages and Frames** (contextual): Pages (3) · Frames (4)
+- **Pages and Frames** (contextual): Pages (7) · Frames (8)
+- **RAW** (contextual): RAW (3)
 - **View**: Zoom (12) · Navigate (7) · Window (10) · Inspect (2) · Display (2) · Quick Access Bar and search (5)
 - **Developer**: Developer (5)
 - **Help**: Help (8)
@@ -29,7 +30,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 126 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 129 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 26 |
 | XnView style (`xnview`) | XnView MP browser and viewer | 96 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 66 |
@@ -38,8 +39,8 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Picasa style (`picasa`) | Picasa 3 | 44 |
 | Preview style (`preview`) | macOS Preview | 40 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 30 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 211 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 334 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 214 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 345 |
 
 ## File (59 of 82)
 
@@ -361,17 +362,33 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Join Side by Side… | Create |  | `create.panoramaJoin` | from IrfanView, FastStone Image Viewer |
 | Multipage TIFF or PDF… | Create |  | `create.multipage` | from IrfanView |
 
-## Pages and Frames (7 of 15)
+## Pages and Frames (15 of 15)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
+| Delete Page | Pages |  | `pages.delete` | from IrfanView |
+| Extract Pages… | Pages |  | `pages.extract` | from IrfanView |
 | Go to Page… | Pages |  | `pages.goto` | from IrfanView |
+| Insert Pages… | Pages |  | `pages.insert` | from IrfanView |
 | Next Page | Pages | Ctrl+PageDown | `pages.next` | from IrfanView |
 | Previous Page | Pages | Ctrl+PageUp | `pages.previous` | from IrfanView |
+| Reorder Pages… | Pages |  | `pages.reorder` | from IrfanView |
 | Animation Speed | Frames |  | `frames.speed` | has options menu; from new in Anne's Lens |
+| Frame Editor… | Frames |  | `frames.editor` | from XnView Classic and XnView MP, new in Anne's Lens |
+| Loop Count… | Frames |  | `frames.loopCount` | from XnView Classic and XnView MP |
 | Next Frame | Frames | . | `frames.next` | from XnView Classic and XnView MP |
+| Optimize Animation | Frames |  | `frames.optimize` | from new in Anne's Lens |
 | Play / Pause Animation | Frames | Ctrl+Space | `frames.play` | from IrfanView, XnView Classic and XnView MP |
 | Previous Frame | Frames |  | `frames.previous` | from XnView Classic and XnView MP |
+| Reverse Frames | Frames |  | `frames.reverse` | from new in Anne's Lens |
+
+## RAW (3 of 4)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Extract Embedded Preview | RAW |  | `raw.extractPreview` | from new in Anne's Lens |
+| Show Embedded Preview | RAW |  | `raw.preview` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
+| Use Embedded Preview by Default | RAW |  | `raw.preferPreview` | from IrfanView, FastStone Image Viewer |
 
 ## View (39 of 72)
 
@@ -440,7 +457,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (223)
+## Planned, not yet built (212)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -452,8 +469,7 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Browse** (23): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.searchColor`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (4): `meta.regions`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.personLink`
 - **Create** (8): `create.panoramaStitch`, `create.movie`, `create.webGallery`, `create.calendar`, `create.photoBook`, `create.focusStack`, `create.hdr`, `create.extractEmbedded`
-- **Pages and Frames** (8): `pages.insert`, `pages.delete`, `pages.extract`, `pages.reorder`, `frames.editor`, `frames.reverse`, `frames.loopCount`, `frames.optimize`
-- **RAW** (4): `raw.preview`, `raw.develop`, `raw.preferPreview`, `raw.extractPreview`
+- **RAW** (1): `raw.develop`
 - **View** (33): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.filmstrip`, `view.navigator`, `view.infoPane`, `view.language`, `view.loupe`, `view.copyColor`, `view.histogramOverlay`, `view.clipping`, `view.focusPeaking`, `view.osd`, `view.osdTemplate`, `view.rulers`, `view.grid`, `view.measure`, `view.colorManaged`, `view.displayAdjust`, `view.grayscalePreview`, `view.colorBlindSim`, `view.stereo`, `view.sphere`, `view.twoPage`, `view.rtl`, `view.compare`, `view.compareSplit`, `view.diffOverlay`, `view.syncWindows`, `view.mediaPlay`, `view.mediaFrame`, `view.motionPhoto`
 - **Slideshow** (13): `show.start`, `show.fromCurrent`, `show.settings`, `show.transition`, `show.timing`, `show.loop`, `show.random`, `show.music`, `show.captions`, `show.pause`, `show.kiosk`, `show.remote`, `show.exportHtml`
 - **Tools** (14): `tools.ocr`, `tools.ocrToPen`, `tools.readCode`, `tools.makeQr`, `tools.docCleanup`, `tools.restoreWizard`, `tools.preflight`, `tools.printCalc`, `tools.paletteExtract`, `tools.vectorize`, `tools.compareFolders`, `tools.backup`, `tools.plugins`, `tools.external`
