@@ -28,6 +28,10 @@ export class ThumbPanel {
   private anchor: Entry | null = null;
   open = false;
   mode: ThumbMode;
+  /** Filter Bar predicate and Group By key function (set by the Browse commands). */
+  filter: ((e: Entry) => boolean) | null = null;
+  groupBy: ((e: Entry) => string) | null = null;
+  filterLabel = '';
 
   constructor(public app: App, public tab: PictureTab) {
     this.mode = app.prefs.thumbMode;
@@ -63,6 +67,8 @@ export class ThumbPanel {
   }
   toggle(mode?: ThumbMode): void { if (this.open && (!mode || mode === this.mode)) this.hide(); else this.show(mode); }
 
+  /** Re-renders with the current filter and grouping. */
+  refilter(): void { this.lastLen = -1; this.sync(); this.renderBar(); }
   setSize(px: number): void { this.app.prefs.thumbSize = Math.max(48, Math.min(512, Math.round(px))); this.app.savePrefs(); this.cache.clear(); this.render(true); }
 
   /** Called on every app refresh: follows folder changes and the current picture cheaply. */
@@ -80,7 +86,11 @@ export class ThumbPanel {
       clear(this.list); this.items.clear(); this.io.disconnect();
       const s = this.size;
       this.list.style.setProperty('--thumb', `${s}px`);
-      for (const e of f.entries) {
+      let shown = this.filter ? f.entries.filter((e) => this.filter!(e)) : [...f.entries];
+      if (this.groupBy) { const g = this.groupBy; const keyed = shown.map((e, i) => ({ e, i, k: g(e) })); keyed.sort((a, b) => a.k.localeCompare(b.k, undefined, { numeric: true }) || a.i - b.i); shown = keyed.map((x) => x.e); }
+      let lastGroup: string | null = null;
+      for (const e of shown) {
+        if (this.groupBy) { const k = this.groupBy(e); if (k !== lastGroup) { lastGroup = k; this.list.appendChild(h('div', { class: 'qn-thumb-group' }, k)); } }
         const item = h('div', { class: 'qn-thumb', role: 'option', title: e.name, style: `width:${s}px` }, h('div', { class: 'qn-thumb-pic', style: `height:${s}px` }), h('div', { class: 'qn-thumb-name' }, e.name));
         (item as any).__entry = e;
         item.addEventListener('click', (ev) => this.select(e, ev));
@@ -100,7 +110,8 @@ export class ThumbPanel {
     const marked = this.tab.marked.size;
     const btn = (ic: string, title: string, onclick: () => void, active = false) => h('button', { class: 'ql-iconbtn' + (active ? ' ql-active' : ''), title, 'aria-label': title, onclick }, icon(ic));
     this.bar.append(
-      h('span', { class: 'qn-thumb-title' }, f.name || 'Folder', h('span', { class: 'ql-help' }, ` · ${f.length} picture${f.length === 1 ? '' : 's'}${marked ? ` · ${marked} marked` : ''}`)),
+      h('span', { class: 'qn-thumb-title' }, f.name || 'Folder', h('span', { class: 'ql-help' }, ` · ${this.filter ? `${this.items.size} of ` : ''}${f.length} picture${f.length === 1 ? '' : 's'}${marked ? ` · ${marked} marked` : ''}${this.filterLabel ? ` · ${this.filterLabel}` : ''}`)),
+      btn('filter_alt', this.filter ? 'Filter (active)…' : 'Filter…', () => this.app.exec('browse.filter'), !!this.filter),
       h('span', { class: 'ql-spacer' }),
       btn('grid_view', 'Grid (replaces the picture)', () => this.show('grid'), this.mode === 'grid'),
       btn('view_carousel', 'Filmstrip under the picture', () => this.show('strip'), this.mode === 'strip'),

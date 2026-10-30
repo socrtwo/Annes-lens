@@ -577,3 +577,5 @@ body.ql-fullscreen .ql-titlebar, body.ql-fullscreen .ql-tabs, body.ql-fullscreen
 .qn-show-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; z-index: 5; background: transparent; }
 body.qn-slideshow .qn-viewer { cursor: none; }
 body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important; }
+.qn-thumb-group { flex-basis: 100%; width: 100%; font-weight: 600; font-size: 12px; padding: 8px 4px 2px; border-bottom: 1px solid var(--border); margin-bottom: 4px; color: var(--muted); }
+.qn-timeline-row { text-align: left; }

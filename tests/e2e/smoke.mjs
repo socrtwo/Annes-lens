@@ -593,6 +593,25 @@ try {
   check('carved the png out of junk', tl.carved, [['png', 50, (25 + 8) * 8]]);
   check('document cleanup applied', tl.label, 'Document Cleanup');
 
+  // Organize: the Filter Bar through its dialog narrows the thumbnails by name; Group By puts headers in the grid.
+  const org = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').fillRect(0, 0, w, h); return c; };
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await blob(mk(30, 20))], 'wide-1.png'), new File([await blob(mk(20, 30))], 'tall-2.png'), new File([await blob(mk(30, 20))], 'wide-3.png')]); await wait(600);
+    const run = qn.exec('browse.filter'); for (let i = 0; i < 80 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    const inputs = [...document.querySelectorAll('.ql-dialog input[type=text]')]; const textField = inputs.find((i) => i.id.startsWith('f_text_')); textField.value = 'wide'; textField.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(300);
+    const shown = qn.tab.el.querySelectorAll('.qn-thumb').length, active = !!qn.tab.thumbs.filter;
+    await qn.exec('browse.groupBy', 'type'); await wait(200);
+    const headers = [...qn.tab.el.querySelectorAll('.qn-thumb-group')].map((x) => x.textContent);
+    await qn.exec('browse.groupBy', 'none'); const run2 = qn.exec('browse.filter'); for (let i = 0; i < 80 && !document.querySelector('.ql-dialog .ql-btn'); i++) await wait(50);
+    [...document.querySelectorAll('.ql-dialog .ql-btn')].find((b) => b.textContent === 'Clear filter').click(); await run2; await wait(200);
+    return { shown, active, headers, after: qn.tab.el.querySelectorAll('.qn-thumb').length, cleared: !qn.tab.thumbs.filter };
+  });
+  check('filter bar narrows the thumbnails', [org.shown, org.active, org.headers, org.after, org.cleared], [2, true, ['PNG'], 3, true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

@@ -61,6 +61,7 @@
 - [ ] Stitch Panorama, Slideshow Video, Web Gallery, Calendar Page, Photo Book, Focus Stack, Exposure Merge, Extract Embedded Pictures.
 - [x] Loupe, rulers, grid and guides, clipping warnings, focus peaking, histogram and information overlays, copy color; display adjustments, grayscale preview, color-blindness simulation.
 - [x] Difference Overlay; Find Files (name, size, dimensions, dates, caption text); Compare Folders; the Tools tab's Print Size Calculator, Extract Palette, Make QR Code, Document Cleanup, Restore Old Photo, Print Check; Encrypt / Open Encrypted Picture (.qlpe), Save Selection As, Recover Pictures from Any File.
+- [x] Filter Bar, Group By, Timeline, stacks (bursts and RAW+JPEG pairs), Light Table, Cull Mode; per-entry info cached (type, date taken, camera, lens, size, location, rating, label, keywords, flag).
 - [ ] Compare up to four, before/after slider, synchronized windows, measure.
 - [x] Slideshow with transitions (fade, wipe, slide, zoom, pan and zoom, random), timing, order, loop, captions through the information overlay, kiosk mode, HTML export.
 - [ ] Background music and the phone remote.

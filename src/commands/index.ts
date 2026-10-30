@@ -8,6 +8,7 @@ import './browse';
 import './batch';
 import './batchSteps';
 import './compare';
+import './organize';
 import './create';
 import './export';
 import './edit';
