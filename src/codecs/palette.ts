@@ -89,3 +89,16 @@ export function encodePalette(pal: Palette, format: PaletteFormat, name = 'Anne\
     }
   }
 }
+
+/** Reads a palette file: GIMP .gpl, Adobe .act, JASC .pal, Photoshop .aco (version 1 RGB), or any text with hex colors. */
+export function parsePalette(bytes: Uint8Array, name = ''): Palette {
+  const ext = (name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase();
+  const text = (() => { try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return ''; } })();
+  const colors: [number, number, number][] = [];
+  if (ext === 'act' || (!text && bytes.length >= 768 && bytes.length <= 772)) { const n = bytes.length >= 770 ? Math.min(256, (bytes[768] << 8) | bytes[769]) || 256 : 256; for (let i = 0; i < n && i * 3 + 2 < bytes.length; i++) colors.push([bytes[i * 3], bytes[i * 3 + 1], bytes[i * 3 + 2]]); return { colors }; }
+  if (ext === 'aco' && bytes.length >= 4) { const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength); const n = dv.getUint16(2); for (let i = 0; i < n && 4 + i * 10 + 10 <= bytes.length; i++) { const o = 4 + i * 10; const space = dv.getUint16(o); if (space === 0) colors.push([dv.getUint16(o + 2) >> 8, dv.getUint16(o + 4) >> 8, dv.getUint16(o + 6) >> 8]); else if (space === 1) { const h = dv.getUint16(o + 2) / 65535, s = dv.getUint16(o + 4) / 65535, v = dv.getUint16(o + 6) / 65535; const k = (n2: number) => { const kk = (n2 + h * 6) % 6; return Math.round(255 * v * (1 - s * Math.max(0, Math.min(kk, 4 - kk, 1)))); }; colors.push([k(5), k(3), k(1)]); } } return { colors }; }
+  if (/^JASC-PAL/i.test(text)) { for (const line of text.split(/\r?\n/).slice(3)) { const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)/); if (m) colors.push([+m[1], +m[2], +m[3]]); } return { colors }; }
+  if (/^GIMP Palette/i.test(text) || (text && /^\s*\d+\s+\d+\s+\d+/m.test(text) && !/#[0-9a-f]{6}/i.test(text))) { for (const line of text.split(/\r?\n/)) { if (/^(GIMP|Name:|Columns:|#)/i.test(line.trim())) continue; const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)/); if (m) colors.push([Math.min(255, +m[1]), Math.min(255, +m[2]), Math.min(255, +m[3])]); } return { colors }; }
+  for (const m of text.matchAll(/#?\b([0-9a-f]{6})\b/gi)) { const v = parseInt(m[1], 16); colors.push([(v >> 16) & 255, (v >> 8) & 255, v & 255]); }
+  return { colors: colors.slice(0, 256) };
+}

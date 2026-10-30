@@ -18,6 +18,7 @@ import './editSelect';
 import './image';
 import './imageOps';
 import './geometry';
+import './imagePalette';
 import './adjust';
 import './effects';
 import './lossless';

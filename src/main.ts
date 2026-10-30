@@ -36,6 +36,7 @@ app.ui.tabsChanged();
 (window as any).__qnEffects = () => import('./picture/effects');
 (window as any).__qnSimilar = () => import('./picture/similar');
 (window as any).__qnAnim = () => Promise.all([import('./codecs/pngenc'), import('./codecs/tiffwrite'), import('./commands/pagesEdit')]).then(([a, t, pe]) => ({ ...a, ...t, ...pe }));
+(window as any).__qnSeam = () => Promise.all([import('./picture/seam'), import('./codecs/palette')]).then(([s, p]) => ({ ...s, ...p }));
 (window as any).__qnMask = () => import('./picture/mask');
 (window as any).__qnMerge = () => Promise.all([import('./picture/merge'), import('./commands/create2')]).then(([m, c]) => ({ ...m, ...c }));
 (window as any).__qnFolderInfo = () => import('./picture/folderInfo');

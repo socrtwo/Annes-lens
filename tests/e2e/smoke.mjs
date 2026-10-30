@@ -653,6 +653,26 @@ try {
   // The wand floods the black (negated) part of the right half: the ellipse's share of it, not the still-white corners.
   check('invert and magic wand', [sm.inv, sm.wand > 500 && sm.wand < 800, sm.wandRect && sm.wandRect.w], [1600 - sm.count, true, 20]);
 
+  // Content-Aware Resize through its dialog narrows the picture by seams; Alpha from Mask makes the unselected area transparent.
+  const sc = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await qn.exec('edit.selectNone');
+    for (let i = 0; i < 40 && document.querySelector('.ql-dialog'); i++) await wait(50); // the previous dialog fades out
+    const w0 = qn.picture.width;
+    const run = qn.exec('image.seamCarve'); for (let i = 0; i < 60 && !document.querySelector('.ql-dialog input[id^="f_w_"]'); i++) await wait(50);
+    const dlg = [...document.querySelectorAll('.ql-dialog')].pop(); const wf = dlg.querySelector('input[id^="f_w_"]'); wf.value = String(w0 - 10); wf.dispatchEvent(new Event('input', { bubbles: true }));
+    dlg.querySelector('.ql-primary').click(); await run; await wait(500);
+    const w1 = qn.picture.width, label = qn.tab.undoLabel;
+    await qn.exec('edit.selectAll'); await qn.exec('edit.selectEllipse'); await wait(50);
+    for (let i = 0; i < 40 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const run2 = qn.exec('image.alphaFromMask'); for (let i = 0; i < 60 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run2; await wait(300);
+    const fc = qn.picture.frameCanvas(); const x = fc.getContext('2d'); const cornerA = x.getImageData(0, 0, 1, 1).data[3], centerA = x.getImageData(Math.floor(fc.width / 2), Math.floor(fc.height / 2), 1, 1).data[3];
+    return { w0, w1, label, cornerA, centerA, hasAlpha: qn.picture.current.hasAlpha };
+  });
+  check('seam carving narrowed the picture', [sc.w1, sc.label], [sc.w0 - 10, 'Content-Aware Resize']);
+  check('alpha from the ellipse mask', [sc.cornerA, sc.centerA, sc.hasAlpha], [0, 255, true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));
