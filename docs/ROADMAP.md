@@ -39,7 +39,8 @@
 - [x] Image tab: Resize/Resample (pixels, percent, print size; nearest, bilinear, bicubic, Mitchell, Catmull-Rom, Lanczos 2/3, B-spline, box; gamma-correct option), Half/Double/To Screen, Set DPI, Custom Rotation; Grayscale, Negative, Threshold (fixed, Otsu, adaptive), Decrease Color Depth (optimal, web, gray palettes; Floyd–Steinberg, Atkinson, ordered), Increase Depth, Swap Channels, Show Channel, Flatten, Transparent Color, Replace Color.
 - [x] Thumbnails (T): a grid that replaces the picture or a filmstrip under it, lazy decoding with the platform's downscaler, marking with Ctrl/Shift-click and Space, keyboard navigation; thumbnail sizes; Sort By (and shuffle); Refresh (F5); Open Archive as Folder; Select by Pattern.
 - [x] Batch Conversion and Rename (B): the marked thumbnails or the folder; rotate (EXIF or fixed), auto crop, resize with a kernel, grayscale, color reduction; any output format with quality and metadata; name patterns with counters, dates, EXIF fields, case and find/replace (regular expressions); live name preview; outputs to a chosen folder or a ZIP download; progress with cancel; Undo Last Batch. Batch Rename (Ctrl+B) in place with collision-safe two-pass renaming and undo; Batch Lossless JPEG; Optimize Files (JPEG); Web and Email Sizes presets; Preview (dry run).
-- [ ] Batch steps editor with saved recipes, the background queue, batch metadata, watermark and multipage; Browser with folder tree and panes; ellipse, lasso and magic-wand selections; Insert Text, overlays, signature; paint pane, Markup Board, redaction, magnifier callout; History panel; Find Files; perspective and lens correction, straighten, deskew, content-aware resize; palette editing; color profiles.
+- [x] Insert Text (with fields), Insert Watermark or Overlay, Signature; Redact Region; History Panel; Go to File by Name.
+- [ ] Batch steps editor with saved recipes, the background queue, batch metadata, watermark and multipage; Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; perspective and lens correction, straighten, deskew, content-aware resize; palette editing; color profiles.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 - Batch conversion and rename with steps, recipes, dry run, undo last batch.
 
@@ -54,7 +55,8 @@
 
 ## M5 — Create, compare and slideshow
 
-- Contact sheet, join side by side, image strip, animations, multipage, web gallery, icon set, comparison picture, extraction from documents.
+- [x] Contact Sheet (pictures or PDF through the app's own PDF writer), Join Side by Side, Image Strip, Comparison Picture, Collage, Animation from Pictures, Multipage TIFF or PDF (own TIFF writer), Icon Set, Extract All Frames.
+- [ ] Stitch Panorama, Slideshow Video, Web Gallery, Calendar Page, Photo Book, Focus Stack, Exposure Merge, Extract Embedded Pictures.
 - Compare up to four, before/after slider, difference overlay, synchronized windows, loupe, measure, rulers and grids.
 - Slideshow with transitions, music, captions, kiosk mode, phone remote, HTML export.
 - [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.

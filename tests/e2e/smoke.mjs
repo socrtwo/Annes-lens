@@ -427,6 +427,7 @@ try {
     document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(200);
     const after = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
     await qn.exec('adjust.copySettings'); await wait(50);
+    qn.prefs.confirmClose = false; // leaving an edited picture must not prompt here
     await qn.exec('view.next'); await wait(500);
     const name2 = qn.picture.name; const b2 = [...qn.viewer.pixelAt(10, 10)].slice(0, 3);
     await qn.exec('adjust.pasteSettings'); await wait(200);
@@ -435,6 +436,30 @@ try {
   });
   check('curves preset brightens', [cv.d1, cv.curve, cv.after[1] > cv.before[1]], [true, true, true]);
   check('paste adjustments replays the curve', [cv.a2[1] > cv.b2[1], cv.label], [true, 'Paste Adjustments']);
+
+  // Insert Text through its dialog (bottom-right corner changes), then Join Side by Side of the four pictures into a new window, and the History panel.
+  const ins = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const dialog = async () => { for (let i = 0; i < 80; i++) { if (document.querySelector('.ql-dialog .ql-primary') && document.querySelector('.ql-dialog-preview img')) return true; await wait(50); } return false; };
+    const w = qn.picture.width, h = qn.picture.height;
+    const before = [...qn.viewer.pixelAt(w - 3, h - 3)].slice(0, 3);
+    const run = qn.exec('edit.insertText'); const d1 = await dialog();
+    const ta = document.querySelector('.ql-dialog textarea'); ta.value = 'HELLO {w}'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    const anchor = [...document.querySelectorAll('.ql-dialog select')].find((s) => [...s.options].some((o) => o.value === 'br')); anchor.value = 'mc'; anchor.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(300); document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(200);
+    let changed = false; for (let y = Math.floor(h * 0.3); y < h * 0.7 && !changed; y += 2) for (let x = Math.floor(w * 0.2); x < w * 0.8; x += 2) { const px = qn.viewer.pixelAt(x, y); if (px[0] > 240 && px[1] > 240 && px[2] > 240) { changed = true; break; } }
+    const label = qn.tab.undoLabel;
+    const runH = qn.exec('edit.history'); for (let i = 0; i < 40 && !document.querySelector('.ql-dialog .qn-fxcard'); i++) await wait(50);
+    const cards = document.querySelectorAll('.ql-dialog .qn-fxcard').length; document.querySelector('.ql-dialog .ql-primary').click(); await runH;
+    for (let i = 0; i < 40 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const windowsBefore = qn.tabs.length;
+    const run2 = qn.exec('create.panoramaJoin'); for (let i = 0; i < 40 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run2; await wait(800);
+    return { d1, before, changed, label, cards, windowsBefore, windowsAfter: qn.tabs.length, name: qn.picture?.name, width: qn.picture?.width, height: qn.picture?.height };
+  });
+  check('insert text drew white text', [ins.d1, ins.changed, ins.label], [true, true, 'Insert Text']);
+  check('history panel lists the states', ins.cards >= 2, true);
+  check('join side by side opened a new window', [ins.windowsAfter, /-joined\.png$/.test(ins.name), ins.height], [ins.windowsBefore + 1, true, 48]);
 
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');

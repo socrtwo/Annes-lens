@@ -51,6 +51,9 @@ export class PictureTab {
   get canRedo(): boolean { return this.redoStack.length > 0; }
   get undoLabel(): string { return this.undoStack[this.undoStack.length - 1]?.label || ''; }
   get redoLabel(): string { return this.redoStack[this.redoStack.length - 1]?.label || ''; }
+  /** The undo history, oldest first: the state before each edit (for the History panel). */
+  get history(): { label: string; image: CanvasImageSource; width: number; height: number }[] { return this.undoStack.map((s) => { const f = (s.pages[s.page] || s.pages[0]).frames[0]; return { label: s.label, image: f.image as CanvasImageSource, width: f.width, height: f.height }; }); }
+  get redoHistory(): string[] { return [...this.redoStack].reverse().map((s) => s.label); }
 
   private snapshot(label: string): Snapshot {
     const p = this.picture!;
