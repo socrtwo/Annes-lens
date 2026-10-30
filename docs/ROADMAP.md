@@ -43,9 +43,10 @@
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 - Batch conversion and rename with steps, recipes, dry run, undo last batch.
 
-## M4 — Adjust, effects and organize
+## M4 — Adjust, effects and organize (started)
 
-- Adjust tab with the non-destructive edit stack, presets, before/after, copy/paste adjustments, revert to original.
+- [x] Adjust tab (as undoable pixel edits, respecting the selection, with a before/after preview in every dialog): Auto-Adjust Colors (Shift+U), One-Click Enhance, Auto Levels/Contrast/Color/White Balance; Color Corrections (Shift+G), Brightness and Contrast, Exposure, Gamma, Levels (per channel), Shadows and Highlights, Fill Light, Equalize, Normalize, Clarity, Dehaze, Vignette; White Balance, HSL, Vibrance, Color Balance, Channel Mixer, Black-and-White Mixer, Tint and Sepia, Warmify, Posterize; Sharpen, Unsharp Mask, Blur (Gaussian, box, surface), Noise Reduction, Despeckle, Red-Eye Reduction, Restore Faded Colors; Before / After.
+- [ ] The non-destructive edit stack with presets, copy/paste adjustments, revert to original; Curves, Tone Equalizer, Selective Color, LUTs, dust and scratches, descreen.
 - Effects tab and Effects Browser; custom convolution.
 - Ratings, labels, favorites, keywords, captions, filter bar, group by; the optional catalog; watch folders and Folder Manager; Cull Mode with RAW previews, focus peaking and clipping warnings.
 - Metadata tab: EXIF/IPTC/XMP editing, templates, date shifting, sidecars, strip metadata, privacy check.

@@ -4,7 +4,7 @@
 
 An original, open-source picture viewer, organizer and converter for Android, iOS, Windows, macOS, Linux, ChromeOS and the web, in the tradition of IrfanView: fast, keyboard-driven, and able to open almost anything. Its goal is the same as the rest of the Anne's Office suite: **no missing commands**. Anne's Lens gathers the commands of the major picture viewers past and present (IrfanView first, then XnView, FastStone, ACDSee, Picasa, Windows Photo Viewer and Photos, Preview and Apple Photos, Google Photos, digiKam and the open-source viewers), adds ideas of its own, and has an **AI** tab and menu for generating and editing pictures. Every feature is a command, and every command can be put on the Quick Access Bar, on your own tab, in any classic menu layout, on a keyboard shortcut, in a macro or a batch recipe, and found with command search. When a picture is damaged, Anne's Lens shows what it can recover instead of refusing to open it.
 
-> **Status: milestone 2 done except scanning; milestone 3 (edit, thumbnails, batch) under way (0.2.0-dev).** The app builds for the web, Android, iOS and desktop with the same CI and release workflows as the sister apps. What works today:
+> **Status: milestone 2 done except scanning; milestone 3 (edit, thumbnails, batch) largely built; milestone 4 (adjust) started (0.2.0-dev).** The app builds for the web, Android, iOS and desktop with the same CI and release workflows as the sister apps. What works today:
 >
 > - **The suite shell:** command registry, ribbon, Quick Access Bar with Add All Choices, Customize Tabs and Keyboard, command search (Alt+Q), Backstage, Options, settings export/import (JSON shared with the suite, or an IrfanView-style key list), portable mode on the desktop, macros.
 > - **Classic menus:** View ▸ Menus shows the ribbon, a classic menu bar or both; the bar follows the IrfanView layout by default and can follow IrfanView Thumbnails, XnView, FastStone, ACDSee, Windows Photo Viewer, Picasa, Preview, digiKam, all viewers combined, or the complete layout. Help ▸ Menu Map shows where any command lives.
@@ -17,7 +17,8 @@ An original, open-source picture viewer, organizer and converter for Android, iO
 > - **Edit (M3 start):** rectangle selection with handles, crop (selection, aspect, print sizes, auto borders), cut/copy/paste into the picture and beside it, canvas size, borders; resize with every common kernel, custom rotation, grayscale, negative, thresholds, color reduction with dithering, channel tools, transparency tools.
 > - **Thumbnails (T):** grid or filmstrip for the folder, lazy decoding, marking, keyboard navigation, sort and refresh.
 > - **Batch (B):** convert, resize, rotate, recolor and rename many pictures with a name pattern and live preview; Batch Rename in place; batch lossless JPEG and optimization; Undo Last Batch.
-> - **185 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
+> - **Adjust (M4 start):** auto-adjust and one-click enhance, color corrections, levels, exposure, shadows/highlights, white balance, HSL, vibrance, color balance, mixers, tint, sharpen and unsharp mask, blur, noise reduction, red-eye, faded-color restoration, each with a before/after preview; Before / After toggle.
+> - **220 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
 >
 > Everything else below is still the plan: see [docs/ROADMAP.md](docs/ROADMAP.md) for the milestones. Issues and discussion are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

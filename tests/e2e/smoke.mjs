@@ -323,6 +323,27 @@ try {
   check('batch counts', [batch.done, batch.failed], [3, 0]);
   check('batch resize', batch.size, [32, 24]);
 
+  // Adjust: auto-adjust, sharpen and Before/After through the real commands (on the picture the batch left open).
+  const adj = await p.evaluate(async () => {
+    const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, '#303030'); g.addColorStop(1, '#a0a0a0'); x.fillStyle = g; x.fillRect(0, 0, w, h); return c; };
+    const blob = (c, t) => new Promise((r) => c.toBlob(r, t));
+    await qn.exec('file.openDropped', [new File([await blob(mk(80, 20), 'image/png')], 'adj.png')]);
+    await new Promise((r) => setTimeout(r, 600));
+    const before = [...qn.viewer.pixelAt(79, 10)].slice(0, 3);
+    await qn.exec('adjust.auto');
+    const after = [...qn.viewer.pixelAt(79, 10)].slice(0, 3);
+    await qn.exec('adjust.sharpen');
+    const label = qn.tab.undoLabel;
+    await qn.exec('adjust.beforeAfter');
+    const orig = [...qn.viewer.pixelAt(79, 10)].slice(0, 3);
+    const showing = qn.tab.showingOriginal;
+    await qn.exec('adjust.beforeAfter');
+    return { before, after, label, orig, showing, back: qn.tab.showingOriginal, canUndo: qn.tab.canUndo };
+  });
+  check('auto adjust brightens the light end', adj.after[0] > adj.before[0] + 30, true);
+  check('sharpen label', adj.label, 'Sharpen');
+  check('before/after shows the original', [adj.orig, adj.showing, adj.back, adj.canUndo], [adj.before, true, false, true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

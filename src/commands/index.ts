@@ -10,6 +10,7 @@ import './export';
 import './edit';
 import './image';
 import './imageOps';
+import './adjust';
 import './lossless';
 import './view';
 import './pages';

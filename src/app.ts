@@ -76,6 +76,7 @@ export class PictureTab {
   /** Runs an edit as one undoable step. `fn` returns the new pages (never mutating the old ones). */
   edit(label: string, fn: (p: Picture) => void): void {
     if (!this.picture) throw new Error('No picture is open.');
+    if (this.stash) this.showOriginal(false);
     const before = this.snapshot(label);
     fn(this.picture);
     this.picture.version++;
@@ -100,7 +101,18 @@ export class PictureTab {
     this.afterChange();
     return true;
   }
-  clearHistory(): void { this.undoStack = []; this.redoStack = []; }
+  clearHistory(): void { this.undoStack = []; this.redoStack = []; this.stash = null; }
+  private stash: Snapshot | null = null;
+  /** Before / After: shows the picture as it was before the first edit while `on`, without touching the history. */
+  showOriginal(on: boolean): boolean {
+    const p = this.picture;
+    if (!p) return false;
+    if (on) { if (this.stash || !this.undoStack.length) return false; this.stash = this.snapshot('current'); this.restore(this.undoStack[0]); }
+    else { if (!this.stash) return false; this.restore(this.stash); this.stash = null; }
+    this.ui.pictureChanged(); this.app.refresh();
+    return true;
+  }
+  get showingOriginal(): boolean { return !!this.stash; }
   afterChange(): void {
     this.dirty = this.undoStack.length > 0;
     this.ui.pictureChanged();

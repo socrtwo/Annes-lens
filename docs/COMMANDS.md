@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **185 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **220 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -10,10 +10,11 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
-- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (2) · Organize (3) · View (3) · Share (4)
+- **Home**: Clipboard (4) · Navigate (5) · Rotate (4) · Quick fix (5) · Organize (3) · View (3) · Share (4)
 - **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
 - **Edit**: Undo (2) · Clipboard (9) · Select (5) · Crop (4) · Add (2)
 - **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
+- **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
 - **Browse**: Views (5) · Rate and label (1) · Catalog (1)
 - **Metadata**: View and edit (1)
 - **Batch**: Batch (7)
@@ -26,17 +27,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 93 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 98 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 23 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 64 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 39 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 29 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 23 |
-| Picasa style (`picasa`) | Picasa 3 | 24 |
-| Preview style (`preview`) | macOS Preview | 37 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 14 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 119 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 185 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 74 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 50 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 35 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 27 |
+| Picasa style (`picasa`) | Picasa 3 | 30 |
+| Preview style (`preview`) | macOS Preview | 38 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 16 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 144 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 220 |
 
 ## File (59 of 82)
 
@@ -164,6 +165,46 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Swap Color Channels | Color depth and palette |  | `image.swapChannels` | has options menu; from IrfanView |
 | Transparent Color… | Color depth and palette |  | `image.transparentColor` | from IrfanView, Graphic Workshop |
 
+## Adjust (35 of 47)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Auto Color | Automatic |  | `adjust.autoColor` | from XnView Classic and XnView MP |
+| Auto Contrast | Automatic |  | `adjust.autoContrast` | from XnView Classic and XnView MP |
+| Auto Levels | Automatic |  | `adjust.autoLevels` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Auto White Balance | Automatic |  | `adjust.autoWhiteBalance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Auto-Adjust Colors | Automatic | Shift+u | `adjust.auto` | from IrfanView |
+| One-Click Enhance | Automatic | Ctrl+e | `adjust.enhance` | from Picasa, Microsoft Photos, Apple Photos and iPhoto |
+| Brightness and Contrast… | Tone |  | `adjust.brightnessContrast` | from most picture viewers |
+| Clarity… | Tone |  | `adjust.clarity` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop) |
+| Color Corrections… | Tone | Shift+g | `adjust.colorCorrections` | from IrfanView |
+| Dehaze… | Tone |  | `adjust.dehaze` | from Lightroom Classic (Library and Develop) |
+| Equalize Histogram | Tone |  | `adjust.equalize` | from XnView Classic and XnView MP |
+| Exposure… | Tone |  | `adjust.exposure` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Fill Light | Tone |  | `adjust.fillLight` | from Picasa |
+| Gamma… | Tone |  | `adjust.gamma` | from IrfanView |
+| Levels… | Tone | Ctrl+l | `adjust.levels` | from FastStone Image Viewer, XnView Classic and XnView MP |
+| Normalize | Tone |  | `adjust.normalize` | from XnView Classic and XnView MP |
+| Shadows and Highlights… | Tone |  | `adjust.shadowsHighlights` | from FastStone Image Viewer, Lightroom Classic (Library and Develop) |
+| Vignette… | Tone |  | `adjust.vignette` | from Apple Photos and iPhoto, Lightroom Classic (Library and Develop), FastStone Image Viewer |
+| Black-and-White Mixer… | Color |  | `adjust.bwMixer` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Channel Mixer… | Color |  | `adjust.channelMixer` | from XnView Classic and XnView MP, digiKam |
+| Color Balance… | Color |  | `adjust.colorBalance` | from FastStone Image Viewer, XnView Classic and XnView MP |
+| Hue, Saturation and Lightness… | Color |  | `adjust.hsl` | from XnView Classic and XnView MP, FastStone Image Viewer |
+| Posterize… | Color |  | `adjust.posterize` | from XnView Classic and XnView MP |
+| Tint and Sepia… | Color |  | `adjust.tint` | from Picasa, XnView Classic and XnView MP |
+| Vibrance… | Color |  | `adjust.vibrance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Warmify | Color |  | `adjust.warmify` | from Picasa |
+| White Balance… | Color |  | `adjust.whiteBalance` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+| Blur… | Detail and retouch |  | `adjust.blur` | from IrfanView |
+| Despeckle | Detail and retouch |  | `adjust.despeckle` | from XnView Classic and XnView MP |
+| Noise Reduction… | Detail and retouch |  | `adjust.denoise` | from Lightroom Classic (Library and Develop), digiKam |
+| Red-Eye Reduction | Detail and retouch | Shift+y | `adjust.redEye` | from IrfanView, Picasa, Microsoft Photos |
+| Restore Faded Colors | Detail and retouch |  | `adjust.restoreFaded` | from new in Anne's Lens |
+| Sharpen | Detail and retouch | Shift+s | `adjust.sharpen` | from IrfanView |
+| Unsharp Mask… | Detail and retouch |  | `adjust.unsharp` | from IrfanView, XnView Classic and XnView MP |
+| Before / After | Presets and history | \ | `adjust.beforeAfter` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
+
 ## Browse (7 of 40)
 
 | Command | Group | Shortcut | ID | Notes |
@@ -273,14 +314,14 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (372)
+## Planned, not yet built (337)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (23): `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
 - **Edit** (32): `edit.history`, `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
 - **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
-- **Adjust** (47): `adjust.auto`, `adjust.enhance`, `adjust.autoLevels`, `adjust.autoContrast`, `adjust.autoColor`, `adjust.autoWhiteBalance`, `adjust.colorCorrections`, `adjust.brightnessContrast`, `adjust.exposure`, `adjust.levels`, `adjust.curves`, `adjust.gamma`, `adjust.shadowsHighlights`, `adjust.fillLight`, `adjust.toneEqualizer`, `adjust.equalize`, `adjust.normalize`, `adjust.clarity`, `adjust.dehaze`, `adjust.vignette`, `adjust.whiteBalance`, `adjust.hsl`, `adjust.vibrance`, `adjust.colorBalance`, `adjust.selectiveColor`, `adjust.channelMixer`, `adjust.bwMixer`, `adjust.tint`, `adjust.warmify`, `adjust.posterize`, `adjust.lut`, `adjust.sharpen`, `adjust.unsharp`, `adjust.blur`, `adjust.denoise`, `adjust.despeckle`, `adjust.redEye`, `adjust.dustScratches`, `adjust.restoreFaded`, `adjust.descreen`, `adjust.beforeAfter`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
+- **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (47): `fx.browser`, `fx.repeatLast`, `fx.convolution`, `fx.plugins8bf`, `fx.emboss`, `fx.oilPaint`, `fx.edgeDetect`, `fx.median`, `fx.pencilSketch`, `fx.watercolor`, `fx.cartoon`, `fx.halftone`, `fx.mosaic`, `fx.pixelize`, `fx.solarize`, `fx.tiles`, `fx.button3d`, `fx.filmGrain`, `fx.softFocus`, `fx.glow`, `fx.focalBW`, `fx.graduatedTint`, `fx.orton`, `fx.crossProcess`, `fx.toyCamera`, `fx.tiltShift`, `fx.duotone`, `fx.noise`, `fx.swirl`, `fx.explosion`, `fx.rain`, `fx.fragment`, `fx.spread`, `fx.shift`, `fx.radialBlur`, `fx.zoomBlur`, `fx.fishEye`, `fx.wave`, `fx.glass`, `fx.ripple`, `fx.pinch`, `fx.polar`, `fx.dropShadow`, `fx.reflection`, `fx.roundCorners`, `fx.instantFrame`, `fx.vignetteFrame`
 - **Browse** (33): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.rate`, `browse.colorLabel`, `browse.favorite`, `browse.pick`, `browse.reject`, `browse.unflag`, `browse.selectRejected`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (25): `meta.iptc`, `meta.xmp`, `meta.comment`, `meta.caption`, `meta.keywords`, `meta.copyright`, `meta.regions`, `meta.template`, `meta.copyFrom`, `meta.diff`, `meta.sidecarMode`, `meta.shiftDate`, `meta.geotag`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.removeGps`, `meta.strip`, `meta.privacyCheck`, `meta.provenance`, `meta.checksum`, `meta.fixity`, `meta.citation`, `meta.personLink`, `meta.exportCsv`, `meta.importCsv`
