@@ -525,6 +525,31 @@ try {
   check('frames reversed and loop count set', [pf.frames, pf.first, pf.firstAfter, pf.loops], [3, 10, 250, 3]);
   check('page deleted', [pf.pages, pf.pagesAfter, pf.width, pf.label], [2, 1, 12, 'Delete page 1']);
 
+  // View overlays: the grid draws white lines on the picture, grayscale preview changes the display but not the pixels, clipping warnings mark the white page.
+  const ov = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const O = await window.__qnOverlays();
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const c = document.createElement('canvas'); c.width = 120; c.height = 90; const x = c.getContext('2d'); x.fillStyle = '#c03030'; x.fillRect(0, 0, 120, 90); x.fillStyle = '#ffffff'; x.fillRect(80, 60, 40, 30);
+    await qn.exec('file.openDropped', [new File([await blob(c)], 'ov.png')]); await wait(600);
+    await qn.exec('view.actualSize'); await wait(200);
+    const v = qn.viewer; const r = v.pictureRect(); const vc = v.el.querySelector('canvas'); const vx = vc.getContext('2d'); const dpr = vc.width / v.el.clientWidth;
+    const at = (px, py) => [...vx.getImageData(Math.round((r.x + px) * dpr), Math.round((r.y + py) * dpr), 1, 1).data].slice(0, 3);
+    const plain = at(40, 30);
+    await qn.exec('view.grid', 'thirds'); await wait(150);
+    const onLine = [39, 40, 41].map((xx) => at(xx, 30)).reduce((a, b) => (b[1] > a[1] ? b : a));
+    await qn.exec('view.grid', 'off'); await qn.exec('view.grayscalePreview'); await wait(150);
+    const gray = at(20, 20); const pixel = [...v.pixelAt(20, 20)].slice(0, 3);
+    await qn.exec('view.grayscalePreview'); await qn.exec('view.clipping'); await wait(150);
+    const clipped = at(100, 75);
+    await qn.exec('view.clipping'); await qn.exec('view.osd'); await wait(150);
+    const osd = O.viewState.osd; await qn.exec('view.osd');
+    return { plain, onLine, gray, pixel, clipped, osd };
+  });
+  check('grid line is white over red', [ov.plain[0] > 150 && ov.plain[1] < 80, ov.onLine[1] > 150], [true, true]);
+  check('grayscale preview leaves the pixels', [Math.abs(ov.gray[0] - ov.gray[1]) < 3, ov.pixel[0] > 150 && ov.pixel[1] < 80], [true, true]);
+  check('clipping marks the white area red', [ov.clipped[0] > 200, ov.clipped[1] < 80, ov.osd], [true, true, true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

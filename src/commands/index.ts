@@ -19,6 +19,7 @@ import './adjust';
 import './effects';
 import './lossless';
 import './view';
+import './viewTools';
 import './pages';
 import './pagesEdit';
 import './meta';

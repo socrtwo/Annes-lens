@@ -5,6 +5,7 @@
  * from the decoded bitmap; only the visible part is drawn, so panning a large picture stays smooth.
  */
 import type { App, PictureTab } from '../app';
+import { drawOverlays, displayFrame, viewState } from './overlays';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
 
@@ -55,6 +56,8 @@ export class Viewer {
   }
 
   get zoom(): number { return this._zoom; }
+  /** The pointer position in viewer CSS pixels (null when outside). */
+  get pointerPos(): { x: number; y: number } | null { return this.pointer; }
   get picture() { return this.tab.picture; }
 
   // ----------------------------------------------------------------------------------------
@@ -189,11 +192,16 @@ export class Viewer {
     ctx.imageSmoothingEnabled = this._zoom < 1 || prefs.smoothZoom;
     ctx.imageSmoothingQuality = 'high';
     try {
-      ctx.drawImage(frame.image as CanvasImageSource, sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
+      ctx.drawImage(displayFrame(frame), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
     } catch (e) { /* a closed bitmap after a quick navigation */ }
     if (this._zoom >= 8 && (this.app as any).pixelGrid) this.grid(ctx, r, sx, sy, ex, ey);
     const sel = this.tab.selection;
     if (sel) this.drawSelection(ctx, r, sel);
+    const vs = viewState;
+    if (vs.grid !== 'off' || vs.rulers || vs.clipping || vs.peaking || vs.histogram || vs.osd || vs.loupe) {
+      const f = this.tab.folder;
+      drawOverlays(ctx, this, r, frame, { name: p.name, index: f.index, total: f.length, exif: p.exif, size: p.bytes.length, page: p.page, pages: p.pages.length, dpi: p.current.dpi, template: this.app.prefs.osdTemplate, pointer: this.pointer });
+    }
   }
 
   private drawSelection(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, sel: { x: number; y: number; w: number; h: number }): void {
@@ -338,6 +346,7 @@ export class Viewer {
     el.addEventListener('pointermove', (e) => {
       const r = el.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (viewState.loupe) this.draw();
       if (this.selecting && this.picture) {
         const q = this.toPicture(this.pointer.x, this.pointer.y);
         const p = this.picture, s = this.selecting, st = s.start;

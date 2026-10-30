@@ -59,7 +59,8 @@
 
 - [x] Contact Sheet (pictures or PDF through the app's own PDF writer), Join Side by Side, Image Strip, Comparison Picture, Collage, Animation from Pictures, Multipage TIFF or PDF (own TIFF writer), Icon Set, Extract All Frames.
 - [ ] Stitch Panorama, Slideshow Video, Web Gallery, Calendar Page, Photo Book, Focus Stack, Exposure Merge, Extract Embedded Pictures.
-- Compare up to four, before/after slider, difference overlay, synchronized windows, loupe, measure, rulers and grids.
+- [x] Loupe, rulers, grid and guides, clipping warnings, focus peaking, histogram and information overlays, copy color; display adjustments, grayscale preview, color-blindness simulation.
+- [ ] Compare up to four, before/after slider, difference overlay, synchronized windows, measure.
 - Slideshow with transitions, music, captions, kiosk mode, phone remote, HTML export.
 - [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.
 - Hand-offs to Anne's Folio, Stage, Pen and Press. Command-line options (desktop).

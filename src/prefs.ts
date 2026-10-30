@@ -85,6 +85,10 @@ export interface Prefs {
   metaTemplates: { name: string; fields: Record<string, string> }[];
   /** Keywords typed so far (autocomplete). */
   keywordHistory: string[];
+  /** Information Overlay template. */
+  osdTemplate: string;
+  /** Copy Color Under Pointer format. */
+  colorFormat: 'hex' | 'rgb' | 'hsl' | 'name';
   /** RAW files open as their embedded preview. */
   rawPreferPreview: boolean;
   /** Batch recipes: named Batch Steps jobs. */
@@ -139,7 +143,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
