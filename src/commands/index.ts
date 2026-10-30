@@ -5,6 +5,7 @@ import './fileOps';
 import './acquire';
 import './print';
 import './browse';
+import './batch';
 import './export';
 import './edit';
 import './image';

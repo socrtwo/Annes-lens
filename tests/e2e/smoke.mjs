@@ -309,6 +309,20 @@ try {
   await p.evaluate(() => qn.exec('browse.viewMode', 'off'));
   check('thumbs off', await p.evaluate(() => qn.tab.el.querySelector('.qn-thumbs').style.display), 'none');
 
+  // Batch: the engine converts the three thumbnails to JPEG at 32 px with a counter pattern into a collecting sink.
+  const batch = await p.evaluate(async () => {
+    const { runBatch } = await window.__qnBatch();
+    const outputs = [];
+    const job = { inputs: [...qn.folder.entries], format: 'jpeg', quality: 80, keepMeta: true, steps: { resize: { mode: 'long', value: 32, kernel: 'lanczos3', onlyShrink: true }, grayscale: true }, names: { pattern: 'out-{n:2}', start: 1, pad: 2 } };
+    const res = await runBatch(qn, job, async (r) => { outputs.push({ name: r.name, size: r.data.length, head: [...r.data.subarray(0, 3)] }); return { uri: null, name: r.name }; }, { silent: true });
+    const bmp = await createImageBitmap(new Blob([await (async () => { const { runBatch: rb } = await window.__qnBatch(); let d; await rb(qn, { ...job, inputs: [qn.folder.entries[1]] }, async (r) => { d = r.data; return { uri: null, name: r.name }; }, { silent: true }); return d; })()], { type: 'image/jpeg' }));
+    return { names: outputs.map((o) => o.name), heads: outputs.map((o) => o.head), done: res.done.length, failed: res.failed.length, size: [bmp.width, bmp.height] };
+  });
+  check('batch names', batch.names, ['out-01.jpg', 'out-02.jpg', 'out-03.jpg']);
+  check('batch jpeg', batch.heads.every((h) => h[0] === 255 && h[1] === 216), true);
+  check('batch counts', [batch.done, batch.failed], [3, 0]);
+  check('batch resize', batch.size, [32, 24]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

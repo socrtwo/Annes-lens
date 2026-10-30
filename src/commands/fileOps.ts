@@ -11,7 +11,7 @@ import { fileOpCaps, renameFile, deleteFile, pickFolder, copyFileTo, writeIntoFo
 import { fmtSize } from '../ui/shell';
 
 /** The folder address an entry can be restored into: the folder's own, or (desktop) the file's parent. */
-function dirUriOf(entry: Entry | null, folder: Folder): string | null {
+export function dirUriOf(entry: Entry | null, folder: Folder): string | null {
   if (folder.uri) return folder.uri;
   const u = entry?.uri;
   if (u && u.startsWith('file:')) return u.replace(/\/[^/]*$/, '') || null;
@@ -24,7 +24,7 @@ function caps(app: App): FileOpCaps {
 }
 
 /** Replaces `from` by `to` in the folder and the tab, keeping the decoded picture. */
-function replaceEntry(tab: PictureTab, from: Entry, to: Entry): void {
+export function replaceEntry(tab: PictureTab, from: Entry, to: Entry): void {
   const i = tab.folder.entries.indexOf(from);
   if (i >= 0) tab.folder.entries[i] = to;
   tab.loader.rekey(from, to);
