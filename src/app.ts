@@ -35,6 +35,10 @@ export class PictureTab {
   dirty = false;
   /** The rectangle selection (picture pixels, integers), or null. */
   selection: { x: number; y: number; w: number; h: number } | null = null;
+  /** A per-pixel mask (255 = selected) for ellipse, lasso, wand and color-range selections; null for a plain rectangle. */
+  selectionMask: Uint8Array | null = null;
+  /** The shape the selection tool draws. */
+  selectShape: 'rect' | 'ellipse' | 'lasso' = 'rect';
   /** Left-drag draws a selection instead of panning (Edit ▸ Rectangle Selection). */
   selectTool = false;
   created = Date.now();
@@ -64,9 +68,11 @@ export class PictureTab {
     p.pages = s.pages; p.page = s.page; p.frame = s.frame;
     p.version++;
     if (this.selection && (this.selection.x + this.selection.w > p.width || this.selection.y + this.selection.h > p.height)) this.selection = null;
+    if (this.selectionMask && this.selectionMask.length !== p.width * p.height) this.selectionMask = null;
   }
-  setSelection(r: { x: number; y: number; w: number; h: number } | null): void {
+  setSelection(r: { x: number; y: number; w: number; h: number } | null, mask: Uint8Array | null = null): void {
     const p = this.picture;
+    this.selectionMask = r && mask && p && mask.length === p.width * p.height ? mask : null;
     if (!r || !p) this.selection = null;
     else {
       const x = Math.max(0, Math.min(p.width, Math.round(r.x))), y = Math.max(0, Math.min(p.height, Math.round(r.y)));
@@ -139,7 +145,7 @@ export class PictureTab {
     try {
       const pic = await this.loader.get(e);
       if (this.folder.current !== e) return; // the user moved on
-      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory(); this.selection = null;
+      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory(); this.selection = null; this.selectionMask = null;
       pic.loadMs = Math.round(performance.now() - t0);
       this.ui.pictureChanged(true);
       this.app.addRecent(e);

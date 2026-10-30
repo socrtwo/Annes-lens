@@ -14,6 +14,7 @@ import './create2';
 import './export';
 import './edit';
 import './editAdd';
+import './editSelect';
 import './image';
 import './imageOps';
 import './geometry';

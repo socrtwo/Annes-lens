@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **393 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **398 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -12,7 +12,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 - **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (5) · Organize (7) · View (4) · Share (4)
 - **File**: Open (16) · Save (9) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
-- **Edit**: Undo (3) · Clipboard (9) · Select (5) · Crop (5) · Add (5) · Paint and markup (1) · Find (2)
+- **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (1) · Find (2)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (5)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
@@ -33,16 +33,16 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
 | IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 133 |
-| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 28 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 102 |
+| IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 29 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 103 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 74 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 50 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 51 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 30 |
 | Picasa style (`picasa`) | Picasa 3 | 48 |
-| Preview style (`preview`) | macOS Preview | 42 |
+| Preview style (`preview`) | macOS Preview | 43 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 37 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 231 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 393 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 232 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 398 |
 
 ## File (63 of 82)
 
@@ -112,7 +112,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Portable Mode | Close and options |  | `file.portableMode` | from IrfanView, XnView Classic and XnView MP |
 | Reset All Customizations | Close and options |  | `file.resetCustomizations` | from the Anne's Office suite |
 
-## Edit (31 of 55)
+## Edit (36 of 55)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -129,9 +129,14 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Paste Beside | Clipboard |  | `edit.pasteBeside` | has options menu; from IrfanView |
 | Paste into Selection | Clipboard |  | `edit.pasteInto` | from IrfanView |
 | Custom Selection… | Select | Shift+c | `edit.customSelection` | from IrfanView |
+| Ellipse Selection | Select |  | `edit.selectEllipse` | from XnView Classic and XnView MP |
+| Invert Selection | Select | Ctrl+Shift+i | `edit.selectInvert` |  |
+| Lasso and Polygon Selection | Select |  | `edit.selectLasso` | from XnView Classic and XnView MP |
+| Magic Wand | Select |  | `edit.selectWand` | from XnView Classic and XnView MP |
 | Maximize Selection to Aspect Ratio | Select |  | `edit.selectMaxAspect` | has options menu; from IrfanView |
 | Rectangle Selection | Select |  | `edit.selectRect` | from most picture viewers |
 | Select All | Select | Ctrl+a | `edit.selectAll` | from most picture viewers |
+| Select by Color Range… | Select |  | `edit.selectColor` | from new in Anne's Lens |
 | Select None | Select | Ctrl+d | `edit.selectNone` | from most picture viewers |
 | Selection Information | Select |  | `edit.selectionInfo` | not in tabs; from IrfanView |
 | Auto Crop Borders | Crop | Shift+x | `edit.autoCrop` | from IrfanView |
@@ -517,12 +522,12 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (164)
+## Planned, not yet built (159)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (19): `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
-- **Edit** (24): `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.paint`, `edit.markup`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`
+- **Edit** (19): `edit.paint`, `edit.markup`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`
 - **Image** (7): `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (2): `adjust.resetAll`, `adjust.revertOriginal`
 - **Effects** (1): `fx.plugins8bf`

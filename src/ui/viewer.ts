@@ -6,6 +6,7 @@
  */
 import type { App, PictureTab } from '../app';
 import { drawOverlays, displayFrame, viewState } from './overlays';
+import { maskOverlay, maskBounds, ellipseMask, polygonMask } from '../picture/mask';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
 
@@ -31,6 +32,8 @@ export class Viewer {
   private selecting: { x0: number; y0: number; handle: number; start: { x: number; y: number; w: number; h: number } | null } | null = null;
   private pinch: { d: number; z: number } | null = null;
   private pixelCanvas: HTMLCanvasElement | null = null;
+  private maskCanvas: { mask: Uint8Array; canvas: HTMLCanvasElement } | null = null;
+  private lassoPts: [number, number][] = [];
   private pixelKey = '';
   private destroyed = false;
   private ro: ResizeObserver;
@@ -212,6 +215,9 @@ export class Viewer {
     // Dim everything outside the selection.
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.rect(0, 0, vw, vh); ctx.rect(x, y, w, hh); ctx.fill('evenodd');
+    const mask = this.tab.selectionMask;
+    if (mask) { const p = this.picture!; if (this.maskCanvas?.mask !== mask) { const c = document.createElement('canvas'); c.width = p.width; c.height = p.height; c.getContext('2d')!.putImageData(new ImageData(maskOverlay(mask, p.width, p.height) as Uint8ClampedArray<ArrayBuffer>, p.width, p.height), 0, 0); this.maskCanvas = { mask, canvas: c }; } ctx.imageSmoothingEnabled = false; ctx.drawImage(this.maskCanvas.canvas, sel.x, sel.y, sel.w, sel.h, x, y, w, hh); }
+    if (this.lassoPts.length > 1) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); this.lassoPts.forEach(([px, py], i) => { const vx = r.x + px * z, vy = r.y + py * z; if (i) ctx.lineTo(vx, vy); else ctx.moveTo(vx, vy); }); ctx.stroke(); }
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#fff'; ctx.setLineDash([]); ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w), Math.round(hh));
     ctx.strokeStyle = '#000'; ctx.setLineDash([5, 5]); ctx.lineDashOffset = (Date.now() / 60) % 10; ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w), Math.round(hh));
@@ -223,7 +229,7 @@ export class Viewer {
     ctx.fillStyle = '#fff'; ctx.fillText(label, lx + 5, ly + 13);
     // Handles at the corners and edge midpoints.
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000';
-    for (const [hx, hy] of this.handlePoints(x, y, w, hh)) { ctx.fillRect(hx - 4, hy - 4, 8, 8); ctx.strokeRect(hx - 3.5, hy - 3.5, 7, 7); }
+    if (!mask) for (const [hx, hy] of this.handlePoints(x, y, w, hh)) { ctx.fillRect(hx - 4, hy - 4, 8, 8); ctx.strokeRect(hx - 3.5, hy - 3.5, 7, 7); }
     ctx.restore();
   }
 
@@ -234,7 +240,7 @@ export class Viewer {
   /** Which selection handle (0–7), the inside (8), or nothing (−1) is under a view point. */
   private hitSelection(vx: number, vy: number): number {
     const sel = this.tab.selection, r = this.pictureRect();
-    if (!sel || !r) return -1;
+    if (!sel || !r || this.tab.selectionMask) return -1;
     const z = this._zoom, x = r.x + sel.x * z, y = r.y + sel.y * z, w = sel.w * z, hh = sel.h * z;
     const pts = this.handlePoints(x, y, w, hh);
     for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - vx) <= 6 && Math.abs(pts[i][1] - vy) <= 6) return i;
@@ -336,7 +342,8 @@ export class Viewer {
       if (this.picture && (hit >= 0 || e.shiftKey || this.tab.selectTool) && e.pointerType !== 'touch' || (this.picture && this.tab.selectTool && e.pointerType === 'touch')) {
         const q = this.toPicture(vx, vy);
         this.selecting = { x0: q.x, y0: q.y, handle: hit >= 0 && !e.shiftKey ? hit : -1, start: this.tab.selection ? { ...this.tab.selection } : null };
-        if (this.selecting.handle < 0) this.tab.selection = null;
+        if (this.selecting.handle < 0) { this.tab.selection = null; this.tab.selectionMask = null; }
+        if (this.tab.selectShape === 'lasso' && this.selecting.handle < 0) this.lassoPts = [[q.x, q.y]];
         el.setPointerCapture(e.pointerId);
         return;
       }
@@ -347,6 +354,7 @@ export class Viewer {
       const r = el.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (viewState.loupe) this.draw();
+      if (this.selecting && this.picture && this.lassoPts.length) { const q = this.toPicture(this.pointer.x, this.pointer.y); const last = this.lassoPts[this.lassoPts.length - 1]; if (Math.abs(q.x - last[0]) + Math.abs(q.y - last[1]) >= 1) this.lassoPts.push([q.x, q.y]); this.draw(); return; }
       if (this.selecting && this.picture) {
         const q = this.toPicture(this.pointer.x, this.pointer.y);
         const p = this.picture, s = this.selecting, st = s.start;
@@ -381,7 +389,12 @@ export class Viewer {
       this.reportPointer();
     });
     const up = (e: PointerEvent) => {
-      if (this.selecting) { this.selecting = null; this.app.refresh(); return; }
+      if (this.selecting) {
+        const p = this.picture; const shape = this.tab.selectShape;
+        if (p && this.lassoPts.length > 2) { const m = polygonMask(p.width, p.height, this.lassoPts); const b = maskBounds(m, p.width, p.height); this.lassoPts = []; this.tab.setSelection(b, b ? m : null); }
+        else if (p && shape === 'ellipse' && this.tab.selection && this.selecting.handle < 0) { const sel = this.tab.selection; this.tab.setSelection(sel, ellipseMask(p.width, p.height, sel)); }
+        this.lassoPts = []; this.selecting = null; this.app.refresh(); this.draw(); return;
+      }
       if (!this.dragging) return;
       const d = this.dragging; this.dragging = null;
       if (!d.moved && e.pointerType === 'touch' && this.picture) {

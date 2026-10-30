@@ -43,7 +43,8 @@
 - [x] Straighten and Auto Straighten (gradient-orientation histogram), Deskew Scanned Page (projection-profile variance), Perspective Correction and Crop Page from Photo (homography; bright-page corner detection), Lens Correction (Brown radial model, vignetting gain, per-channel scale for lateral color).
 - [x] Batch Steps (ordered actions run per picture by the batch engine, text sizes relative to the width), Recipe Editor (saved in the preferences, JSON copy and paste), Batch Queue (silent runs with progress, pause, cancel; each job one journal entry), Batch Watermark, Batch Metadata (in place, keywords added or replaced), Batch Multipage (split to pages, join through Multipage TIFF or PDF).
 - [x] Pages and Frames editing (insert, delete, extract, reorder pages; frame editor, reverse, loop count, optimize) and the RAW preview commands (show, extract, prefer the embedded JPEG).
-- [ ] Browser with folder tree and panes; ellipse, lasso and magic-wand selections; paint pane, Markup Board, magnifier callout; Find Files; content-aware resize; palette editing; color profiles; RAW development.
+- [x] Ellipse, lasso, magic-wand and color-range selections and Invert Selection, as masks the viewer outlines and every edit respects.
+- [ ] Browser with folder tree and panes; paint pane, Markup Board, magnifier callout; content-aware resize; palette editing; color profiles; RAW development.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 
 ## M4 — Adjust, effects and organize (started)

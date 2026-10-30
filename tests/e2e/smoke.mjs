@@ -630,6 +630,29 @@ try {
   check('pictures found inside a docx-style zip', cr.inZip, ['image1.png']);
   check('fusion and stacking engines run', [cr.mid > 20 && cr.mid < 230, cr.stack], [true, 16]);
 
+  // Selections with masks: Select All → Ellipse Selection turns the rectangle into an ellipse; Negative then changes the center but not the corner; Invert flips it; Magic Wand through its dialog selects one color region.
+  const sm = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const blob = (c) => new Promise((r) => c.toBlob(r, 'image/png'));
+    const c = document.createElement('canvas'); c.width = 40; c.height = 40; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 40, 40); x.fillStyle = '#0000ff'; x.fillRect(0, 0, 20, 40);
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await blob(c)], 'mask.png')]); await wait(600);
+    await qn.exec('edit.selectAll'); await qn.exec('edit.selectEllipse'); await wait(100);
+    const hasMask = !!qn.tab.selectionMask, count = qn.tab.selectionMask ? [...qn.tab.selectionMask].filter((v) => v).length : 0;
+    await qn.exec('image.negative'); await wait(200);
+    const center = [...qn.viewer.pixelAt(30, 20)].slice(0, 3), inside = [...qn.viewer.pixelAt(10, 20)].slice(0, 3), corner = [...qn.viewer.pixelAt(0, 0)].slice(0, 3);
+    await qn.exec('edit.selectInvert'); await wait(100);
+    const inv = [...qn.tab.selectionMask].filter((v) => v).length;
+    await qn.exec('edit.selectNone');
+    const run = qn.exec('edit.selectWand'); for (let i = 0; i < 60 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(100);
+    const wand = qn.tab.selectionMask ? [...qn.tab.selectionMask].filter((v) => v).length : 0, wandRect = qn.tab.selection;
+    return { hasMask, count, center, inside, corner, inv, wand, wandRect };
+  });
+  check('ellipse mask limits the edit', [sm.hasMask, sm.count > 1100 && sm.count < 1300, sm.center, sm.inside, sm.corner], [true, true, [0, 0, 0], [255, 255, 0], [0, 0, 255]]);
+  // The wand floods the black (negated) part of the right half: the ellipse's share of it, not the still-white corners.
+  check('invert and magic wand', [sm.inv, sm.wand > 500 && sm.wand < 800, sm.wandRect && sm.wandRect.w], [1600 - sm.count, true, 20]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

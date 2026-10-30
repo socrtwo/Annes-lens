@@ -5,6 +5,8 @@
 import type { App } from '../app';
 import type { Page, Frame } from './model';
 import type { Raster } from '../codecs/raster';
+import { crop } from './ops';
+import { composeMasked } from './mask';
 
 export function frameRaster(f: Frame): Raster {
   const c = f.image instanceof HTMLCanvasElement ? f.image : (() => { const cv = document.createElement('canvas'); cv.width = f.width; cv.height = f.height; cv.getContext('2d')!.drawImage(f.image as CanvasImageSource, 0, 0); return cv; })();
@@ -37,9 +39,10 @@ export function editRaster(app: App, label: string, fn: (r: Raster, index: numbe
 
 /** Applies `fn` to the selected area only (the rest unchanged); whole picture when nothing is selected. */
 export function editSelection(app: App, label: string, fn: (r: Raster) => Raster): void {
-  const sel = app.tab.selection;
+  const sel = app.tab.selection, mask = app.tab.selectionMask;
   editRaster(app, label, (r) => {
     if (!sel) return fn(r);
+    if (mask && mask.length === r.width * r.height) { const done = fn(crop(r, sel)); return done.width === sel.w && done.height === sel.h ? composeMasked(r, done, sel, mask) : r; }
     const sub = { width: sel.w, height: sel.h, data: new Uint8ClampedArray(sel.w * sel.h * 4) as Uint8ClampedArray<ArrayBuffer> };
     for (let y = 0; y < sel.h; y++) sub.data.set(r.data.subarray(((sel.y + y) * r.width + sel.x) * 4, ((sel.y + y) * r.width + sel.x + sel.w) * 4), y * sel.w * 4);
     const done = fn(sub);

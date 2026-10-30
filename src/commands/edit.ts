@@ -103,7 +103,7 @@ def([
   { id: 'edit.redo', icon: 'redo', noRecord: true, isEnabled: (app) => !!app.tab?.canRedo, run: (app) => { if (!app.tab.redo()) toast('Nothing to redo.'); } },
 
   // Select ---------------------------------------------------------------------------------
-  { id: 'edit.selectRect', icon: 'highlight_alt', kind: 'toggle', noRecord: true, isActive: (app) => app.tab.selectTool, tip: 'Drag to select (Shift+drag works without the tool; Ctrl for a square; drag the handles to adjust)', run: (app) => { app.tab.selectTool = !app.tab.selectTool; app.tab.ui.el.classList.toggle('qn-select-tool', app.tab.selectTool); app.refresh(); toast(app.tab.selectTool ? 'Drag on the picture to select; Esc clears' : 'Selection tool off (drag pans again)'); } },
+  { id: 'edit.selectRect', icon: 'highlight_alt', kind: 'toggle', noRecord: true, isActive: (app) => app.tab.selectTool, tip: 'Drag to select (Shift+drag works without the tool; Ctrl for a square; drag the handles to adjust)', run: (app) => { if (app.tab.selectShape !== 'rect') { app.tab.selectShape = 'rect'; app.tab.selectTool = false; } app.tab.selectTool = !app.tab.selectTool; app.tab.ui.el.classList.toggle('qn-select-tool', app.tab.selectTool); app.refresh(); toast(app.tab.selectTool ? 'Drag on the picture to select; Esc clears' : 'Selection tool off (drag pans again)'); } },
   { id: 'edit.selectAll', icon: 'select_all', noRecord: true, isEnabled: has, run: (app) => app.tab.setSelection({ x: 0, y: 0, w: app.picture!.width, h: app.picture!.height }) },
   { id: 'edit.selectNone', icon: 'deselect', noRecord: true, isEnabled: hasSel, run: (app) => app.tab.setSelection(null) },
   {
