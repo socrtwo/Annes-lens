@@ -7,6 +7,7 @@ import './print';
 import './export';
 import './edit';
 import './image';
+import './imageOps';
 import './lossless';
 import './view';
 import './pages';

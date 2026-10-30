@@ -26,14 +26,15 @@ export function planKey(k) {
   return [...order.filter((m) => mods.includes(m)), key].join('-');
 }
 
-/** Extra bindings the keyboard produces for a plan key (Shift+= also types "+" on US layouts). */
+/** Extra bindings the keyboard produces for a plan key (Shift+= also types "+" on US layouts), unless another command owns them. */
+const takenShortcuts = new Set(Object.values(plan.commands).flatMap((c) => c.shortcuts));
 function keysFor(shortcuts) {
   const out = [];
   for (const s of shortcuts) {
     const k = planKey(s);
     if (!k) continue;
     out.push(k);
-    if (s === '+') out.push('Shift-=');
+    if (s === '+' && !takenShortcuts.has('Shift+=')) out.push('Shift-=');
   }
   return [...new Set(out)];
 }

@@ -54,3 +54,4 @@ body.ql-fullscreen .ql-app { padding: 0; }
   .qn-note { bottom: 16px; }
   .ql-status .qn-pixel { display: none; }
 }
+.qn-viewer.qn-has-picture.qn-select-tool { cursor: crosshair; }

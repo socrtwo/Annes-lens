@@ -29,6 +29,10 @@ export class PictureTab {
   loading: Entry | null = null;
   error = '';
   dirty = false;
+  /** The rectangle selection (picture pixels, integers), or null. */
+  selection: { x: number; y: number; w: number; h: number } | null = null;
+  /** Left-drag draws a selection instead of panning (Edit ▸ Rectangle Selection). */
+  selectTool = false;
   created = Date.now();
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
@@ -52,6 +56,18 @@ export class PictureTab {
     const p = this.picture!;
     p.pages = s.pages; p.page = s.page; p.frame = s.frame;
     p.version++;
+    if (this.selection && (this.selection.x + this.selection.w > p.width || this.selection.y + this.selection.h > p.height)) this.selection = null;
+  }
+  setSelection(r: { x: number; y: number; w: number; h: number } | null): void {
+    const p = this.picture;
+    if (!r || !p) this.selection = null;
+    else {
+      const x = Math.max(0, Math.min(p.width, Math.round(r.x))), y = Math.max(0, Math.min(p.height, Math.round(r.y)));
+      const x2 = Math.max(0, Math.min(p.width, Math.round(r.x + r.w))), y2 = Math.max(0, Math.min(p.height, Math.round(r.y + r.h)));
+      this.selection = x2 > x && y2 > y ? { x, y, w: x2 - x, h: y2 - y } : null;
+    }
+    this.ui.draw();
+    this.app.refresh();
   }
   /** Runs an edit as one undoable step. `fn` returns the new pages (never mutating the old ones). */
   edit(label: string, fn: (p: Picture) => void): void {
@@ -104,7 +120,7 @@ export class PictureTab {
     try {
       const pic = await this.loader.get(e);
       if (this.folder.current !== e) return; // the user moved on
-      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory();
+      this.picture = pic; this.loading = null; this.dirty = false; this.clearHistory(); this.selection = null;
       pic.loadMs = Math.round(performance.now() - t0);
       this.ui.pictureChanged(true);
       this.app.addRecent(e);
@@ -135,6 +151,8 @@ export class App {
   keyIndex = new Map<string, string>();
   /** Copied picture (for Paste as New Picture when the system clipboard is not readable). */
   clip: Picture | null = null;
+  /** Copied pixels (the selection) when the system clipboard is not readable. */
+  clipRaster: import('./codecs/raster').Raster | null = null;
   /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
   journal = new Journal();
 

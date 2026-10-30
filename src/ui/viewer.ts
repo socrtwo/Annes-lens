@@ -27,6 +27,7 @@ export class Viewer {
   playing = true;
   private pointer: { x: number; y: number } | null = null;
   private dragging: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
+  private selecting: { x0: number; y0: number; handle: number; start: { x: number; y: number; w: number; h: number } | null } | null = null;
   private pinch: { d: number; z: number } | null = null;
   private pixelCanvas: HTMLCanvasElement | null = null;
   private pixelKey = '';
@@ -191,6 +192,45 @@ export class Viewer {
       ctx.drawImage(frame.image as CanvasImageSource, sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
     } catch (e) { /* a closed bitmap after a quick navigation */ }
     if (this._zoom >= 8 && (this.app as any).pixelGrid) this.grid(ctx, r, sx, sy, ex, ey);
+    const sel = this.tab.selection;
+    if (sel) this.drawSelection(ctx, r, sel);
+  }
+
+  private drawSelection(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, sel: { x: number; y: number; w: number; h: number }): void {
+    const z = this._zoom;
+    const x = r.x + sel.x * z, y = r.y + sel.y * z, w = sel.w * z, hh = sel.h * z;
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    ctx.save();
+    // Dim everything outside the selection.
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.rect(0, 0, vw, vh); ctx.rect(x, y, w, hh); ctx.fill('evenodd');
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#fff'; ctx.setLineDash([]); ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w), Math.round(hh));
+    ctx.strokeStyle = '#000'; ctx.setLineDash([5, 5]); ctx.lineDashOffset = (Date.now() / 60) % 10; ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w), Math.round(hh));
+    const label = `${sel.w} × ${sel.h}  @ ${sel.x}, ${sel.y}`;
+    ctx.setLineDash([]); ctx.font = '12px system-ui, sans-serif';
+    const tw = ctx.measureText(label).width + 10;
+    const lx = Math.min(vw - tw - 2, Math.max(2, x)), ly = y > 22 ? y - 20 : y + hh + 4;
+    ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(lx, ly, tw, 18);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, lx + 5, ly + 13);
+    // Handles at the corners and edge midpoints.
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000';
+    for (const [hx, hy] of this.handlePoints(x, y, w, hh)) { ctx.fillRect(hx - 4, hy - 4, 8, 8); ctx.strokeRect(hx - 3.5, hy - 3.5, 7, 7); }
+    ctx.restore();
+  }
+
+  private handlePoints(x: number, y: number, w: number, hh: number): [number, number][] {
+    return [[x, y], [x + w / 2, y], [x + w, y], [x, y + hh / 2], [x + w, y + hh / 2], [x, y + hh], [x + w / 2, y + hh], [x + w, y + hh]];
+  }
+
+  /** Which selection handle (0–7), the inside (8), or nothing (−1) is under a view point. */
+  private hitSelection(vx: number, vy: number): number {
+    const sel = this.tab.selection, r = this.pictureRect();
+    if (!sel || !r) return -1;
+    const z = this._zoom, x = r.x + sel.x * z, y = r.y + sel.y * z, w = sel.w * z, hh = sel.h * z;
+    const pts = this.handlePoints(x, y, w, hh);
+    for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - vx) <= 6 && Math.abs(pts[i][1] - vy) <= 6) return i;
+    return vx >= x && vx <= x + w && vy >= y && vy <= y + hh ? 8 : -1;
   }
 
   private checkerboard(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }): void {
@@ -281,12 +321,49 @@ export class Viewer {
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       el.focus();
+      const rr = el.getBoundingClientRect();
+      const vx = e.clientX - rr.left, vy = e.clientY - rr.top;
+      const hit = this.hitSelection(vx, vy);
+      // Shift+drag or the selection tool draws a selection; a drag on an existing selection moves or resizes it.
+      if (this.picture && (hit >= 0 || e.shiftKey || this.tab.selectTool) && e.pointerType !== 'touch' || (this.picture && this.tab.selectTool && e.pointerType === 'touch')) {
+        const q = this.toPicture(vx, vy);
+        this.selecting = { x0: q.x, y0: q.y, handle: hit >= 0 && !e.shiftKey ? hit : -1, start: this.tab.selection ? { ...this.tab.selection } : null };
+        if (this.selecting.handle < 0) this.tab.selection = null;
+        el.setPointerCapture(e.pointerId);
+        return;
+      }
       this.dragging = { x: e.clientX, y: e.clientY, cx: this.cx, cy: this.cy, moved: false };
       el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', (e) => {
       const r = el.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (this.selecting && this.picture) {
+        const q = this.toPicture(this.pointer.x, this.pointer.y);
+        const p = this.picture, s = this.selecting, st = s.start;
+        const dx = q.x - s.x0, dy = q.y - s.y0;
+        let sel: { x: number; y: number; w: number; h: number };
+        if (s.handle === 8 && st) sel = { x: st.x + dx, y: st.y + dy, w: st.w, h: st.h };
+        else if (s.handle >= 0 && st) {
+          let x1 = st.x, y1 = st.y, x2 = st.x + st.w, y2 = st.y + st.h;
+          if ([0, 3, 5].includes(s.handle)) x1 += dx; if ([2, 4, 7].includes(s.handle)) x2 += dx;
+          if ([0, 1, 2].includes(s.handle)) y1 += dy; if ([5, 6, 7].includes(s.handle)) y2 += dy;
+          sel = { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
+        } else {
+          let w = q.x - s.x0, hh = q.y - s.y0;
+          if (e.ctrlKey || e.metaKey) { const m = Math.max(Math.abs(w), Math.abs(hh)); w = Math.sign(w || 1) * m; hh = Math.sign(hh || 1) * m; } // square
+          sel = { x: Math.min(s.x0, s.x0 + w), y: Math.min(s.y0, s.y0 + hh), w: Math.abs(w), h: Math.abs(hh) };
+        }
+        if (s.handle === 8) { sel.x = Math.max(0, Math.min(p.width - sel.w, sel.x)); sel.y = Math.max(0, Math.min(p.height - sel.h, sel.y)); }
+        const x = Math.max(0, Math.min(p.width, Math.round(sel.x))), y = Math.max(0, Math.min(p.height, Math.round(sel.y)));
+        const x2 = Math.max(0, Math.min(p.width, Math.round(sel.x + sel.w))), y2 = Math.max(0, Math.min(p.height, Math.round(sel.y + sel.h)));
+        this.tab.selection = x2 > x && y2 > y ? { x, y, w: x2 - x, h: y2 - y } : null;
+        this.draw();
+        this.reportPointer();
+        return;
+      }
+      const hit = this.picture && !this.dragging ? this.hitSelection(this.pointer.x, this.pointer.y) : -1;
+      el.style.cursor = hit < 0 ? '' : hit === 8 ? 'move' : ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize'][hit];
       if (this.dragging && !this.pinch) {
         const dx = e.clientX - this.dragging.x, dy = e.clientY - this.dragging.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) this.dragging.moved = true;
@@ -295,6 +372,7 @@ export class Viewer {
       this.reportPointer();
     });
     const up = (e: PointerEvent) => {
+      if (this.selecting) { this.selecting = null; this.app.refresh(); return; }
       if (!this.dragging) return;
       const d = this.dragging; this.dragging = null;
       if (!d.moved && e.pointerType === 'touch' && this.picture) {
@@ -304,7 +382,7 @@ export class Viewer {
       }
     };
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', () => { this.dragging = null; });
+    el.addEventListener('pointercancel', () => { this.dragging = null; this.selecting = null; });
     el.addEventListener('pointerleave', () => { this.pointer = null; this.reportPointer(); });
     el.addEventListener('dblclick', (e) => {
       if (!this.picture) return;

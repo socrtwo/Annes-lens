@@ -247,6 +247,44 @@ try {
   });
   check('palette export', exported, [1, 'GIMP Palette']);
 
+  // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
+  const editOps = await p.evaluate(async () => {
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); x.fillStyle = '#00ff00'; x.fillRect(10, 10, 20, 20); return c; };
+    const blob = (c, t) => new Promise((r) => c.toBlob(r, t));
+    await qn.exec('file.openDropped', [new File([await blob(mk(100, 80, '#ff0000'), 'image/png')], 'edit.png')]);
+    await new Promise((r) => setTimeout(r, 600));
+    const out = {};
+    qn.tab.setSelection({ x: 10, y: 10, w: 20, h: 20 });
+    await new Promise((r) => setTimeout(r, 120));
+    out.sel = [...document.querySelectorAll('.ql-status .ql-status-item')].some((e) => /20 × 20 at 10, 10/.test(e.textContent));
+    await qn.exec('edit.crop'); await new Promise((r) => setTimeout(r, 100));
+    out.cropped = [qn.picture.width, qn.picture.height, [...qn.viewer.pixelAt(5, 5)].slice(0, 3), qn.tab.selection];
+    await qn.exec('edit.undo');
+    out.undone = [qn.picture.width, qn.picture.height];
+    const { resizeTo } = await window.__qnImageOps();
+    resizeTo(qn, 50, 40, 'lanczos3');
+    out.resized = [qn.picture.width, qn.picture.height, [...qn.viewer.pixelAt(2, 2)].slice(0, 3), [...qn.viewer.pixelAt(10, 10)].slice(0, 3)];
+    await qn.exec('image.grayscale');
+    out.gray = [...qn.viewer.pixelAt(2, 2)].slice(0, 3);
+    await qn.exec('image.negative', 'all');
+    out.neg = [...qn.viewer.pixelAt(2, 2)].slice(0, 3);
+    out.undoLabel = qn.tab.undoLabel;
+    await qn.exec('edit.selectAll');
+    out.all = qn.tab.selection;
+    await qn.exec('edit.copy'); await new Promise((r) => setTimeout(r, 200));
+    out.clip = qn.clipRaster ? [qn.clipRaster.width, qn.clipRaster.height] : null;
+    return out;
+  });
+  check('selection in status', editOps.sel, true);
+  check('crop', editOps.cropped, [20, 20, [0, 255, 0], null]);
+  check('crop undo', editOps.undone, [100, 80]);
+  check('resize', editOps.resized, [50, 40, [255, 0, 0], [0, 255, 0]]);
+  check('grayscale', editOps.gray, [76, 76, 76]);
+  check('negative', editOps.neg, [179, 179, 179]);
+  check('negative label', editOps.undoLabel, 'Negative');
+  check('select all', editOps.all, { x: 0, y: 0, w: 50, h: 40 });
+  check('copy selection', editOps.clip, [50, 40]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

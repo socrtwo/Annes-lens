@@ -363,6 +363,8 @@ export class Shell {
       this.statusEl.appendChild(item(fmtSize(pic.bytes.length), () => app.exec('image.info'), 'File size'));
       if (pic.loadMs) this.statusEl.appendChild(h('span', { class: 'ql-status-item ql-help' }, `${pic.loadMs} ms`));
       if (pic.warnings.length) this.statusEl.appendChild(item(`⚠ ${pic.warnings.length}`, () => app.exec('image.info'), pic.warnings.join('\n'), 'ql-status-track'));
+      if (tab.selection) this.statusEl.appendChild(item(`▭ ${tab.selection.w} × ${tab.selection.h} at ${tab.selection.x}, ${tab.selection.y}`, () => app.exec('edit.customSelection'), 'Selection (click to edit; Ctrl+Y crops)'));
+      else if (tab.selectTool) this.statusEl.appendChild(item('▭ drag to select', () => app.exec('edit.selectRect'), 'Rectangle Selection tool is on (click to turn off)'));
     } else if (tab.loading) this.statusEl.appendChild(h('span', { class: 'ql-status-msg' }, `Loading ${tab.loading.name}…`));
     if (app.recording) this.statusEl.appendChild(item(app.recordingPaused ? '⏸ Paused' : '● REC', () => app.exec('dev.stopRecording'), 'Stop recording macro', 'ql-status-rec'));
     if (this.statusMsg) this.statusEl.appendChild(h('span', { class: 'ql-status-msg' }, this.statusMsg));
@@ -499,7 +501,7 @@ export class Shell {
   pictureContextMenu(x: number, y: number): void {
     const app = this.app;
     const ids = app.picture
-      ? ['view.next', 'view.previous', '|', 'view.fitWindow', 'view.actualSize', 'view.fullScreen', '|', 'image.rotateLeft', 'image.rotateRight', 'image.flipH', 'image.flipV', '|', 'edit.copy', 'file.saveAs', 'file.share', 'file.revealInFolder', 'file.openWith', '|', 'image.info', 'meta.exif']
+      ? ['view.next', 'view.previous', '|', 'view.fitWindow', 'view.actualSize', 'view.fullScreen', '|', ...(app.tab.selection ? ['edit.crop', 'edit.cut', 'edit.copy', 'edit.selectNone', '|'] : ['edit.selectAll', 'edit.copy', '|']), 'image.rotateLeft', 'image.rotateRight', 'image.flipH', 'image.flipV', 'image.resize', '|', 'file.saveAs', 'file.share', 'file.revealInFolder', 'file.openWith', '|', 'image.info', 'meta.exif']
       : ['file.open', 'file.openFolder', 'edit.pasteAsNew'];
     const entries: MenuEntry[] = [];
     for (const id of ids) {
@@ -547,6 +549,7 @@ export class Shell {
     if (e.key === 'Escape') {
       if (document.querySelector('.ql-menu')) { closeMenus(); return; }
       if (this.root.classList.contains('ql-backstage-open')) { this.hideBackstage(); return; }
+      if (this.app.tab.selection && !document.querySelector('.ql-overlay')) { this.app.tab.setSelection(null); return; }
     }
     if (document.querySelector('.ql-overlay')) return;
     const t = e.target as HTMLElement;
