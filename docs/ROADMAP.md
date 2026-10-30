@@ -37,7 +37,8 @@
 
 - [x] Rectangle selection (tool, Shift+drag, handles, Custom Selection, Maximize to Aspect Ratio, Select All/None); Crop Selection, Crop to Aspect Ratio, Crop for Print Size, Auto Crop Borders; Cut, Cut Outside, Copy, Paste into the picture, Paste into Selection, Paste Beside, Clear, Fill; Canvas Size; Border or Frame.
 - [x] Image tab: Resize/Resample (pixels, percent, print size; nearest, bilinear, bicubic, Mitchell, Catmull-Rom, Lanczos 2/3, B-spline, box; gamma-correct option), Half/Double/To Screen, Set DPI, Custom Rotation; Grayscale, Negative, Threshold (fixed, Otsu, adaptive), Decrease Color Depth (optimal, web, gray palettes; Floyd–Steinberg, Atkinson, ordered), Increase Depth, Swap Channels, Show Channel, Flatten, Transparent Color, Replace Color.
-- [ ] Ellipse, lasso and magic-wand selections; Insert Text, overlays, signature; paint pane, Markup Board, redaction, magnifier callout; History panel; Find Files; perspective and lens correction, straighten, deskew, content-aware resize; palette editing; color profiles.
+- [x] Thumbnails (T): a grid that replaces the picture or a filmstrip under it, lazy decoding with the platform's downscaler, marking with Ctrl/Shift-click and Space, keyboard navigation; thumbnail sizes; Sort By (and shuffle); Refresh (F5); Open Archive as Folder; Select by Pattern.
+- [ ] Browser with folder tree and panes; ellipse, lasso and magic-wand selections; Insert Text, overlays, signature; paint pane, Markup Board, redaction, magnifier callout; History panel; Find Files; perspective and lens correction, straighten, deskew, content-aware resize; palette editing; color profiles.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 - Batch conversion and rename with steps, recipes, dry run, undo last batch.
 

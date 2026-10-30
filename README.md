@@ -15,7 +15,8 @@ An original, open-source picture viewer, organizer and converter for Android, iO
 > - **Damaged pictures:** truncated or corrupt JPEG, PNG and GIF files open with everything readable (JPEGs are rebuilt from their coefficients, PNGs decoded past bad CRCs and broken zlib streams); Open and Repair reports every method tried; Recovery Report, Open as Hex (with marker, chunk and IFD landmarks), Open as Text and Open RAW Pixel Data for headerless dumps.
 > - **Also:** Print, Print Setup, Print Layouts (grids, wallet, 4×6, 5×7, 8×10, contact pages), Print Copies and Posters, Print at True Size with a calibration ruler, Screen Capture, Camera Capture, Open URL, Open with External Editor, Export Palette, Export Metadata as CSV, Export as Icon, Export Animation (GIF, APNG).
 > - **Edit (M3 start):** rectangle selection with handles, crop (selection, aspect, print sizes, auto borders), cut/copy/paste into the picture and beside it, canvas size, borders; resize with every common kernel, custom rotation, grayscale, negative, thresholds, color reduction with dithering, channel tools, transparency tools.
-> - **171 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
+> - **Thumbnails (T):** grid or filmstrip for the folder, lazy decoding, marking, keyboard navigation, sort and refresh.
+> - **178 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
 >
 > Everything else below is still the plan: see [docs/ROADMAP.md](docs/ROADMAP.md) for the milestones. Issues and discussion are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

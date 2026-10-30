@@ -8,6 +8,7 @@ import { prettyKey, canonicalKey, keyName } from '../util/keys';
 import { customizeQat, customizeRibbon, customizeKeyboard } from './customize';
 import { renderBackstage } from './backstage';
 import { Viewer } from './viewer';
+import { ThumbPanel } from './thumbs';
 import { QAT_STANDARD, QAT_EXTRAS } from '../prefs';
 import { CLASSIC_MENUS, DEFAULT_LAYOUT, type ClassicItem } from './classicMenus';
 import { PLAN_COMMANDS } from '../plan.generated';
@@ -76,7 +77,8 @@ export class Shell {
   mountTab(tab: PictureTab): void {
     const v = new Viewer(this.app, tab);
     tab.ui = v;
-    tab.el = h('div', { class: 'qn-window' }, v.el);
+    tab.thumbs = new ThumbPanel(this.app, tab);
+    tab.el = h('div', { class: 'qn-window' }, v.el, tab.thumbs.el);
     this.workspace.appendChild(tab.el);
     v.onPointer = (info) => { this.pixelText = info ? `${info.x}, ${info.y}  RGB ${info.rgba[0]}, ${info.rgba[1]}, ${info.rgba[2]}${info.rgba[3] < 255 ? ` α ${info.rgba[3]}` : ''}  #${hex(info.rgba)}` : ''; this.updatePixel(); };
     requestAnimationFrame(() => v.layout());

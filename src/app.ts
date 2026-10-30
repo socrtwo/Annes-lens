@@ -9,6 +9,7 @@ import { toast } from './ui/dialog';
 import { canonicalKey } from './util/keys';
 import type { Shell } from './ui/shell';
 import type { Viewer } from './ui/viewer';
+import type { ThumbPanel } from './ui/thumbs';
 import { Folder, type Entry } from './picture/folder';
 import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
@@ -23,6 +24,9 @@ export class PictureTab {
   id = `t${Date.now().toString(36)}${tabCounter++}`;
   el!: HTMLElement;
   ui!: Viewer;
+  thumbs!: ThumbPanel;
+  /** Pictures marked in the thumbnail panel (for batch and file commands). */
+  marked = new Set<Entry>();
   folder: Folder;
   /** The picture shown, or null while loading / when nothing is open. */
   picture: Picture | null = null;
@@ -135,7 +139,7 @@ export class PictureTab {
     this.loader.prefetch(this.app.prefs.prefetch);
   }
 
-  destroy(): void { this.loader.clear(); this.ui.destroy(); }
+  destroy(): void { this.loader.clear(); this.ui.destroy(); this.thumbs?.destroy(); }
 }
 
 export class App {
@@ -232,6 +236,7 @@ export class App {
       this.refreshQueued = false;
       if (!this.active) return;
       this.ui.refresh();
+      this.active.thumbs?.sync();
       for (const l of this.listeners) l(this);
     });
   }

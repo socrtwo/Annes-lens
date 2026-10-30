@@ -285,6 +285,30 @@ try {
   check('select all', editOps.all, { x: 0, y: 0, w: 50, h: 40 });
   check('copy selection', editOps.clip, [50, 40]);
 
+  // Thumbnails: the grid lists the folder, thumbnails decode lazily, clicking one shows it, T closes the grid.
+  await p.evaluate(async () => {
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); return c; };
+    const blob = (c, t) => new Promise((r) => c.toBlob(r, t));
+    const files = [];
+    for (const [n, col] of [['t1.png', '#f00'], ['t2.png', '#0f0'], ['t3.png', '#00f']]) files.push(new File([await blob(mk(64, 48, col), 'image/png')], n));
+    await qn.exec('file.openDropped', files);
+  });
+  await p.waitForTimeout(600);
+  await p.evaluate(() => qn.exec('browse.thumbnails'));
+  await p.waitForSelector('.qn-thumb-pic canvas');
+  await p.waitForTimeout(400);
+  check('thumb grid', await p.evaluate(() => { const w = qn.tab.el; return [w.querySelectorAll('.qn-thumb').length, w.querySelectorAll('.qn-thumb-pic canvas').length, getComputedStyle(w.querySelector('.qn-viewer')).display, w.querySelector('.qn-thumb.qn-current .qn-thumb-name').textContent]; }), [3, 3, 'none', 't1.png']);
+  await p.click('.qn-thumb:nth-child(2)');
+  await p.waitForTimeout(400);
+  check('thumb click', await p.evaluate(() => [qn.picture.name, document.querySelector('.qn-thumb.qn-current .qn-thumb-name').textContent]), ['t2.png', 't2.png']);
+  await p.evaluate(() => { const t = document.querySelector('.qn-thumb:nth-child(3)'); t.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); });
+  check('thumb mark', await p.evaluate(() => [qn.tab.marked.size, document.querySelectorAll('.qn-thumb.qn-marked').length]), [1, 1]);
+  await p.evaluate(() => qn.exec('browse.viewMode', 'filmstrip'));
+  await p.waitForTimeout(200);
+  check('filmstrip', await p.evaluate(() => { const w = qn.tab.el; return [getComputedStyle(w.querySelector('.qn-viewer')).display !== 'none', w.querySelector('.qn-thumbs').classList.contains('qn-thumbs-strip')]; }), [true, true]);
+  await p.evaluate(() => qn.exec('browse.viewMode', 'off'));
+  check('thumbs off', await p.evaluate(() => qn.tab.el.querySelector('.qn-thumbs').style.display), 'none');
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

@@ -79,6 +79,9 @@ export interface Prefs {
   quickFolders: { name: string; uri: string }[];
   /** Ask before deleting a file. */
   confirmDelete: boolean;
+  /** Thumbnails: size in CSS pixels and the last panel mode. */
+  thumbSize: number;
+  thumbMode: 'grid' | 'strip';
   /** Sort order for folders */
   sort: 'name' | 'natural' | 'date' | 'size' | 'type';
   sortDescending: boolean;
@@ -122,7 +125,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true,
+    quickFolders: [], confirmDelete: true, thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
