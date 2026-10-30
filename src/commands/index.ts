@@ -11,6 +11,7 @@ import './edit';
 import './image';
 import './imageOps';
 import './adjust';
+import './effects';
 import './lossless';
 import './view';
 import './pages';

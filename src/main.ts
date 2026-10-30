@@ -32,6 +32,7 @@ app.ui.tabsChanged();
 (window as any).__qnPalette = () => import('./codecs/palette');
 (window as any).__qnImageOps = () => import('./commands/imageOps');
 (window as any).__qnBatch = () => import('./commands/batch');
+(window as any).__qnEffects = () => import('./picture/effects');
 
 // Files dropped on the window open as a folder of their own.
 window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });

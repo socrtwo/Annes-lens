@@ -79,6 +79,8 @@ export interface Prefs {
   quickFolders: { name: string; uri: string }[];
   /** Ask before deleting a file. */
   confirmDelete: boolean;
+  /** Custom Filter (Convolution): saved kernels. */
+  convolutions: { name: string; size: number; kernel: number[]; divisor: number; bias: number }[];
   /** Thumbnails: size in CSS pixels and the last panel mode. */
   thumbSize: number;
   thumbMode: 'grid' | 'strip';
@@ -125,7 +127,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
-    quickFolders: [], confirmDelete: true, thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], thumbSize: 160, thumbMode: 'grid',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -172,6 +174,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   }
   for (const k of ['recent', 'recentFolders']) if (out[k]) out[k] = out[k].filter((r: any) => isObj(r) && typeof r.key === 'string' && typeof r.name === 'string');
   if (out.quickFolders) out.quickFolders = out.quickFolders.filter((r: any) => isObj(r) && typeof r.uri === 'string' && typeof r.name === 'string').slice(0, 9);
+  if (out.convolutions) out.convolutions = out.convolutions.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.kernel) && r.kernel.every((x: any) => typeof x === 'number')).slice(0, 40);
   if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);
   if (out.print) out.print = { ...d.print, ...Object.fromEntries(Object.entries(out.print).filter(([k, v]) => k in d.print && typeof v === typeof (d.print as any)[k])) };
   if (out.macros) out.macros = out.macros.filter((m: any) => isObj(m) && typeof m.name === 'string' && Array.isArray(m.steps) && m.steps.every((s: any) => isObj(s) && typeof s.id === 'string'));

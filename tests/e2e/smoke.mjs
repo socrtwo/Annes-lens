@@ -344,6 +344,30 @@ try {
   check('sharpen label', adj.label, 'Sharpen');
   check('before/after shows the original', [adj.orig, adj.showing, adj.back, adj.canUndo], [adj.before, true, false, true]);
 
+  // Effects: a dialog effect accepted through its OK button, Repeat Last, a canvas-changing frame, the browser grid and the custom convolution.
+  const fxr = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ok = async () => { for (let i = 0; i < 40; i++) { const b = document.querySelector('.ql-dialog .ql-primary'); if (b && document.querySelector('.ql-dialog-preview img')) { b.click(); return true; } await wait(50); } return false; };
+    const w0 = qn.picture.width, h0 = qn.picture.height;
+    const before = [...qn.viewer.pixelAt(40, 10)].slice(0, 3);
+    const run = qn.exec('fx.solarize'); const clicked = await ok(); await run; await wait(100);
+    const sol = [...qn.viewer.pixelAt(40, 10)].slice(0, 3), label1 = qn.tab.undoLabel;
+    await qn.exec('fx.repeatLast'); await wait(100);
+    const twice = [...qn.viewer.pixelAt(40, 10)].slice(0, 3), label2 = qn.tab.undoLabel;
+    const run2 = qn.exec('fx.instantFrame'); const clicked2 = await ok(); await run2; await wait(100);
+    const framed = [qn.picture.width, qn.picture.height];
+    const run3 = qn.exec('fx.browser'); let cards = 0; for (let i = 0; i < 40; i++) { cards = document.querySelectorAll('.qn-fxcard img[src^="data:"]').length; if (cards >= 10) break; await wait(50); }
+    document.querySelector('.ql-dialog .ql-btn:not(.ql-primary)')?.click(); await run3;
+    const run4 = qn.exec('fx.convolution'); const clicked4 = await ok(); await run4; await wait(100);
+    return { clicked, clicked2, clicked4, before, sol, twice, label1, label2, w0, h0, framed, cards, label4: qn.tab.undoLabel, canUndo: qn.tab.canUndo };
+  });
+  check('solarize dialog applied', [fxr.clicked, fxr.label1], [true, 'Solarize']);
+  check('solarize inverts the light end', fxr.sol[0] < fxr.before[0] && fxr.sol[0] === 255 - fxr.before[0], true);
+  check('repeat last effect re-solarizes', [fxr.label2, fxr.twice[0] < fxr.sol[0] || fxr.twice[0] === fxr.sol[0]], ['Solarize', true]);
+  check('instant frame grows the canvas', [fxr.clicked2, fxr.framed[0] > fxr.w0, fxr.framed[1] > fxr.h0 + (fxr.framed[0] - fxr.w0) / 2], [true, true, true]);
+  check('effects browser renders thumbnails', fxr.cards >= 10, true);
+  check('custom convolution applied', [fxr.clicked4, fxr.label4, fxr.canUndo], [true, 'Custom Filter', true]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

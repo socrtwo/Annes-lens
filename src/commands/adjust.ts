@@ -15,7 +15,7 @@ import type { Raster } from '../codecs/raster';
 const has = (app: App) => !!app.picture;
 
 /** A dialog whose preview shows `fn` applied to a small copy of the selection (or picture); OK applies it at full size. */
-async function adjustDialog(app: App, title: string, fields: Field[], fn: (r: Raster, v: Record<string, any>) => Raster, opts: { help?: string; ok?: string } = {}): Promise<void> {
+export async function adjustDialog(app: App, title: string, fields: Field[], fn: (r: Raster, v: Record<string, any>) => Raster, opts: { help?: string; ok?: string; label?: string } = {}): Promise<Record<string, any> | null> {
   const pic = app.picture!;
   const full = frameRaster(pic.currentFrame);
   const sel = app.tab.selection;
@@ -37,13 +37,14 @@ async function adjustDialog(app: App, title: string, fields: Field[], fn: (r: Ra
     if (pending) { const p = pending; pending = null; void render(p, ctl); }
   };
   const r = await openDialog({ title, wide: true, ok: opts.ok || 'Apply', preview: true, help: opts.help, fields, onChange: (v, ctl) => { void render(v, ctl); }, onOpen: (ctl) => { void render(ctl.values(), ctl); } });
-  if (!r) return;
+  if (!r) return null;
   toast('Applying…', { ms: 1200 });
   await new Promise((res) => setTimeout(res, 20));
-  editSelection(app, title.replace(/…$/, ''), (x) => fn(x, r));
+  editSelection(app, opts.label || title.replace(/…$/, ''), (x) => fn(x, r));
+  return r;
 }
 
-const range = (key: string, label: string, min: number, max: number, value: number, half = true, step?: number): Field => ({ key, label, type: 'range', min, max, value, half, step });
+export const range = (key: string, label: string, min: number, max: number, value: number, half = true, step?: number): Field => ({ key, label, type: 'range', min, max, value, half, step });
 
 def([
   // Automatic ------------------------------------------------------------------------------

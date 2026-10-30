@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **220 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **266 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 7 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -15,6 +15,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Edit**: Undo (2) · Clipboard (9) · Select (5) · Crop (4) · Add (2)
 - **Image**: Information (4) · Rotate and flip (7) · Lossless JPEG (3) · Size (5) · Color depth and palette (9)
 - **Adjust**: Automatic (6) · Tone (12) · Color (9) · Detail and retouch (7) · Presets and history (1)
+- **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (5) · Rate and label (1) · Catalog (1)
 - **Metadata**: View and edit (1)
 - **Batch**: Batch (7)
@@ -27,17 +28,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 98 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 118 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 23 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 74 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 50 |
-| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 35 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 76 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 57 |
+| ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 36 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 27 |
-| Picasa style (`picasa`) | Picasa 3 | 30 |
+| Picasa style (`picasa`) | Picasa 3 | 35 |
 | Preview style (`preview`) | macOS Preview | 38 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 16 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 144 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 220 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 175 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 266 |
 
 ## File (59 of 82)
 
@@ -205,6 +206,57 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Unsharp Mask… | Detail and retouch |  | `adjust.unsharp` | from IrfanView, XnView Classic and XnView MP |
 | Before / After | Presets and history | \ | `adjust.beforeAfter` | from Lightroom Classic (Library and Develop), Apple Photos and iPhoto |
 
+## Effects (46 of 47)
+
+| Command | Group | Shortcut | ID | Notes |
+|---|---|---|---|---|
+| Custom Filter (Convolution)… | Browse |  | `fx.convolution` | from IrfanView, XnView Classic and XnView MP |
+| Effects Browser… | Browse |  | `fx.browser` | from IrfanView |
+| Repeat Last Effect | Browse | Ctrl+Alt+r | `fx.repeatLast` | from new in Anne's Lens |
+| 3-D Button | Artistic |  | `fx.button3d` | from IrfanView |
+| Cartoon | Artistic |  | `fx.cartoon` | from FastStone Image Viewer |
+| Edge Detect | Artistic |  | `fx.edgeDetect` | from IrfanView |
+| Emboss | Artistic |  | `fx.emboss` | from IrfanView |
+| Halftone | Artistic |  | `fx.halftone` | from new in Anne's Lens |
+| Median | Artistic |  | `fx.median` | from IrfanView |
+| Mosaic | Artistic |  | `fx.mosaic` | from XnView Classic and XnView MP |
+| Oil Paint | Artistic |  | `fx.oilPaint` | from IrfanView |
+| Pencil Sketch | Artistic |  | `fx.pencilSketch` | from FastStone Image Viewer |
+| Pixelate | Artistic |  | `fx.pixelize` | from IrfanView |
+| Solarize | Artistic |  | `fx.solarize` | from IrfanView |
+| Tiles | Artistic |  | `fx.tiles` | from IrfanView |
+| Watercolor | Artistic |  | `fx.watercolor` | from new in Anne's Lens |
+| Add Noise | Photographic |  | `fx.noise` | from XnView Classic and XnView MP |
+| Cross Process | Photographic |  | `fx.crossProcess` | from new in Anne's Lens |
+| Duotone | Photographic |  | `fx.duotone` | from new in Anne's Lens |
+| Film Grain | Photographic |  | `fx.filmGrain` | from Picasa |
+| Focal Black and White | Photographic |  | `fx.focalBW` | from Picasa |
+| Glow | Photographic |  | `fx.glow` | from Picasa |
+| Graduated Tint | Photographic |  | `fx.graduatedTint` | from Picasa |
+| Orton Glow | Photographic |  | `fx.orton` | from new in Anne's Lens |
+| Soft Focus | Photographic |  | `fx.softFocus` | from Picasa |
+| Tilt-Shift Miniature | Photographic |  | `fx.tiltShift` | from new in Anne's Lens |
+| Toy Camera | Photographic |  | `fx.toyCamera` | from new in Anne's Lens |
+| Explosion | Distort |  | `fx.explosion` | from IrfanView |
+| Fisheye | Distort |  | `fx.fishEye` | from IrfanView |
+| Fragment | Distort |  | `fx.fragment` | from IrfanView |
+| Glass | Distort |  | `fx.glass` | from new in Anne's Lens |
+| Pinch | Distort |  | `fx.pinch` | from XnView Classic and XnView MP |
+| Polar Coordinates | Distort |  | `fx.polar` | from new in Anne's Lens |
+| Radial Blur | Distort |  | `fx.radialBlur` | from IrfanView |
+| Rain Drops | Distort |  | `fx.rain` | from IrfanView |
+| Ripple | Distort |  | `fx.ripple` | from XnView Classic and XnView MP |
+| Shift Lines | Distort |  | `fx.shift` | from IrfanView |
+| Spread | Distort |  | `fx.spread` | from IrfanView |
+| Swirl | Distort |  | `fx.swirl` | from IrfanView |
+| Wave | Distort |  | `fx.wave` | from IrfanView |
+| Zoom Blur | Distort |  | `fx.zoomBlur` | from IrfanView |
+| Drop Shadow | Frames and shadows |  | `fx.dropShadow` | from FastStone Image Viewer |
+| Instant-Print Frame | Frames and shadows |  | `fx.instantFrame` | from Picasa |
+| Reflection | Frames and shadows |  | `fx.reflection` | from FastStone Image Viewer |
+| Round Corners | Frames and shadows |  | `fx.roundCorners` | from FastStone Image Viewer |
+| Vignette Frame | Frames and shadows |  | `fx.vignetteFrame` | from FastStone Image Viewer |
+
 ## Browse (7 of 40)
 
 | Command | Group | Shortcut | ID | Notes |
@@ -314,7 +366,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (337)
+## Planned, not yet built (291)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -322,7 +374,7 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Edit** (32): `edit.history`, `edit.selectInvert`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
 - **Image** (12): `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.seamCarve`, `image.paletteEdit`, `image.paletteImport`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (12): `adjust.curves`, `adjust.toneEqualizer`, `adjust.selectiveColor`, `adjust.lut`, `adjust.dustScratches`, `adjust.descreen`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`
-- **Effects** (47): `fx.browser`, `fx.repeatLast`, `fx.convolution`, `fx.plugins8bf`, `fx.emboss`, `fx.oilPaint`, `fx.edgeDetect`, `fx.median`, `fx.pencilSketch`, `fx.watercolor`, `fx.cartoon`, `fx.halftone`, `fx.mosaic`, `fx.pixelize`, `fx.solarize`, `fx.tiles`, `fx.button3d`, `fx.filmGrain`, `fx.softFocus`, `fx.glow`, `fx.focalBW`, `fx.graduatedTint`, `fx.orton`, `fx.crossProcess`, `fx.toyCamera`, `fx.tiltShift`, `fx.duotone`, `fx.noise`, `fx.swirl`, `fx.explosion`, `fx.rain`, `fx.fragment`, `fx.spread`, `fx.shift`, `fx.radialBlur`, `fx.zoomBlur`, `fx.fishEye`, `fx.wave`, `fx.glass`, `fx.ripple`, `fx.pinch`, `fx.polar`, `fx.dropShadow`, `fx.reflection`, `fx.roundCorners`, `fx.instantFrame`, `fx.vignetteFrame`
+- **Effects** (1): `fx.plugins8bf`
 - **Browse** (33): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.groupBy`, `browse.filter`, `browse.showAllFiles`, `browse.timeline`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.rate`, `browse.colorLabel`, `browse.favorite`, `browse.pick`, `browse.reject`, `browse.unflag`, `browse.selectRejected`, `browse.findDuplicates`, `browse.findSimilar`, `browse.searchSketch`, `browse.searchColor`, `browse.qualitySort`, `browse.cull`, `browse.stacks`, `browse.lightTable`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`, `browse.newFolder`
 - **Metadata** (25): `meta.iptc`, `meta.xmp`, `meta.comment`, `meta.caption`, `meta.keywords`, `meta.copyright`, `meta.regions`, `meta.template`, `meta.copyFrom`, `meta.diff`, `meta.sidecarMode`, `meta.shiftDate`, `meta.geotag`, `meta.geotagGpx`, `meta.reverseGeocode`, `meta.removeGps`, `meta.strip`, `meta.privacyCheck`, `meta.provenance`, `meta.checksum`, `meta.fixity`, `meta.citation`, `meta.personLink`, `meta.exportCsv`, `meta.importCsv`
 - **Batch** (6): `batch.actions`, `batch.recipe`, `batch.queue`, `batch.metadata`, `batch.watermark`, `batch.multipage`
