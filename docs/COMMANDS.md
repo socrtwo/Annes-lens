@@ -1,8 +1,8 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **129 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **137 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
-4 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
+5 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
 This file is generated from the source by `npm run catalog`; a unit test fails when it is out of date.
 
@@ -11,7 +11,7 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
 - **Home**: Clipboard (3) · Navigate (5) · Rotate (4) · Organize (3) · View (3) · Share (4)
-- **File**: Open (13) · Save (7) · Files (10) · Acquire (2) · Print (4) · Share (2) · Close and options (10)
+- **File**: Open (14) · Save (7) · Export (4) · Files (10) · Acquire (2) · Print (6) · Share (2) · Close and options (10)
 - **Edit**: Undo (2) · Clipboard (3)
 - **Image**: Information (4) · Rotate and flip (6) · Lossless JPEG (3)
 - **Metadata**: View and edit (1)
@@ -24,19 +24,19 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 65 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 69 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 14 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 44 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 27 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 46 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 28 |
 | ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 21 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 21 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 22 |
 | Picasa style (`picasa`) | Picasa 3 | 17 |
 | Preview style (`preview`) | macOS Preview | 32 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 10 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 79 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 129 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 85 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 137 |
 
-## File (51 of 82)
+## File (59 of 82)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -49,6 +49,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Open RAW Pixel Data… | Open |  | `file.openRawPixels` | from IrfanView |
 | Open URL… | Open |  | `file.openUrl` | from IrfanView, XnView Classic and XnView MP |
 | Open With (system) | Open |  | `file.openWith` | from Microsoft Photos, Preview, Android gallery apps |
+| Open with External Editor | Open | Shift+e | `file.openExternal` | has options menu; from IrfanView, XnView Classic and XnView MP |
 | Open… | Open | o, Ctrl+o | `file.open` | from IrfanView, most picture viewers |
 | Recent Files | Open |  | `file.openRecent` | has options menu; from IrfanView, XnView Classic and XnView MP |
 | Recent Folders | Open |  | `file.recentFolders` | has options menu; from XnView Classic and XnView MP, FastStone Image Viewer |
@@ -61,6 +62,10 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Save As… | Save | s | `file.saveAs` | from IrfanView |
 | Save for Web… | Save | Ctrl+Alt+s | `file.saveForWeb` | from IrfanView, XnView Classic and XnView MP |
 | Save to Target File Size… | Save |  | `file.saveTargetSize` | from IrfanView, new in Anne's Lens |
+| Export Animation (GIF, WebP, APNG)… | Export |  | `file.export.animation` | from XnView Classic and XnView MP, new in Anne's Lens |
+| Export as Icon (.ico, .icns)… | Export |  | `file.export.icon` | from Graphic Workshop, IrfanView |
+| Export Metadata as CSV… | Export |  | `file.export.metadataCsv` | from XnView Classic and XnView MP, digiKam |
+| Export Palette… | Export |  | `file.export.palette` | from IrfanView |
 | Change File Date/Time… | Files |  | `file.setFileTime` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Copy File Name | Files |  | `file.copyName` | not in tabs; from IrfanView |
 | Copy Full Path | Files |  | `file.copyPath` | not in tabs; from XnView Classic and XnView MP |
@@ -76,7 +81,10 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Camera Capture | Acquire |  | `file.captureCamera` | from new in Anne's Lens |
 | Screen Capture… | Acquire | c | `file.capture` | from IrfanView, Preview, FastStone Image Viewer |
 | Print at True Size… | Print |  | `file.printTrueSize` | from new in Anne's Lens |
+| Print Copies and Posters… | Print |  | `file.copyShop` | from IrfanView |
+| Print Layouts (several per page)… | Print |  | `file.printLayouts` | from Windows Photo Viewer and Windows Picture and Fax Viewer, Microsoft Photos, Picasa, FastStone Image Viewer |
 | Print Preview | Print |  | `file.printPreview` | from IrfanView, Microsoft Photos |
+| Print Setup… | Print |  | `file.printSetup` | not in tabs; from IrfanView |
 | Print… | Print | Ctrl+p | `file.print` | from IrfanView, most picture viewers |
 | Quick Print | Print |  | `file.quickPrint` |  |
 | Email… | Share | Ctrl+Shift+m | `file.email` | from IrfanView, Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa, FastStone Image Viewer |
@@ -205,11 +213,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (428)
+## Planned, not yet built (420)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
-- **File** (31): `file.openExternal`, `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.export.animation`, `file.export.icon`, `file.export.palette`, `file.export.metadataCsv`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.printLayouts`, `file.copyShop`, `file.printSetup`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
+- **File** (23): `file.recoverAny`, `file.openEncrypted`, `file.saveSelection`, `file.encrypt`, `file.export.pdf`, `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.copyAsFile`, `file.hide`, `file.sysProperties`, `file.scan`, `file.batchScan`, `file.selectSource`, `file.importCamera`, `file.importRules`, `file.wallpaper`, `file.lockScreen`, `file.contactPhoto`, `file.cast`, `file.customizeMenus`, `file.associations`
 - **Edit** (50): `edit.history`, `edit.cut`, `edit.cutOutside`, `edit.pasteInto`, `edit.pasteBeside`, `edit.clear`, `edit.fill`, `edit.selectAll`, `edit.selectNone`, `edit.selectInvert`, `edit.customSelection`, `edit.selectMaxAspect`, `edit.selectionInfo`, `edit.selectRect`, `edit.selectEllipse`, `edit.selectLasso`, `edit.selectWand`, `edit.selectColor`, `edit.crop`, `edit.cropAspect`, `edit.cropPrint`, `edit.autoCrop`, `edit.cropPage`, `edit.insertText`, `edit.insertOverlay`, `edit.border`, `edit.canvasSize`, `edit.signature`, `edit.paint`, `edit.markup`, `edit.redact`, `edit.callout`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`, `edit.findFiles`, `edit.gotoFile`
 - **Image** (28): `image.showChannel`, `image.rotateCustom`, `image.straighten`, `image.autoStraighten`, `image.perspective`, `image.lensCorrection`, `image.deskew`, `image.resize`, `image.halfSize`, `image.doubleSize`, `image.resizeToScreen`, `image.seamCarve`, `image.setDpi`, `image.grayscale`, `image.negative`, `image.decreaseDepth`, `image.increaseDepth`, `image.threshold`, `image.swapChannels`, `image.paletteEdit`, `image.paletteImport`, `image.replaceColor`, `image.transparentColor`, `image.flatten`, `image.alphaFromMask`, `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Adjust** (47): `adjust.auto`, `adjust.enhance`, `adjust.autoLevels`, `adjust.autoContrast`, `adjust.autoColor`, `adjust.autoWhiteBalance`, `adjust.colorCorrections`, `adjust.brightnessContrast`, `adjust.exposure`, `adjust.levels`, `adjust.curves`, `adjust.gamma`, `adjust.shadowsHighlights`, `adjust.fillLight`, `adjust.toneEqualizer`, `adjust.equalize`, `adjust.normalize`, `adjust.clarity`, `adjust.dehaze`, `adjust.vignette`, `adjust.whiteBalance`, `adjust.hsl`, `adjust.vibrance`, `adjust.colorBalance`, `adjust.selectiveColor`, `adjust.channelMixer`, `adjust.bwMixer`, `adjust.tint`, `adjust.warmify`, `adjust.posterize`, `adjust.lut`, `adjust.sharpen`, `adjust.unsharp`, `adjust.blur`, `adjust.denoise`, `adjust.despeckle`, `adjust.redEye`, `adjust.dustScratches`, `adjust.restoreFaded`, `adjust.descreen`, `adjust.beforeAfter`, `adjust.copySettings`, `adjust.pasteSettings`, `adjust.savePreset`, `adjust.applyPreset`, `adjust.resetAll`, `adjust.revertOriginal`

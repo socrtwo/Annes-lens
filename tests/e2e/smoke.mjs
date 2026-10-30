@@ -230,6 +230,23 @@ try {
   });
   check('cbz as folder', cbz, ['book.cbz', ['p2.png', 'p10.png'], 'p2.png', 9]);
 
+  // Print Layouts builds pages and previews the first one; Export Animation and Export Palette produce files.
+  await p.evaluate(() => { void qn.exec('file.printLayouts'); });
+  await p.waitForSelector('.ql-dialog .ql-print-page');
+  check('layout preview', await p.evaluate(() => { const pg = document.querySelector('.ql-dialog .ql-print-page'); return [pg.style.display, pg.querySelectorAll('img').length]; }), ['grid', 1]);
+  await p.evaluate(() => { const sel = document.querySelector('.ql-dialog select'); sel.value = 'wallet'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  await p.waitForTimeout(500);
+  check('wallet cells', await p.evaluate(() => +(document.querySelector('.ql-dialog .ql-print-page').style.gridTemplateColumns.match(/repeat\((\d+)/) || [])[1] >= 2), true);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+  const exported = await p.evaluate(async () => {
+    const { medianCut, encodePalette } = await window.__qnPalette();
+    const pic = qn.picture; const c = pic.frameCanvas(); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    const pal = medianCut(d, 4);
+    return [pal.colors.length, new TextDecoder().decode(encodePalette(pal, 'gpl').bytes).split('\n')[0]];
+  });
+  check('palette export', exported, [1, 'GIMP Palette']);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

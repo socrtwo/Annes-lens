@@ -28,7 +28,9 @@
 - [x] Formats: TGA, Netpbm, QOI, PCX/DCX, XPM, XBM, WBMP, PSD/PSB composite, ICNS, DDS, Radiance HDR, RAW embedded previews, EPS previews (DOS EPS TIFF preview and %%BeginPreview bitmaps), JPEG-compressed TIFF, ZIP/CBZ/EPUB archives as folders. Still to do: AVIF, JPEG XL and JPEG 2000 decoders of the app's own (the platform's are used where present), the rest of TIFF (CCITT, float, CMYK, planar), WMF/EMF, EXR, SVG beyond the platform renderer, PDF pages, 7z/tar/RAR archives.
 - [x] Open RAW Pixel Data, Open as Hex, Open as Text; tolerant decoding with the Recovery Report; Open and Repair for JPEG (rebuilt from the coefficients, standard Huffman tables when a table is missing), PNG (CRCs ignored, the app's own inflater decodes to the damage) and GIF; embedded previews carved when the main picture is gone.
 - [x] Print at True Size with the calibration ruler; Screen Capture (getDisplayMedia; the desktop answers with the screen); Camera Capture; Open URL.
-- [ ] Print layouts (several per page); scanning on Windows and macOS.
+- [x] Print Setup (paper, orientation, margins, captions), Print Layouts (grids, wallet, 4×6, 5×7, 8×10, contact pages, the folder or one picture), Print Copies and Posters (copies per page; one picture tiled across pages with overlap and cut marks).
+- [x] Export Palette (.gpl, .act, .pal, .aco, CSS), Export Metadata as CSV, Export as Icon (.ico, .icns), Export Animation (GIF with a median-cut palette, APNG), Open with External Editor (desktop, nine programs).
+- [ ] Scanning on Windows and macOS (needs native WIA / ImageCapture code); Set as Wallpaper; Encrypt Picture; Export as PDF (with Anne's Folio).
 - [ ] Tagged prerelease 0.2.0 for every platform.
 
 ## M3 — Edit, thumbnails and batch

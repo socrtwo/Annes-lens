@@ -3,6 +3,8 @@ import './file';
 import './fileTools';
 import './fileOps';
 import './acquire';
+import './print';
+import './export';
 import './edit';
 import './image';
 import './lossless';

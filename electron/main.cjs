@@ -265,6 +265,26 @@ function registerIpc() {
     if (!name) { try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch { /* */ } }
     return { name: name || 'picture', mime: res.headers.get('content-type') || 'application/octet-stream', data: buf.toString('base64') };
   });
+  // Open with External Editor: a configured program (picked through a dialog) gets the file's path.
+  handle('pickProgram', async () => {
+    const filters = process.platform === 'win32' ? [{ name: 'Programs', extensions: ['exe', 'bat', 'cmd'] }, { name: 'All files', extensions: ['*'] }] : undefined;
+    const r = await dialog.showOpenDialog(win, { title: 'Choose a program', properties: ['openFile'], filters });
+    if (r.canceled || !r.filePaths[0]) return { canceled: true };
+    return { path: r.filePaths[0], name: path.basename(r.filePaths[0]).replace(/\.(exe|app)$/i, '') };
+  });
+  handle('openWithProgram', async ({ uri, program }) => {
+    const p = grantedPath(uri);
+    if (typeof program !== 'string' || !program) throw new Error('No program configured');
+    const { spawn } = require('node:child_process');
+    try {
+      let child;
+      if (process.platform === 'darwin' && /\.app$/i.test(program)) child = spawn('open', ['-a', program, p], { detached: true, stdio: 'ignore' });
+      else child = spawn(program, [p], { detached: true, stdio: 'ignore' });
+      child.on('error', () => undefined);
+      child.unref();
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e && e.message ? e.message : String(e) }; }
+  });
   handle('setFileTime', async ({ uri, mtime }) => {
     const p = grantedPath(uri, true);
     const t = new Date(Number(mtime));

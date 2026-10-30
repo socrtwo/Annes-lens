@@ -270,10 +270,10 @@ def([
     id: 'file.print', icon: 'print', popular: true, noRecord: true, isEnabled: (app) => !!app.picture,
     run: async (app) => {
       const r = await openDialog({ title: 'Print', fields: [
-        { key: 'fit', label: 'Size', type: 'radio', options: [{ value: 'page', label: 'Fit to the page' }, { value: 'actual', label: `Actual size at the picture's resolution (${app.picture!.current.dpi?.[0] || 96} dpi)` }], value: 'page' },
-        { key: 'title', label: 'Print the file name under the picture', type: 'checkbox', value: false },
-        { key: 'i', type: 'info', label: 'Position, scaling, captions and several pictures per page come with M2 (Print Layouts).' },
-      ], ok: 'Print' });
+        { key: 'fit', label: 'Size', type: 'radio', options: [{ value: 'page', label: 'Fit to the page' }, { value: 'actual', label: `Actual size at the picture's resolution (${app.picture!.current.dpi?.[0] || 96} dpi)` }], value: app.prefs.print.fit },
+        { key: 'title', label: 'Print the file name under the picture', type: 'checkbox', value: app.prefs.print.captions },
+        { key: 'i', type: 'info', label: 'Several pictures per page: Print Layouts. Copies and posters: Print Copies and Posters. Paper and margins: Print Setup.' },
+      ], ok: 'Print', buttons: [{ label: 'Setup…', onClick: (_v, ctl) => { ctl.close(null); app.exec('file.printSetup'); } }] });
       if (!r) return;
       app.ui.hideBackstage();
       await printPicture(app, { fit: r.fit, title: r.title });

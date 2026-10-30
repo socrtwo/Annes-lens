@@ -13,8 +13,8 @@ An original, open-source picture viewer, organizer and converter for Android, iO
 > - **Lossless JPEG (Shift+J):** rotate, flip, transpose, transverse, crop at the block grid, grayscale, Huffman optimization and metadata stripping on the DCT coefficients of baseline and progressive files, without re-encoding a pixel; Lossless Auto-Rotate by EXIF; Estimate JPEG Quality.
 > - **Files:** rename, move, copy, delete (to the Recycle Bin / Trash on the desktop), Quick Move and Quick Copy to nine folders (Alt+1…9, Alt+Shift+1…9), file dates, all journaled so **Undo File Operation** (Ctrl+Alt+Z) takes them back, including deleted files.
 > - **Damaged pictures:** truncated or corrupt JPEG, PNG and GIF files open with everything readable (JPEGs are rebuilt from their coefficients, PNGs decoded past bad CRCs and broken zlib streams); Open and Repair reports every method tried; Recovery Report, Open as Hex (with marker, chunk and IFD landmarks), Open as Text and Open RAW Pixel Data for headerless dumps.
-> - **Also:** Print, Print at True Size with a calibration ruler, Screen Capture, Camera Capture, Open URL.
-> - **129 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
+> - **Also:** Print, Print Setup, Print Layouts (grids, wallet, 4×6, 5×7, 8×10, contact pages), Print Copies and Posters, Print at True Size with a calibration ruler, Screen Capture, Camera Capture, Open URL, Open with External Editor, Export Palette, Export Metadata as CSV, Export as Icon, Export Animation (GIF, APNG).
+> - **137 of the 557 planned commands** are built; [docs/COMMANDS.md](docs/COMMANDS.md) lists both. A command is registered only when it works.
 >
 > Everything else below is still the plan: see [docs/ROADMAP.md](docs/ROADMAP.md) for the milestones. Issues and discussion are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

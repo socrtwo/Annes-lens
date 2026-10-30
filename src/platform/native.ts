@@ -82,6 +82,8 @@ interface DesktopBridge extends QuillNativePlugin {
   pickFolder(opts: { title?: string }): Promise<{ canceled?: boolean; uri?: string; name?: string }>;
   /** Downloads a picture in the main process (no CORS). */
   fetchUrl(opts: { url: string }): Promise<{ name: string; mime: string; data: string }>;
+  pickProgram(): Promise<{ canceled?: boolean; path?: string; name?: string }>;
+  openWithProgram(opts: { uri: string; program: string }): Promise<{ ok: boolean; error?: string }>;
 }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
