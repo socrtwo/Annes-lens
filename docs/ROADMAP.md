@@ -58,7 +58,8 @@
 ## M5 — Create, compare and slideshow
 
 - [x] Contact Sheet (pictures or PDF through the app's own PDF writer), Join Side by Side, Image Strip, Comparison Picture, Collage, Animation from Pictures, Multipage TIFF or PDF (own TIFF writer), Icon Set, Extract All Frames.
-- [ ] Stitch Panorama, Slideshow Video, Web Gallery, Calendar Page, Photo Book, Focus Stack, Exposure Merge, Extract Embedded Pictures.
+- [x] Slideshow Video, Web Gallery, Calendar Page, Focus Stack, Exposure Merge, Extract Embedded Pictures.
+- [ ] Stitch Panorama (feature matching), Photo Book hand-off.
 - [x] Loupe, rulers, grid and guides, clipping warnings, focus peaking, histogram and information overlays, copy color; display adjustments, grayscale preview, color-blindness simulation.
 - [x] Difference Overlay; Find Files (name, size, dimensions, dates, caption text); Compare Folders; the Tools tab's Print Size Calculator, Extract Palette, Make QR Code, Document Cleanup, Restore Old Photo, Print Check; Encrypt / Open Encrypted Picture (.qlpe), Save Selection As, Recover Pictures from Any File.
 - [x] Filter Bar, Group By, Timeline, stacks (bursts and RAW+JPEG pairs), Light Table, Cull Mode; per-entry info cached (type, date taken, camera, lens, size, location, rating, label, keywords, flag).

@@ -612,6 +612,24 @@ try {
   });
   check('filter bar narrows the thumbnails', [org.shown, org.active, org.headers, org.after, org.cleared], [2, true, ['PNG'], 3, true]);
 
+  // Create, part two: a calendar page through its dialog, pictures pulled out of a ZIP document, and the fusion engines through the hooks.
+  const cr = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const M = await window.__qnMerge(), B = await window.__qnBatch();
+    const windows = qn.tabs.length;
+    const run = qn.exec('create.calendar'); for (let i = 0; i < 60 && !document.querySelector('.ql-dialog .ql-primary'); i++) await wait(50);
+    document.querySelector('.ql-dialog .ql-primary').click(); await run; await wait(800);
+    const cal = { name: qn.picture?.name, w: qn.picture?.width, h: qn.picture?.height, newWindow: qn.tabs.length === windows + 1 };
+    const zip = B.writeZip([{ name: 'word/document.xml', data: new TextEncoder().encode('<w/>') }, { name: 'word/media/image1.png', data: qn.tab.folder.entries[0] ? new Uint8Array(await qn.tab.folder.entries[0].read()) : new Uint8Array(0) }]);
+    const inZip = M.picturesInZip(zip).map((p) => p.name);
+    const mk = (v) => ({ width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).map((_, i) => (i % 4 === 3 ? 255 : v)) });
+    const fused = M.exposureFusion([mk(20), mk(230)], { levels: 2 }); const mid = fused.data[0];
+    return { cal, inZip, mid, stack: M.focusStack([mk(50), mk(60)], 2).raster.width };
+  });
+  check('calendar page opened', [/^calendar-\d{4}-\d{2}\.png$/.test(cr.cal.name), cr.cal.w, cr.cal.h, cr.cal.newWindow], [true, 2480, 3508, true]);
+  check('pictures found inside a docx-style zip', cr.inZip, ['image1.png']);
+  check('fusion and stacking engines run', [cr.mid > 20 && cr.mid < 230, cr.stack], [true, 16]);
+
   // Command palette finds commands; QAT add all is idempotent.
   check('search', await p.evaluate(() => window.__qnGetCommand('view.next').label), 'Next Picture');
   await p.evaluate(() => qn.exec('view.qatAddAll'));

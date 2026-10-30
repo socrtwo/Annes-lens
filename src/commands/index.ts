@@ -10,6 +10,7 @@ import './batchSteps';
 import './compare';
 import './organize';
 import './create';
+import './create2';
 import './export';
 import './edit';
 import './editAdd';
