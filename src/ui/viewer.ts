@@ -213,7 +213,7 @@ export class Viewer {
     const sel = this.tab.selection;
     if (sel) this.drawSelection(ctx, r, sel);
     const vs = viewState;
-    if (vs.grid !== 'off' || vs.rulers || vs.clipping || vs.peaking || vs.histogram || vs.osd || vs.loupe || vs.navigator || (vs.measure.on && vs.measure.pts.length)) {
+    if (vs.grid !== 'off' || vs.rulers || vs.clipping || vs.peaking || vs.histogram || vs.osd || vs.loupe || vs.navigator || (vs.measure.on && vs.measure.pts.length) || (vs.ocr.show && vs.ocr.words.length) || vs.codes.length) {
       const f = this.tab.folder;
       drawOverlays(ctx, this, r, frame, { name: p.name, index: f.index, total: f.length, exif: p.exif, size: p.bytes.length, page: p.page, pages: p.pages.length, dpi: p.current.dpi, template: this.app.prefs.osdTemplate, pointer: this.pointer });
     }

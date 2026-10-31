@@ -80,7 +80,7 @@
 - [x] Geotagging from a GPX or KML track (capture-time matching with a camera-clock offset and time zone) and offline place-name lookup (Region Tags write MWG regions; Look Up Place Names writes city/state/country from a built-in gazetteer, importable CSV). Timeline done; Map, Albums and Smart Albums still to do.
 - People (on-device, opt-in).
 - Document Cleanup, Crop Page from Photo, deskew, descreen, dust and scratches, restore faded colors, Restore Old Photo wizard (non-AI steps).
-- OCR (tesseract.js) with OCR to Anne's Pen; QR and barcodes.
+- [x] OCR on the device (Tesseract via tesseract.js: English plus German, German Fraktur, French, Dutch, Italian, Spanish, Polish, Swedish and Latin; word boxes and find on the picture; copy, caption, text file) with OCR to Anne's Pen; QR codes and barcodes (zxing-cpp: QR, Data Matrix, Aztec, PDF417, EAN/UPC, Code 128 and the other linear codes).
 - [x] Source citations, checksums, fixity reports and the content-credentials viewer; person links (Link Person ties a region to a person record with dates and a GEDCOM xref or FamilySearch id, stored on the region and in a reusable roster).
 - RAW develop module; HEIC and RAR modules where licensing allows.
 

@@ -2,15 +2,23 @@
 // walks the folder, zooms, rotates, undoes, reads pixel info, switches menus and saves a copy.
 // Usage: npm run build && npm run e2e   (set QN_URL to test an already-running server instead)
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { startMockAi } from './mockAi.mjs';
 
-// The on-device AI runtime and the tiny fixture models are served from dist/ (never committed there).
-const ORT_FILES = ['ort.webgpu.bundle.min.mjs', 'ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm', 'ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm'];
+// The on-device runtimes (ONNX Runtime, Tesseract with English, zxing) and the tiny AI fixture models
+// are staged into dist/ with a runtimes.json, as the desktop build does (never committed there).
+const LOCAL_RUNTIMES = [
+  ['node_modules/onnxruntime-web/dist', 'ort', ['ort.webgpu.bundle.min.mjs', 'ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm', 'ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm']],
+  ['node_modules/tesseract.js/dist', 'ocr', ['tesseract.esm.min.js', 'worker.min.js']],
+  ['node_modules/tesseract.js-core', 'ocr/core', ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']],
+  ['node_modules/@tesseract.js-data/eng/4.0.0_best_int', 'ocr/lang', ['eng.traineddata.gz']],
+  ['node_modules/zxing-wasm/dist/reader', 'zxing', ['zxing_reader.wasm']],
+];
 if (existsSync('dist')) {
-  mkdirSync('dist/ort', { recursive: true }); mkdirSync('dist/ai-fixtures', { recursive: true });
-  for (const f of ORT_FILES) if (existsSync(`node_modules/onnxruntime-web/dist/${f}`)) copyFileSync(`node_modules/onnxruntime-web/dist/${f}`, `dist/ort/${f}`);
+  for (const [from, to, files] of LOCAL_RUNTIMES) { mkdirSync(`dist/${to}`, { recursive: true }); for (const f of files) if (existsSync(`${from}/${f}`)) copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', ocrLangs: ['eng'] }));
+  mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
 }
 const AI_PORT = 4193;
@@ -928,6 +936,53 @@ try {
   check('reset all adjustments returns to the opened pixels as one undoable step', [vt1.resetDisabled, vt1.reset.p1.join() !== vt1.reset.p0.join(), vt1.reset.p2, vt1.reset.label, vt1.reset.undone], [true, true, vt1.reset.p0, 'Reset All Adjustments', vt1.reset.p1]);
   check('keep the original on the first save over a file', [vt1.kept.names.includes('nav-big (original).png'), vt1.kept.sameAsOriginal, vt1.kept.savedChanged, vt1.kept.inFolder, vt1.kept.count], [true, true, true, true, 1]);
   check('revert to original restores the kept pixels', [vt1.revert.pixel, vt1.revert.label, vt1.revert.dirty], [[255, 255, 255], 'Revert to Original', true]);
+
+  // Recognize Text (OCR) on rendered text, Find on the picture, Read QR Code from the app's own QR encoder.
+  const external = []; const onReq = (r) => { const u = r.url(); if (!/^(http:\/\/localhost|blob:|data:)/.test(u)) external.push(u); };
+  p.on('request', onReq);
+  const ocr = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop();
+    const title = (d) => d?.querySelector('h2')?.textContent || '';
+    const waitFor = async (pred, ms = 60000) => { for (let i = 0; i < ms / 100; i++) { const d = top(); if (d && pred(d)) return d; await wait(100); } throw new Error('dialog not found; top is ' + title(top())); };
+    const noDialog = async () => { for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50); };
+    const field = (d, key) => d.querySelector(`[id^="f_${key}_"]`);
+    await noDialog();
+    const O = await window.__qnOcr(), T = await window.__qnTools();
+    const c = document.createElement('canvas'); c.width = 900; c.height = 260; const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, 900, 260); x.fillStyle = '#111'; x.font = 'bold 64px sans-serif'; x.fillText("ANNE'S LENS 1926", 40, 100); x.font = '44px serif'; x.fillText('Family records of Bath', 40, 190);
+    const qr = T.qrRaster(T.encodeQr('https://example.org/annes-lens', 'M'), 8, 4);
+    const q = document.createElement('canvas'); q.width = qr.width; q.height = qr.height; q.getContext('2d').putImageData(new ImageData(qr.data, qr.width, qr.height), 0, 0);
+    const blob = (cv) => new Promise((r) => cv.toBlob(r, 'image/png'));
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await blob(c)], 'o-text.png', { type: 'image/png' }), new File([await blob(q)], 'p-qr.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'o-text.png'; i++) await wait(50);
+    await wait(200);
+    const out = {};
+    let run = qn.exec('tools.ocr'); let d = await waitFor((x) => title(x) === 'Recognize Text (OCR)');
+    d.querySelector('.ql-primary').click();
+    d = await waitFor((x) => title(x) === 'Recognized Text');
+    out.text = field(d, 'text').value; out.help = d.textContent.match(/(\d+) words? in (\d+) lines?, (\d+)% confidence/)?.slice(1).map(Number);
+    out.boxes = O.viewState.ocr.words.length; out.shown = O.viewState.ocr.show;
+    const qf = field(d, 'q'); qf.value = '1926'; qf.dispatchEvent(new Event('input', { bubbles: true })); qf.dispatchEvent(new Event('change', { bubbles: true })); await wait(100);
+    out.matches = O.viewState.ocr.words.filter((w) => O.ocrMatch(w.text, O.viewState.ocr.query)).map((w) => w.text);
+    out.matchBox = O.viewState.ocr.words.find((w) => w.text === '1926')?.bbox;
+    out.count = d.querySelector('.qn-ocr-count')?.textContent;
+    d.querySelector('.ql-primary').click(); await run; await noDialog();
+    out.clearedAfter = O.viewState.ocr.words.length;
+    // Read Code on the QR picture.
+    await qn.exec('view.next'); for (let i = 0; i < 60 && qn.picture?.name !== 'p-qr.png'; i++) await wait(50); await wait(200);
+    run = qn.exec('tools.readCode'); d = await waitFor((x) => /^Codes? Found$/.test(title(x)));
+    out.code = { text: d.textContent, outlines: O.viewState.codes.length, corner: O.viewState.codes[0]?.corners[0], hasOpen: [...d.querySelectorAll('button')].some((b) => /Open link/.test(b.textContent)) };
+    d.querySelector('.ql-primary').click(); await run; await noDialog();
+    out.codesAfter = O.viewState.codes.length;
+    return out;
+  });
+  p.off('request', onReq);
+  check('OCR recognized the rendered text', [/ANNE'S LENS 1926/.test(ocr.text), /Family records of Bath/.test(ocr.text), (ocr.help || [])[0] >= 6, (ocr.help || [])[2] >= 80, ocr.boxes >= 6, ocr.shown], [true, true, true, true, true, true]);
+  check('OCR find highlights the word where it is', [ocr.matches, ocr.count, ocr.matchBox && ocr.matchBox.x0 > 400 && ocr.matchBox.x1 < 900 && ocr.matchBox.y0 > 40 && ocr.matchBox.y1 < 110, ocr.clearedAfter], [['1926'], '1 match', true, 0]);
+  check('QR code read with its outline', [/QRCode/.test(ocr.code.text), /https:\/\/example\.org\/annes-lens/.test(ocr.code.text), ocr.code.outlines, ocr.code.corner, ocr.code.hasOpen, ocr.codesAfter], [true, true, 1, [32, 32], true, 0]);
+  check('OCR and code reading made no requests off the machine', external, []);
 
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.

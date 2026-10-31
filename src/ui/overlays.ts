@@ -17,7 +17,14 @@ export const viewState = {
   navigator: false,
   /** Measure: points in picture pixels, whether the shape is closed, and the scale. */
   measure: { on: false, pts: [] as [number, number][], closed: false, scale: null as { perPx: number; unit: string } | null },
+  /** Recognize Text: word boxes (picture pixels) and the search that highlights some of them. */
+  ocr: { show: false, words: [] as { text: string; conf: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[], query: '' },
+  /** Read QR Code or Barcode: the outlines of the codes found. */
+  codes: [] as { text: string; format: string; corners: [number, number][] }[],
 };
+/** True when the OCR search matches this word (case- and accent-insensitive). */
+const fold = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export const ocrMatch = (word: string, q: string): boolean => !!q.trim() && fold(word).includes(fold(q.trim()));
 
 /** Where the navigator sits (CSS px, bottom right) and its scale (navigator px per picture px). */
 export function navigatorRect(vw: number, vh: number, pw: number, ph: number, size = 180, margin = 12): { x: number; y: number; w: number; h: number; k: number } {
@@ -160,6 +167,27 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, v: Viewer, r: { x: n
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath(); ctx.rect(n.x, n.y, n.w, n.h); ctx.rect(bx, by, bw, bh); ctx.fill('evenodd');
     ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2; ctx.strokeRect(bx + 1, by + 1, Math.max(2, bw - 2), Math.max(2, bh - 2));
+    ctx.restore();
+  }
+  if (s.ocr.show && s.ocr.words.length) {
+    ctx.save(); ctx.lineWidth = 1;
+    for (const w of s.ocr.words) {
+      const x = r.x + w.bbox.x0 * v.zoom, y = r.y + w.bbox.y0 * v.zoom, ww = (w.bbox.x1 - w.bbox.x0) * v.zoom, hh = (w.bbox.y1 - w.bbox.y0) * v.zoom;
+      if (ocrMatch(w.text, s.ocr.query)) { ctx.fillStyle = 'rgba(255,220,0,0.45)'; ctx.fillRect(x, y, ww, hh); ctx.strokeStyle = '#ffb000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, ww, hh); ctx.lineWidth = 1; continue; }
+      ctx.strokeStyle = w.conf < 60 ? 'rgba(255,120,0,0.9)' : 'rgba(0,160,255,0.75)'; ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(ww), Math.round(hh));
+    }
+    ctx.restore();
+  }
+  if (s.codes.length) {
+    ctx.save(); ctx.lineJoin = 'round'; ctx.font = '12px sans-serif'; ctx.textBaseline = 'bottom';
+    for (const c of s.codes) {
+      const pv = c.corners.map(([x, y]) => [r.x + x * v.zoom, r.y + y * v.zoom]);
+      ctx.beginPath(); pv.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath();
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#33e07a'; ctx.lineWidth = 3; ctx.stroke();
+      const label = `${c.format}: ${c.text.length > 40 ? c.text.slice(0, 39) + '…' : c.text}`, tw = ctx.measureText(label).width + 10;
+      const lx = Math.min(...pv.map((q) => q[0])), ly = Math.min(...pv.map((q) => q[1]));
+      ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(lx, Math.max(0, ly - 20), tw, 18); ctx.fillStyle = '#fff'; ctx.fillText(label, lx + 5, Math.max(18, ly - 4));
+    }
     ctx.restore();
   }
   if (s.measure.on && s.measure.pts.length) {

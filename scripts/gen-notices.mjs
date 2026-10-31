@@ -18,7 +18,10 @@ function resolvePkg(name, from) {
 }
 
 const seen = new Map(); // directory -> package.json
-const queue = Object.keys(rootPkg.dependencies || {}).map((n) => [n, root]);
+// Runtimes the app loads at run time (from the CDN, or copied into the desktop build by
+// vite.config.ts) are shipped code too when copied, so their licenses are listed as well.
+const RUNTIMES = ['onnxruntime-web', 'tesseract.js', 'tesseract.js-core', '@tesseract.js-data/eng'];
+const queue = [...Object.keys(rootPkg.dependencies || {}), ...RUNTIMES].map((n) => [n, root]);
 while (queue.length) {
   const [name, from] = queue.shift();
   const dir = resolvePkg(name, from);
@@ -54,6 +57,12 @@ const parts = [
   '',
   'Desktop builds also include Electron (MIT) and Chromium, whose licenses ship alongside the',
   'app as LICENSE.electron.txt and LICENSES.chromium.html.',
+  '',
+  'ONNX Runtime Web and Tesseract (with its English data) are loaded on demand: from the jsDelivr',
+  'CDN in the web and Android builds, from a copy inside the desktop build. The on-device AI',
+  'models (MODNet, Depth Anything V2 Small, LaMa and Swin2SR under Apache-2.0, CLIP under MIT) and',
+  'the other OCR languages are downloaded from their published locations when first used and are',
+  'not part of the app.',
   '',
 ];
 const sorted = [...seen.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));

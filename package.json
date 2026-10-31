@@ -33,15 +33,19 @@
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/ios": "^8.5.3",
     "@capacitor/share": "^8.0.3",
-    "material-symbols": "^0.48.0"
+    "material-symbols": "^0.48.0",
+    "zxing-wasm": "^3.1.6"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
+    "@tesseract.js-data/eng": "^1.0.0",
     "electron": "^43.7.7",
     "electron-builder": "^26.17.0",
     "jsdom": "^29.1.1",
     "onnxruntime-web": "^1.31.1",
     "playwright": "^1.64.1",
+    "tesseract.js": "^7.0.0",
+    "tesseract.js-core": "^7.0.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.4",
     "vite-node": "^6.0.0",

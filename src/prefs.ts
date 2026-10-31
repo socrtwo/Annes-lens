@@ -115,6 +115,9 @@ export interface Prefs {
   people: { name: string; born: string; died: string; externalId: string }[];
   /** An imported place-name table (CSV rows) for Look Up Place Names; searched before the built-in one. */
   importedPlaces: { city: string; state?: string; country: string; countryCode: string; lat: number; lon: number }[];
+  /** Recognize Text: the languages and the page layout last used. */
+  ocrLangs: string[];
+  ocrLayout: 'auto' | 'block' | 'column' | 'line' | 'sparse';
   thumbSize: number;
   thumbMode: 'grid' | 'strip';
   /** Sort order for folders */
@@ -161,7 +164,7 @@ export function defaultPrefs(): Prefs {
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, keepOriginal: false, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
     quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
-    ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], importedPlaces: [],
+    ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], importedPlaces: [], ocrLangs: ['eng'], ocrLayout: 'auto',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -218,6 +221,8 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);
   if (out.ai) out.ai = sanitizeAi(out.ai);
   if (out.hiddenFiles) out.hiddenFiles = strings(out.hiddenFiles).slice(0, 5000);
+  if (out.ocrLangs) { out.ocrLangs = strings(out.ocrLangs).filter((l: string) => /^[a-z_]{3,10}$/.test(l)).slice(0, 4); if (!out.ocrLangs.length) delete out.ocrLangs; }
+  if (out.ocrLayout && !['auto', 'block', 'column', 'line', 'sparse'].includes(out.ocrLayout)) delete out.ocrLayout;
   if (out.people) out.people = out.people.filter((r: any) => isObj(r) && typeof r.name === 'string').map((r: any) => ({ name: r.name, born: String(r.born ?? ''), died: String(r.died ?? ''), externalId: String(r.externalId ?? '') })).slice(0, 2000);
   if (out.importedPlaces) out.importedPlaces = out.importedPlaces.filter((r: any) => isObj(r) && typeof r.city === 'string' && typeof r.lat === 'number' && typeof r.lon === 'number').map((r: any) => ({ city: r.city, state: typeof r.state === 'string' ? r.state : undefined, country: String(r.country ?? ''), countryCode: String(r.countryCode ?? ''), lat: r.lat, lon: r.lon })).slice(0, 200000);
   if (out.importRules) out.importRules = out.importRules.filter((r: any) => isObj(r) && typeof r.name === 'string').map((r: any) => ({ name: r.name, subfolder: String(r.subfolder ?? ''), rename: String(r.rename ?? '{name}'), skipDuplicates: r.skipDuplicates !== false, deleteAfter: !!r.deleteAfter })).slice(0, 40);

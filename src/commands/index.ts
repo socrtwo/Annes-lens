@@ -39,4 +39,5 @@ import './platformFile';
 import './metaGeo';
 import './vectorPdf';
 import './viewTools2';
+import './ocrCodes';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

@@ -200,7 +200,8 @@ export async function makePictures(app: App, job: ImageJob, status?: (t: string)
 // On-device models -------------------------------------------------------------------------------
 
 let backend: device.Backend | null = null; let backendBase = '';
-export function runtimeBase(app: App): string { return app.prefs.ai.runtimeUrl || (window as any).__qnOrtBase || device.RUNTIME_CDN; }
+/** An explicit runtime address (a setting, or a test), or '' to use the build's local copy or the CDN. */
+export function runtimeBase(app: App): string { return app.prefs.ai.runtimeUrl || (window as any).__qnOrtBase || ''; }
 export function deviceBackend(app: App): device.Backend {
   const b = runtimeBase(app);
   if (!backend || backendBase !== b) { backend?.release?.(); backend = device.ortBackend(b); backendBase = b; }

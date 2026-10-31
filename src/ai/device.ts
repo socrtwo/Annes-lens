@@ -9,6 +9,7 @@ import type { Raster } from '../codecs/raster';
 import { resample } from '../picture/ops';
 import type { Rect } from '../picture/mask';
 import { makeClipTokenizer, type ClipTokenizer } from './clipTokenizer';
+import { runtimeBase as resolveRuntime } from '../platform/runtimes';
 
 export const ORT_VERSION = '1.31.1';
 export const RUNTIME_CDN = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
@@ -117,7 +118,8 @@ async function loadOrt(base: string): Promise<any> {
   if (ortPromise && ortBase === base) return ortPromise;
   ortBase = base;
   ortPromise = (async () => {
-    const abs = new URL(base, typeof document !== 'undefined' ? document.baseURI : 'http://localhost/').href;
+    // '' = the build's local copy (runtimes.json) when there is one, else the pinned CDN.
+    const abs = base ? new URL(base, typeof document !== 'undefined' ? document.baseURI : 'http://localhost/').href : await resolveRuntime('ort', RUNTIME_CDN);
     const ort: any = await import(/* @vite-ignore */ abs + 'ort.webgpu.bundle.min.mjs');
     ort.env.wasm.wasmPaths = abs;
     ort.env.wasm.numThreads = (globalThis as any).crossOriginIsolated ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1)) : 1;
