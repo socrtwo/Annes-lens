@@ -1,0 +1,16 @@
+[
+  { "name": "fullscreen", "short": "f", "group": "View", "text": "Open the pictures full screen." },
+  { "name": "slideshow", "short": "s", "group": "View", "text": "Start a slideshow of the pictures or folders given." },
+  { "name": "convert", "value": "PATTERN", "group": "Convert", "text": "Write each input as PATTERN and exit, without a window. * stands for the input's name without its extension; the extension picks the format (png, jpg, webp, bmp, tga, ppm, qoi, wbmp). Folders in PATTERN are created. Example: --convert=out/*.webp" },
+  { "name": "resize", "value": "WxH | W | xH | N%", "group": "Convert", "text": "Fit within W × H pixels (proportions kept), make the width W or the height H, or scale to N percent." },
+  { "name": "long", "value": "N", "group": "Convert", "text": "Make the long side N pixels." },
+  { "name": "shrink-only", "group": "Convert", "text": "With --resize or --long: leave pictures that are already small enough." },
+  { "name": "rotate", "value": "90 | 180 | 270 | exif", "group": "Convert", "text": "Turn clockwise by the angle, or upright by the EXIF orientation." },
+  { "name": "flip", "value": "h | v", "group": "Convert", "text": "Mirror left to right (h) or top to bottom (v)." },
+  { "name": "gray", "group": "Convert", "text": "Convert to grayscale." },
+  { "name": "quality", "value": "1-100", "group": "Convert", "text": "JPEG and WebP quality (default 90)." },
+  { "name": "strip", "group": "Convert", "text": "Leave EXIF and XMP out of the output (a color profile stays)." },
+  { "name": "overwrite", "group": "Convert", "text": "Replace output files that exist (otherwise a number is added to the name)." },
+  { "name": "help", "short": "h", "group": "Other", "text": "Print these options and exit." },
+  { "name": "version", "short": "v", "group": "Other", "text": "Print the version and exit." }
+]

@@ -1246,6 +1246,40 @@ try {
   check('motion photo: the appended clip found and played', [mov.enabled, mov.clipLen, mov.loaded, mov.size, mov.pausedAfterToggle, mov.playingAgain], [true, mov.expected, 'loaded', [256, 144], true, true]);
   check('save current frame opens the clip frame as a picture', [/^z-motion \(frame [\d.]+ s\)\.png$/.test(mov.frame.name || ''), mov.frame.size, mov.frame.px && mov.frame.px[2] > 200 && mov.frame.px[0] < 40], [true, [256, 144], true]);
 
+  // Script Console: JavaScript in a worker edits the picture (one Undo step), lists the folder,
+  // reports a syntax error, and Stop ends a runaway loop. Command-Line Help lists the options.
+  const scon = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const pixel = () => [...qn.picture.frameCanvas().getContext('2d').getImageData(2, 2, 1, 1).data].slice(0, 3);
+    const out = { before: pixel() };
+    const run = qn.exec('dev.console', 'const i = await picture.info();\nprint("size", i.width, i.height);\nconst p = await picture.pixels();\nfor (let k = 0; k < p.data.length; k += 4) p.data[k] = 255 - p.data[k];\nawait picture.setPixels(p, "Invert red (script)");\nglobalThis.kept = 41;\nreturn { files: (await folder.list()).length, cur: (await folder.current()).name };');
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => /Script Console/.test(d.textContent))); i++) await wait(50);
+    const btn = (label) => [...dlg.querySelectorAll('button')].find((b) => b.textContent.trim() === label);
+    const log = () => dlg.querySelector('.qn-console-out').textContent;
+    const input = dlg.querySelector('textarea');
+    btn('Run').click(); for (let i = 0; i < 100 && !/←/.test(log()); i++) await wait(50);
+    out.first = log(); out.after = pixel(); out.undo = qn.tab.undoLabel;
+    input.value = 'return globalThis.kept + 1;'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+    for (let i = 0; i < 60 && !/← 42/.test(log()); i++) await wait(50); out.kept = /← 42/.test(log());
+    input.value = 'return (;'; btn('Run').click(); for (let i = 0; i < 60 && !/✖/.test(log()); i++) await wait(50);
+    out.syntax = (log().match(/✖ [^\n]*/) || [''])[0];
+    input.value = 'await app.exec("no.such.command");'; btn('Run').click(); for (let i = 0; i < 60 && !/Unknown command/.test(log()); i++) await wait(50); out.unknown = /Unknown command: no\.such\.command/.test(log());
+    input.value = 'while (true) {}'; btn('Run').click(); await wait(300); btn('Stop').click(); await wait(100);
+    out.stopped = /Stopped; the console starts fresh/.test(log());
+    input.value = 'return typeof globalThis.kept;'; btn('Run').click(); for (let i = 0; i < 60 && !/← undefined/.test(log()); i++) await wait(50); out.fresh = /← undefined/.test(log());
+    btn('Close').click(); await run; await wait(100);
+    qn.tab.undo(); await wait(100); out.undone = pixel();
+    const help = qn.exec('dev.cliHelp'); let hd; for (let i = 0; i < 60 && !(hd = [...document.querySelectorAll('.ql-dialog')].find((d) => /Command-Line Help/.test(d.textContent))); i++) await wait(50);
+    out.help = ['--convert=PATTERN', '--resize=WxH | W | xH | N%', '--slideshow', 'Exit status'].map((t) => hd.textContent.includes(t)); out.helpNote = /desktop app/.test(hd.textContent);
+    [...hd.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close').click(); await help;
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    return out;
+  });
+  check('script console edits the picture in one undo step', [scon.after[0] === 255 - scon.before[0], scon.after[1] === scon.before[1], scon.undo, /size \d+ \d+/.test(scon.first), /"files": \d+/.test(scon.first), scon.undone], [true, true, 'Invert red (script)', true, true, scon.before], JSON.stringify(scon));
+  check('script console keeps globals, reports errors, stops runaway scripts', [scon.kept, /^✖ SyntaxError/.test(scon.syntax), scon.unknown, scon.stopped, scon.fresh], [true, true, true, true, true], scon.syntax);
+  check('command-line help lists the options', [scon.help, scon.helpNote], [[true, true, true, true], true]);
+
   // Next / Previous Folder through a File System Access tree (a folder of folders: Open Folder shows
   // the first one with pictures), with the keyboard; Full Screen on Another Display on a stubbed
   // two-screen Window Management API.

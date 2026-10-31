@@ -78,7 +78,7 @@ def([
       const r = await openDialog({ title: m ? `Edit Macro: ${m.name}` : 'New Macro', wide: true, fields: [
         { key: 'name', label: 'Name', type: 'text', value: m?.name || `Macro${ms.length + 1}` },
         { key: 'desc', label: 'Description', type: 'text', value: m?.description || '' },
-        { key: 'steps', label: 'Steps', type: 'textarea', rows: 14, value: text, help: 'Find command ids in Help ▸ Command Reference or the Customize dialogs. Macros run Anne\'s Lens commands only; the JavaScript picture API comes with a later milestone.' },
+        { key: 'steps', label: 'Steps', type: 'textarea', rows: 14, value: text, help: 'Find command ids in Help ▸ Command Reference or the Customize dialogs. Macros run Anne\'s Lens commands; for JavaScript with the picture and folder, use Developer ▸ Script Console.' },
       ], validate: (v) => {
         for (const [i, line] of String(v.steps).split('\n').entries()) {
           const t = line.trim(); if (!t || t.startsWith('#')) continue;

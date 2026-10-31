@@ -45,4 +45,5 @@ import './compare2';
 import './specialViews';
 import './colorMgmt';
 import './viewWindow';
+import './devConsole';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

@@ -658,3 +658,12 @@ body.qn-frameless .ql-winctl { display: inline-flex; }
 body.qn-frameless .ql-titlebar { -webkit-app-region: drag; app-region: drag; }
 body.qn-frameless .ql-titlebar button, body.qn-frameless .ql-titlebar input, body.qn-frameless .ql-titlebar .ql-qat { -webkit-app-region: no-drag; app-region: no-drag; }
 body.qn-frameless .ql-win-close:hover { background: #c42b1c; }
+
+/* Script Console and Command-Line Help */
+.qn-console { display: flex; flex-direction: column; gap: 8px; }
+.qn-console-out { margin: 0; min-height: 140px; max-height: 40vh; overflow: auto; background: #15171c; color: #d7dae0; padding: 8px 10px; border-radius: 6px; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+.qn-cli-help { max-height: 60vh; }
+.qn-console-in { width: 100%; box-sizing: border-box; font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; }
+.qn-console-result { color: #8fd18f; }
+.qn-console-error { color: #ff8a80; }
+.qn-console-info { color: #8aa4c8; }

@@ -114,8 +114,15 @@ interface DesktopBridge extends QuillNativePlugin {
   /** Recreates the window with or without its frame, reopening `reopen` (a file URI) in it. */
   setFrameless(opts: { on: boolean; reopen?: string | null }): Promise<{ ok: boolean }>;
   windowControl(opts: { action: 'minimize' | 'maximize' | 'close' | 'state' | 'leaveFullScreen' }): Promise<{ maximized: boolean; frameless: boolean; fullScreen: boolean }>;
+  /** The command line's request (--convert job, or --fullscreen / --slideshow), once. */
+  cliJob(): Promise<CliJob | null>;
+  cliWrite(opts: { name: string; data: string }): Promise<{ name: string; path: string }>;
+  cliDone(opts: { done: { from: string; to: string; note?: string }[]; failed: { name: string; error: string }[] }): Promise<{ ok: boolean }>;
 }
 export interface FolderRef { uri: string; name: string }
+export type CliJob =
+  | { mode: 'view'; fullscreen: boolean; slideshow: boolean }
+  | { mode: 'convert'; inputs: FolderEntry[]; format: string; quality: number; names: string; resize: { mode: 'long' | 'width' | 'height' | 'percent' | 'box'; value: number; value2?: number } | null; shrinkOnly: boolean; rotate: '90' | '180' | '270' | 'exif' | null; flip: 'h' | 'v' | null; gray: boolean; strip: boolean };
 export interface DisplayInfo { id: number; label: string; bounds: { x: number; y: number; width: number; height: number }; primary: boolean; current: boolean }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;

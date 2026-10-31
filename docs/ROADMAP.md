@@ -76,7 +76,8 @@
 - [x] Slideshow with transitions (fade, wipe, slide, zoom, pan and zoom, random), timing, order, loop, captions through the information overlay, kiosk mode, HTML export.
 - [ ] Background music and the phone remote.
 - [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.
-- Hand-offs to Anne's Folio, Stage, Pen and Press. Command-line options (desktop).
+- [x] Command-line options (desktop): `--convert=PATTERN` with `--resize`, `--long`, `--shrink-only`, `--rotate`, `--flip`, `--gray`, `--quality`, `--strip`, `--overwrite` runs the Batch engine in a hidden window and exits with a status; `--fullscreen`, `--slideshow`, `--help`, `--version`. Command-Line Help shows the same list ([CLI.md](CLI.md)). Script Console: JavaScript in an isolated worker with `app`, `picture` and `folder` calls (the desktop CSP keeps eval off).
+- [ ] Hand-offs to Anne's Folio, Stage, Pen and Press.
 
 ## M6 — Places, people, scans and records
 

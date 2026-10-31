@@ -50,7 +50,8 @@ export type Action =
 export interface BatchSteps {
   /** Ordered steps (Batch Steps editor); run after the fixed ones below. */
   actions?: Action[];
-  resize?: { mode: 'long' | 'width' | 'height' | 'percent'; value: number; kernel: Kernel; onlyShrink: boolean };
+  /** 'box' fits within value × value2 (the command line's --resize=WxH). */
+  resize?: { mode: 'long' | 'width' | 'height' | 'percent' | 'box'; value: number; value2?: number; kernel: Kernel; onlyShrink: boolean };
   rotate?: 'exif' | 'rot90' | 'rot180' | 'rot270' | 'flipH' | 'flipV';
   grayscale?: boolean;
   colors?: number;
@@ -113,10 +114,10 @@ async function processOne(job: BatchJob, e: Entry, index: number, name: string):
     let r = frameRaster(page.frames[0]);
     if (steps.autoCrop) { const rect = autoCropRect(r, 16); if (rect) r = crop(r, rect); }
     if (steps.resize) {
-      const { mode, value, kernel, onlyShrink } = steps.resize;
+      const { mode, value, value2, kernel, onlyShrink } = steps.resize;
       let w = r.width, hh = r.height;
       if (mode === 'percent') { w = Math.round(r.width * value / 100); hh = Math.round(r.height * value / 100); }
-      else { const k = mode === 'long' ? value / Math.max(r.width, r.height) : mode === 'width' ? value / r.width : value / r.height; w = Math.round(r.width * k); hh = Math.round(r.height * k); }
+      else { const k = mode === 'box' ? Math.min(value / r.width, (value2 || value) / r.height) : mode === 'long' ? value / Math.max(r.width, r.height) : mode === 'width' ? value / r.width : value / r.height; w = Math.round(r.width * k); hh = Math.round(r.height * k); }
       if (!(onlyShrink && (w > r.width || hh > r.height))) r = resample(r, Math.max(1, w), Math.max(1, hh), kernel);
     }
     if (steps.grayscale) r = grayscale(r);

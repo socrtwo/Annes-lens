@@ -1,4 +1,5 @@
 /** Anne's Lens entry point. */
+import { runCliConvert, applyCliView } from './platform/cli';
 import 'material-symbols/outlined.css';
 import './styles/app.css';
 import './styles/lens.css';
@@ -73,6 +74,7 @@ document.addEventListener('paste', (e) => {
 document.addEventListener('ql-layout', () => { for (const t of app.tabs) t.ui.layout(); });
 
 async function start() {
+  if (await runCliConvert(app)) return; // the desktop command line's --convert: no viewer start-up
   let ready = false;
   const queued: OpenedFile[] = [];
   onFilesOpened((fs) => { if (ready) void openFiles(app, fs); else queued.push(...fs); });
@@ -86,6 +88,7 @@ async function start() {
   if (lq?.setConsumer) lq.setConsumer(async (params: any) => { const files: File[] = []; for (const hnd of params.files || []) { try { files.push(await hnd.getFile()); } catch { /* */ } } if (files.length) void openDroppedFiles(app, files); });
   if (isDesktop()) { try { const st = await desktopBridge()!.getPortableMode(); (window as any).__qlPortable = st.on; } catch { /* */ } }
   // On the desktop a launch file can arrive just after this point; skip the tour when a picture is open by then.
+  void applyCliView(app);
   if (app.prefs.firstRun && !openedAny) setTimeout(() => { if (!app.picture) app.ui.tour(); }, 600);
   app.focus();
 }

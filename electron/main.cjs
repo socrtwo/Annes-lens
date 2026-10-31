@@ -38,7 +38,19 @@ const MIME = {
 
 protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// Command line (cli.cjs): --help, --version and usage errors answer in the terminal and exit; --convert
+// runs without a window (and alongside a running copy); --fullscreen and --slideshow apply at start-up.
+const { parseCli, usageText } = require('./cli.cjs');
+const cliArgv = process.argv.slice(1);
+if (process.defaultApp) { const i = cliArgv.findIndex((a) => !String(a).startsWith('-')); if (i >= 0) cliArgv.splice(i, 1); } // `electron <app folder> …`
+const cli = parseCli(cliArgv);
+if (cli.help || cli.version || cli.errors.length) {
+  if (cli.errors.length) process.stderr.write(cli.errors.map((e) => `annes-lens: ${e}\n`).join('') + 'Run annes-lens --help for the options.\n');
+  else process.stdout.write(cli.help ? usageText(app.getVersion()) : `${app.getVersion()}\n`);
+  process.exit(cli.errors.length ? 2 : 0);
+}
+const cliConvert = cli.convert !== undefined;
+if (!cliConvert && !app.requestSingleInstanceLock()) app.quit();
 
 /** @type {BrowserWindow | null} */
 let win = null;
@@ -170,6 +182,7 @@ function registerIpc() {
     grantDir(dir);
     return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir) };
   });
+  handle('cliJob', async () => { const j = cliJob; if (j && j.mode === 'view') cliJob = null; return j; });
   handle('listSubfolders', async ({ uri }) => ({ folders: listSubdirs(grantedDir(uri)) }));
   handle('parentFolder', async ({ uri }) => {
     const dir = grantedDir(uri), parent = path.dirname(dir);
@@ -566,9 +579,10 @@ function saveWindowPrefs(p) { try { fs.writeFileSync(windowFile(), JSON.stringif
 let frameless = false;
 let restoreBounds = null; // where the window was before Full Screen on Another Display
 
-function createWindow(bounds) {
-  frameless = !!windowPrefs().frameless;
+function createWindow(bounds, opts = {}) {
+  frameless = !opts.hidden && !!windowPrefs().frameless;
   const w = new BrowserWindow({
+    show: !opts.hidden,
     width: bounds ? bounds.width : 1280,
     height: bounds ? bounds.height : 860,
     ...(bounds ? { x: bounds.x, y: bounds.y } : {}),
@@ -586,6 +600,7 @@ function createWindow(bounds) {
       nodeIntegration: false,
       webSecurity: true,
       spellcheck: false,
+      backgroundThrottling: !opts.hidden,
     },
   });
   win = w;
@@ -612,8 +627,44 @@ app.on('second-instance', (_e, argv) => {
 // macOS: files opened from Finder (before or after launch).
 app.on('open-file', (e, p) => { e.preventDefault(); if (app.isReady()) openExternalFiles([p]); else pendingFiles.push(p); });
 
+// --convert: the hidden window decodes, processes and encodes with the app's own code (the Batch
+// engine); the main process writes the files and reports.
+let cliJob = null;
+function startCliConvert() {
+  const inputs = [];
+  for (const a of cli.inputs) {
+    const p = path.resolve(String(a));
+    try { const st = fs.statSync(p); if (st.isDirectory()) { for (const e of listDir(p)) inputs.push(fileURLToPath(e.uri)); } else if (st.isFile()) inputs.push(p); else throw new Error(); } catch { process.stderr.write(`annes-lens: ${a}: not found\n`); }
+  }
+  if (!inputs.length) { process.stderr.write('annes-lens: no pictures to convert\n'); app.exit(2); return; }
+  for (const p of inputs) { grant(p); grantDir(path.dirname(p)); }
+  const pattern = path.resolve(String(cli.convert)), outDir = path.dirname(pattern);
+  try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) { process.stderr.write(`annes-lens: cannot create ${outDir}: ${e.message}\n`); app.exit(2); return; }
+  const stem = path.basename(pattern, path.extname(pattern)).split('*').map((s) => s.replace(/[{}]/g, '')).join('{name}');
+  cliJob = { mode: 'convert', inputs: inputs.map((p) => { const st = fs.statSync(p); return { uri: pathToFileURL(p).href, name: path.basename(p), size: st.size, mtime: st.mtimeMs }; }), format: cli.format, quality: cli.quality ? +cli.quality : 90, names: stem, resize: cli.resizeSpec || null, shrinkOnly: !!cli['shrink-only'], rotate: cli.rotate || null, flip: cli.flip || null, gray: !!cli.gray, strip: !!cli.strip };
+  const written = new Set();
+  handle('cliWrite', async ({ name, data }) => {
+    const ext = path.extname(String(name)), base = path.basename(String(name), ext);
+    let target = path.join(outDir, base + ext);
+    for (let n = 2; (written.has(target) || (!cli.overwrite && fs.existsSync(target))) && n < 10000; n++) target = path.join(outDir, `${base} (${n})${ext}`);
+    fs.writeFileSync(target, Buffer.from(String(data || ''), 'base64'));
+    written.add(target);
+    return { name: path.basename(target), path: target };
+  });
+  handle('cliDone', async ({ done, failed }) => {
+    for (const d of done || []) process.stdout.write(`${d.from} -> ${d.to}${d.note ? ` (${d.note})` : ''}\n`);
+    for (const f of failed || []) process.stderr.write(`annes-lens: ${f.name}: ${f.error}\n`);
+    setTimeout(() => app.exit(failed && failed.length ? 1 : 0), 10);
+    return { ok: true };
+  });
+  createWindow(undefined, { hidden: true });
+  win.webContents.on('render-process-gone', (_e, d) => { process.stderr.write(`annes-lens: the converter stopped (${d.reason})\n`); app.exit(3); });
+}
+
 app.whenReady().then(() => {
   loadGrants();
+  if (cliConvert) { serveApp(); registerIpc(); startCliConvert(); return; }
+  if (cli.fullscreen || cli.slideshow) cliJob = { mode: 'view', fullscreen: !!cli.fullscreen, slideshow: !!cli.slideshow };
   const files = filesFromArgs(process.argv);
   pendingFiles.unshift(...files);
   for (const f of pendingFiles) { grant(f); grantDir(path.dirname(f)); }

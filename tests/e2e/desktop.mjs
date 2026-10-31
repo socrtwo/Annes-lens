@@ -3,8 +3,8 @@
 // (the window is rebuilt without its frame and reopens the picture). Needs a display: run with
 // `xvfb-run -a npm run e2e:desktop` after `npm run build`.
 import { _electron as electron } from 'playwright';
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync, existsSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
@@ -62,6 +62,20 @@ try {
   check('desktop displays listed', listed.map((x) => [x.label, x.primary, x.current]), [['Built-in', true, true], ['Projector', false, false]]);
   check('desktop full screen on the second display, and back', [during.full, cls, after.full, after.bounds.x === before.x && after.bounds.width === before.width], [true, true, false, true], JSON.stringify({ before, during, after }));
 
+  // Script Console under the desktop Content Security Policy (blob: worker, importScripts, no eval).
+  const con = await w.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const run = qn.exec('dev.console', 'const p = await picture.pixels(); return [p.width, p.height, p.data[0], p.data[1], p.data[2]];');
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => /Script Console/.test(d.textContent))); i++) await wait(50);
+    [...dlg.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Run').click();
+    const log = () => dlg.querySelector('.qn-console-out').textContent;
+    for (let i = 0; i < 100 && !/←|✖/.test(log()); i++) await wait(50);
+    const text = log();
+    [...dlg.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close').click(); await run;
+    return text.replace(/\s+/g, ' ');
+  });
+  check('desktop script console runs under the app\'s security policy', /← \[ 4, 4, 255, 0, 0 \]/.test(con), true, con);
+
   // Frameless: a new window without a frame, the same picture in it, the title bar's window buttons shown.
   // The window that asks is replaced, so the call itself never returns.
   const next = app.waitForEvent('window');
@@ -80,6 +94,31 @@ try {
   check('desktop framed again', await w.evaluate(() => [document.body.classList.contains('qn-frameless'), getComputedStyle(document.querySelector('.ql-winctl')).display]), [false, 'none']);
 } finally {
   await app.close().catch(() => undefined);
+}
+
+// The command line: help, version, usage errors, and --convert without a window.
+const ELECTRON = 'node_modules/electron/dist/electron', APPDIR = 'build/desktop-app';
+const cliRun = (args, cwd) => { const r = spawnSync(join(process.cwd(), ELECTRON), ['--no-sandbox', join(process.cwd(), APPDIR), ...args], { cwd: cwd || process.cwd(), encoding: 'utf8', timeout: 90000, env: { ...process.env, XDG_CONFIG_HOME: config } }); return { code: r.status, out: r.stdout, err: (r.stderr || '').split('\n').filter((l) => /annes-lens|Run annes-lens/.test(l)).join('\n') }; };
+const pngSize = (p) => { const b = readFileSync(p); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
+try {
+  const help = cliRun(['--help']), ver = cliRun(['--version']), bad = cliRun(['--rotate=45', '--convert=*.png', 'x.png']);
+  check('cli --help', [help.code, /--convert=PATTERN/.test(help.out), /Exit status/.test(help.out)], [0, true, true], help.out.slice(0, 200));
+  check('cli --version', [ver.code, /^\d+\.\d+\.\d+/.test(ver.out)], [0, true], ver.out);
+  check('cli usage error', [bad.code, /--rotate=45: use 90, 180, 270 or exif/.test(bad.err)], [2, true], bad.err);
+  const out1 = cliRun(['--convert=small/*-s.png', '--resize=2x2', '--rotate=90', '--gray', join(lib, 'Photos/2024'), join(lib, 'Scans/e.png')], base);
+  const made = existsSync(join(base, 'small')) ? readdirSync(join(base, 'small')).sort() : [];
+  check('cli --convert writes resized, turned, gray pictures and reports them', [out1.code, made, made.map((f) => pngSize(join(base, 'small', f))), out1.out.trim().split('\n').length], [0, ['c-s.png', 'd-s.png', 'e-s.png'], [[2, 2], [2, 2], [2, 2]], 3], out1.out + out1.err);
+  const again = cliRun(['--convert=small/*-s.png', join(lib, 'Scans/e.png')], base), over = cliRun(['--convert=small/*-s.png', '--overwrite', join(lib, 'Scans/e.png')], base);
+  check('cli --convert keeps existing files unless --overwrite', [again.code, /e\.png -> e-s \(2\)\.png/.test(again.out), over.code, /e\.png -> e-s\.png/.test(over.out), readdirSync(join(base, 'small')).length], [0, true, 0, true, 4], again.out + over.out);
+  const none = cliRun(['--convert=x/*.png', join(base, 'missing.png')], base);
+  check('cli --convert with nothing to convert', [none.code, /no pictures to convert/.test(none.err)], [2, true], none.err);
+  // --fullscreen at start-up.
+  const fsApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, '--fullscreen', first], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  const fw = await fsApp.firstWindow();
+  const fsOn = await fw.waitForFunction(() => window.qn?.picture?.name === 'a.png' && document.body.classList.contains('ql-fullscreen'), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  await fsApp.close().catch(() => undefined);
+  check('cli --fullscreen opens the picture full screen', fsOn, true);
+} finally {
   rmSync(base, { recursive: true, force: true });
 }
 if (failures.length) { console.error('Desktop e2e failures:\n' + failures.join('\n')); process.exit(1); }
