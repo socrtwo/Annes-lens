@@ -37,4 +37,5 @@ import './aiEdit';
 import './aiGenerate';
 import './platformFile';
 import './metaGeo';
+import './vectorPdf';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

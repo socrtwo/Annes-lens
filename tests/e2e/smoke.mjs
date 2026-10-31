@@ -726,6 +726,87 @@ try {
   await p.evaluate(() => qn.exec('view.qatAddAll'));
   check('qat add all idempotent', await p.evaluate(() => qn.prefs.qat.length), qat1);
 
+  // Trace to Vector, Magnifier Callout, Search by Color, Export as PDF, New Folder.
+  const vec = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop();
+    const title = (d) => d?.querySelector('h2')?.textContent || '';
+    const waitFor = async (pred, ms = 6000) => { for (let i = 0; i < ms / 50; i++) { const d = top(); if (d && pred(d)) return d; await wait(50); } throw new Error('dialog not found; top is ' + title(top())); };
+    const noDialog = async () => { for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50); };
+    const field = (d, key) => d.querySelector(`[id^="f_${key}_"]`);
+    const set = (d, key, value) => { const f = field(d, key); if (f.type === 'checkbox') f.checked = !!value; else f.value = String(value); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); };
+    const pixel = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data];
+    const N = await window.__qnNative();
+    await noDialog();
+    const mk = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    const files = [
+      new File([await mk(120, 80, (x) => { x.fillStyle = '#fff'; x.fillRect(0, 0, 120, 80); x.fillStyle = '#000'; x.fillRect(20, 20, 40, 40); x.lineWidth = 6; x.strokeStyle = '#000'; x.beginPath(); x.arc(92, 40, 20, 0, Math.PI * 2); x.stroke(); })], 'v-logo.png', { type: 'image/png' }),
+      new File([await mk(40, 40, (x) => { x.fillStyle = '#f00'; x.fillRect(0, 0, 40, 40); })], 'w-red.png', { type: 'image/png' }),
+      new File([await mk(40, 40, (x) => { x.fillStyle = '#00f'; x.fillRect(0, 0, 40, 40); })], 'x-blue.png', { type: 'image/png' }),
+    ];
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', files); await wait(600);
+    const home = qn.tab; const back = async () => { if (qn.tab !== home) qn.closeTab(qn.tab); qn.activate(home); await wait(300); };
+    const out = { first: qn.picture.name };
+    // Trace to Vector: open the SVG as a picture and look at it.
+    let run = qn.exec('tools.vectorize'); let d = await waitFor((x) => title(x).startsWith('Trace to Vector'));
+    await wait(300); out.preview = /<svg/.test(d.querySelector('.ql-dialog-preview')?.innerHTML || '');
+    d.querySelector('.ql-primary').click(); await run; await noDialog(); await wait(600);
+    out.svg = { name: qn.picture.name, fmt: qn.picture.format.id, size: [qn.picture.width, qn.picture.height], square: pixel(40, 40)[3] > 200 && pixel(40, 40)[0] < 60, background: pixel(100, 8)[3], ringHole: pixel(92, 40)[3], ring: pixel(92, 21)[3] > 200 };
+    await back();
+    // Magnifier Callout over part of the black square: the inset lands bottom right.
+    qn.tab.setSelection({ x: 20, y: 20, w: 20, h: 20 });
+    const before = pixel(110, 72);
+    run = qn.exec('edit.callout'); d = await waitFor((x) => title(x) === 'Magnifier Callout');
+    set(d, 'shadow', false); d.querySelector('.ql-primary').click(); await run; await noDialog(); await wait(300);
+    out.callout = { before: before.slice(0, 3), after: pixel(110, 72).slice(0, 3), label: qn.tab.undoLabel, size: [qn.picture.width, qn.picture.height], selection: qn.tab.selection };
+    await qn.exec('edit.undo'); await wait(200);
+    // Search by Color: only the red picture.
+    run = qn.exec('browse.searchColor'); d = await waitFor((x) => title(x) === 'Search by Color');
+    set(d, 'color', '#ff0000'); d.querySelector('.ql-primary').click();
+    d = await waitFor((x) => title(x) === 'Color #ff0000'); out.color = { hits: [...d.querySelectorAll('.qn-ai-card')].map((c) => c.textContent), label: qn.tab.thumbs ? qn.tab.thumbs.filterLabel : '' };
+    d.querySelector('.ql-primary').click(); await run; await noDialog();
+    if (qn.tab.thumbs) { qn.tab.thumbs.filter = null; qn.tab.thumbs.filterLabel = ''; qn.tab.thumbs.refilter(); }
+    // Export as PDF of the folder, captured through a stubbed save picker.
+    const saved = { parts: [], name: '' };
+    const picker = window.showSaveFilePicker;
+    window.showSaveFilePicker = async (o) => { saved.name = o?.suggestedName || ''; return { name: saved.name, createWritable: async () => ({ write: async (b) => { saved.parts.push(b); }, close: async () => {} }) }; };
+    run = qn.exec('file.export.pdf'); d = await waitFor((x) => title(x) === 'Export as PDF');
+    set(d, 'which', 'folder'); set(d, 'captions', true); d.querySelector('.ql-primary').click(); await run; await noDialog();
+    window.showSaveFilePicker = picker;
+    const blob = new Blob(saved.parts); const u8 = new Uint8Array(await blob.arrayBuffer());
+    let bin = ''; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+    out.pdf = { name: saved.name, b64: btoa(bin), head: String.fromCharCode(...u8.subarray(0, 5)) };
+    // New Folder in a (fake) picked directory.
+    const made = [];
+    const dir = { kind: 'directory', name: 'root', isSameEntry: async () => false, getDirectoryHandle: async (name, o) => { made.push([name, !!o?.create]); return { kind: 'directory', name, isSameEntry: async () => false }; } };
+    qn.folder.uri = 'fsadir:' + (await N.handleId(dir));
+    out.newFolderEnabled = window.__qnGetCommand('browse.newFolder').isEnabled(qn);
+    run = qn.exec('browse.newFolder'); d = await waitFor((x) => title(x) === 'New Folder');
+    set(d, 'v', 'Scans 1926'); d.querySelector('.ql-primary').click(); await run; await noDialog();
+    out.made = made;
+    return out;
+  });
+  check('vector: opened as an SVG picture with the shapes and the hole', [vec.svg.fmt, vec.svg.size, vec.svg.square, vec.svg.background, vec.svg.ringHole, vec.svg.ring, vec.preview, /\.svg$/.test(vec.svg.name)], ['svg', [120, 80], true, 0, 0, true, true, true]);
+  check('magnifier callout inset in the free corner', [vec.callout.before, vec.callout.after, vec.callout.label, vec.callout.size, vec.callout.selection], [[255, 255, 255], [0, 0, 0], 'Magnifier Callout', [120, 80], null]);
+  check('search by color finds only the red picture', [vec.color.hits.length, /^w-red\.png — 100%/.test(vec.color.hits[0] || ''), vec.color.label], [1, true, 'Color #ff0000']);
+  check('new folder created in the picked directory', [vec.newFolderEnabled, vec.made], [true, [['Scans 1926', true]]]);
+  check('export as PDF captured', [vec.pdf.head, /\.pdf$/.test(vec.pdf.name)], ['%PDF-', true]);
+  {
+    const { execFileSync } = await import('node:child_process');
+    const { writeFileSync, mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const file = `${mkdtempSync(`${tmpdir()}/qn-pdf-`)}/export.pdf`;
+    writeFileSync(file, Buffer.from(vec.pdf.b64, 'base64'));
+    let info = '';
+    try { info = execFileSync('pdfinfo', ['-f', '1', '-l', '3', file], { encoding: 'utf8' }); } catch { info = ''; }
+    if (info) {
+      const pages = +(info.match(/^Pages:\s+(\d+)/m) || [])[1];
+      const sizes = [...info.matchAll(/^Page\s+\d+ size:\s+([\d.]+) x ([\d.]+)/gm)].map((m) => (+m[1] > +m[2] ? 'landscape' : 'portrait'));
+      check('PDF has a page per picture, oriented by each picture', [pages, sizes], [3, ['landscape', 'portrait', 'portrait']]);
+    }
+  }
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {

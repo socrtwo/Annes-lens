@@ -349,7 +349,14 @@ export const setAssociations = (exts: string[]) => (desktop ? desktop.setAssocia
 export const listScanners = () => (desktop ? desktop.listScanners() : Promise.resolve({ devices: [], note: 'No scanner support in this shell' }));
 export async function scanPage(o: { device?: string; dpi: number; mode: 'color' | 'gray' }): Promise<OpenedFile> { const r = await desktop!.scan(o); return { name: r.name, data: bufferFromB64(r.data), uri: null, mime: r.mime }; }
 export async function capturePhoto(): Promise<OpenedFile | null> { const r = await nativeOnly().capturePhoto!(); if (r.canceled || !r.data) return null; return { name: r.name || 'photo.jpg', data: bufferFromB64(r.data), uri: null, mime: r.mime }; }
-export const createSubfolder = (dirUri: string, name: string) => (desktop ? desktop.createSubfolder({ dirUri, name }) : nativeOnly().createSubfolder!({ dirUri, name }));
+export async function createSubfolder(dirUri: string, name: string): Promise<{ uri: string; name: string }> {
+  if (desktop) return desktop.createSubfolder({ dirUri, name });
+  const dir = fsaDir(dirUri);
+  if (dir) { const child = await dir.getDirectoryHandle(name, { create: true }); return { uri: FSA_DIR + (await handleId(child)), name: child.name }; }
+  return nativeOnly().createSubfolder!({ dirUri, name });
+}
+/** Whether a new folder can be made inside `dirUri` here. */
+export const canCreateSubfolder = (dirUri: string | null): boolean => !!dirUri && (!!desktop || !!fsaDir(dirUri) || (Capacitor.getPlatform() === 'android' && /^content:/.test(dirUri)));
 
 export async function setFileTime(uri: string, mtime: number): Promise<boolean> {
   if (desktop) return (await desktop.setFileTime({ uri, mtime })).ok;

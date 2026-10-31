@@ -31,7 +31,8 @@
 - [x] Print Setup (paper, orientation, margins, captions), Print Layouts (grids, wallet, 4×6, 5×7, 8×10, contact pages, the folder or one picture), Print Copies and Posters (copies per page; one picture tiled across pages with overlap and cut marks).
 - [x] Export Palette (.gpl, .act, .pal, .aco, CSS), Export Metadata as CSV, Export as Icon (.ico, .icns), Export Animation (GIF with a median-cut palette, APNG), Open with External Editor (desktop, nine programs).
 - [x] Scanning (SANE on Linux, WIA on Windows through PowerShell, the camera app on Android, the in-app camera elsewhere; macOS ImageCapture still to do), Batch Scanning, Select Scan Source; Set as Wallpaper and Lock Screen, Set as Contact Photo, Cast to Display, File Properties (system), Copy as File, Hide Picture, File Associations, Import from Camera or Phone, Import with Rules (docs/TERMUX-VERIFY.md has the one-time device checks); Encrypt Picture.
-- [ ] Export as PDF (with Anne's Folio) and the other Send to sister-app commands; Customize Menus.
+- [x] Export as PDF (paper, orientation, margins, fit / fill / actual size at a DPI, captions); New Folder (desktop, Android and the browser's picked folders).
+- [ ] Send to Anne's Folio, Stage, Pen and Press; Customize Menus.
 - [ ] Tagged prerelease 0.2.0 for every platform.
 
 ## M3 — Edit, thumbnails and batch (in progress)
@@ -46,7 +47,8 @@
 - [x] Pages and Frames editing (insert, delete, extract, reorder pages; frame editor, reverse, loop count, optimize) and the RAW preview commands (show, extract, prefer the embedded JPEG).
 - [x] Ellipse, lasso, magic-wand and color-range selections and Invert Selection, as masks the viewer outlines and every edit respects.
 - [x] Content-Aware Resize (seam carving with protect and remove masks, enlargement by seam insertion), Alpha from Mask, Import Palette, Edit Palette.
-- [ ] Browser with folder tree and panes; paint pane, Markup Board, magnifier callout; color profiles; RAW development.
+- [x] Magnifier Callout (inset in the farthest free corner, frame, outer connector lines, rectangle or circle); Search by Color (share of a picture within a ΔE of a color in L*a*b*).
+- [ ] Browser with folder tree and panes; paint pane, Markup Board; color profiles; RAW development.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 
 ## M4 — Adjust, effects and organize (started)
@@ -87,11 +89,12 @@
 - [x] On-device models (ONNX Runtime Web; downloaded on demand, Apache-2.0/MIT only): erase and repair (LaMa), background and subject (MODNet), depth (Depth Anything V2 Small), upscale, unblur and denoise (Swin2SR), embeddings for Search by Content and Find Similar by Content (CLIP ViT-B/32). Colorize runs through the picture service (no permissively licensed on-device colorizer verified yet).
 - [x] Generate, edit and understand commands; Compare Providers; AI History; Content Credentials on results (IPTC digital source type and provenance fields; C2PA signing still to do); Run on Selection with a cap and the service's price page.
 - [x] Several AIs (master and Quaker consensus) for text commands, with Show AI Discussion.
-- [ ] Generate Vector (needs a tracer or a vector-capable service adapter); on-device generation; keys in platform secure storage (they are in the app's settings on the device for now); C2PA manifests.
+- [x] Generate Vector: the picture service draws in a flat vector style and the on-device tracer (Trace to Vector) turns it into SVG with AI provenance in its metadata.
+- [ ] On-device generation; keys in platform secure storage (they are in the app's settings on the device for now); C2PA manifests.
 
 ## M8 — Stretch goals
 
-- 8BF plug-in host (Windows), panorama stitching, focus stacking and exposure merge refinements, content-aware resize, vectorize.
+- 8BF plug-in host (Windows), panorama stitching, focus stacking and exposure merge refinements, content-aware resize (done), vectorize (done: Trace to Vector).
 - Network-synchronized viewing with the suite's relay; shared albums.
 - Stereo and 360° viewing refinements; DICOM and FITS tools.
 

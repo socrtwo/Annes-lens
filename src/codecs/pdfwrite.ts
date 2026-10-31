@@ -3,7 +3,7 @@
  * (FlateDecode-free, uncompressed) image object drawn to fit the page, with optional captions in the
  * base Helvetica font. Enough for contact sheets, multipage exports and "Export as PDF".
  */
-export interface PdfPage { /** JPEG bytes, or raw RGB samples with `raw: true`. */ image: Uint8Array; raw?: boolean; width: number; height: number; /** Page size in points (default: the image at 72 dpi, capped to A4 proportions when `fit` is given). */ pageWidth?: number; pageHeight?: number; margin?: number; caption?: string }
+export interface PdfPage { /** JPEG bytes, or raw RGB samples with `raw: true`. */ image: Uint8Array; raw?: boolean; width: number; height: number; /** Page size in points (default: the image at 72 dpi, capped to A4 proportions when `fit` is given). */ pageWidth?: number; pageHeight?: number; margin?: number; caption?: string; /** contain (default): whole picture inside the margins; cover: fill the area, cropped; actual: at `dpi`, centered, cropped when larger. */ fit?: 'contain' | 'cover' | 'actual'; dpi?: number }
 
 const enc = new TextEncoder();
 const latin1 = (s: string) => Uint8Array.from([...s].map((c) => Math.min(255, c.charCodeAt(0))));
@@ -22,11 +22,13 @@ export function makePdf(pages: PdfPage[], opts: { title?: string; producer?: str
     const pw = p.pageWidth || p.width * 0.75, ph = p.pageHeight || p.height * 0.75, m = p.margin ?? 0;
     const capH = p.caption ? 14 : 0;
     const availW = pw - 2 * m, availH = ph - 2 * m - capH;
-    const k = Math.min(availW / p.width, availH / p.height);
+    const fit = p.fit || 'contain';
+    const k = fit === 'cover' ? Math.max(availW / p.width, availH / p.height) : fit === 'actual' ? 72 / (p.dpi || 300) : Math.min(availW / p.width, availH / p.height);
     const w = p.width * k, h = p.height * k, x = m + (availW - w) / 2, y = m + capH + (availH - h) / 2;
+    const clip = fit !== 'contain' ? `${m.toFixed(2)} ${(m + capH).toFixed(2)} ${availW.toFixed(2)} ${availH.toFixed(2)} re W n ` : '';
     const imgDict = `<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 ${p.raw ? '' : '/Filter /DCTDecode '}/Length ${p.image.length} >>`;
     const imgId = add([enc.encode(imgDict + '\nstream\n'), p.image, enc.encode('\nendstream')]);
-    let content = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
+    let content = `q ${clip}${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
     if (p.caption && fontId) content += `\nBT /F1 10 Tf ${(m + 2).toFixed(2)} ${(m + 3).toFixed(2)} Td ${pdfString(p.caption)} Tj ET`;
     const contentId = add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
     const pageId = add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pw.toFixed(2)} ${ph.toFixed(2)}] /Resources << /XObject << /Im0 ${imgId} 0 R >> ${fontId ? `/Font << /F1 ${fontId} 0 R >> ` : ''}>> /Contents ${contentId} 0 R >>`);

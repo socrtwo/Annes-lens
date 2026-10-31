@@ -45,6 +45,7 @@ app.ui.tabsChanged();
 (window as any).__qnOverlays = () => import('./ui/overlays');
 (window as any).__qnNative = () => import('./platform/native');
 (window as any).__qnAi = () => Promise.all([import('./ai'), import('./ai/hosted'), import('./ai/device'), import('./ai/transport'), import('./ai/ensemble'), import('./ai/history'), import('./commands/aiEdit'), import('./commands/aiGenerate')]).then(([a, h, d, t, e, hi, ae, ag]) => ({ ...a, hosted: h, device: d, transport: t, ensemble: e, history: hi, aiEdit: ae, aiGenerate: ag }));
+(window as any).__qnVector = () => Promise.all([import('./picture/trace'), import('./picture/callout'), import('./picture/colorSearch'), import('./codecs/pdfwrite'), import('./commands/vectorPdf')]).then(([a, b, c, d, e]) => ({ ...a, ...b, ...c, ...d, ...e }));
 (window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite'), import('./meta/geo'), import('./meta/places')]).then(([m, x, e, i, w]) => ({ ...m, ...x, ...e, ...i, ...w }));
 
 // Files dropped on the window open as a folder of their own.
