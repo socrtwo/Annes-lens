@@ -596,3 +596,14 @@ body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important
 .qn-ai-card img, .qn-ai-card canvas { max-width: 100%; height: 110px; object-fit: contain; display: block; margin: 0 auto 4px; }
 .qn-ai-card.qn-picked { outline: 2px solid var(--accent, #4a7); }
 .qn-ai-model { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+/* Info Pane (View ▸ Info Pane, Ctrl+I) */
+.qn-infopane { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 24px); overflow: auto; z-index: 5; background: rgba(20, 20, 20, 0.86); color: #eee; border-radius: 10px; padding: 8px 10px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+.qn-info-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.qn-info-head .ql-iconbtn { color: #eee; font-size: 18px; line-height: 1; }
+.qn-info-hist { width: 100%; height: 64px; display: block; border-radius: 6px; margin-bottom: 8px; }
+.qn-info-row { display: grid; grid-template-columns: 82px 1fr; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.qn-info-k { opacity: 0.7; }
+.qn-info-v { overflow-wrap: anywhere; }
+.qn-infopane .ql-link { color: #9cf; margin-top: 6px; }
+@media (max-width: 600px) { .qn-infopane { width: auto; left: 12px; max-height: 45%; top: auto; bottom: 12px; } }

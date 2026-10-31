@@ -68,6 +68,8 @@ export interface Prefs {
   defaultSaveFormat: string;
   /** Save and Save As: carry EXIF, XMP and the color profile into JPEG, PNG and WebP output. */
   keepMetadata: boolean;
+  /** Keep the file's original bytes as "name (original).ext" the first time it is saved over. */
+  keepOriginal: boolean;
   /** Save As: run-length encode TGA files. */
   tgaRle: boolean;
   /** Print at True Size: measured ÷ expected length from the calibration ruler (1 = the printer is exact). */
@@ -156,7 +158,7 @@ export function defaultPrefs(): Prefs {
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
-    jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, tgaRle: true, printScale: 1,
+    jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, keepOriginal: false, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [],
     quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], importedPlaces: [],

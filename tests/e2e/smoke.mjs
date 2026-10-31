@@ -807,6 +807,128 @@ try {
     }
   }
 
+  // View tools, part two: Info Pane, Navigator and Measure with real mouse input, Filmstrip,
+  // Reset All Adjustments, and Keep the Original / Revert to Original through a save.
+  const vt0 = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const mk = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    const big = await mk(1600, 1000, (x) => { x.fillStyle = '#204080'; x.fillRect(0, 0, 800, 1000); x.fillStyle = '#e0c020'; x.fillRect(800, 0, 800, 1000); x.fillStyle = '#fff'; x.fillRect(100, 100, 300, 300); });
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([big], 'nav-big.png', { type: 'image/png' }), new File([await mk(60, 40, (x) => { x.fillStyle = '#888'; x.fillRect(0, 0, 60, 40); })], 'nav-small.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'nav-big.png'; i++) await wait(50);
+    await wait(300);
+    const out = { name: qn.picture.name };
+    // Info Pane.
+    await qn.exec('view.infoPane'); await wait(200);
+    const pane = qn.viewer.el.querySelector('.qn-infopane');
+    const hc = pane?.querySelector('canvas'); let histInk = 0;
+    if (hc) { const d = hc.getContext('2d').getImageData(0, 0, hc.width, hc.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) histInk++; }
+    out.info = { inViewer: !!pane, text: pane ? pane.textContent : '', histInk, active: window.__qnGetCommand('view.infoPane').isActive(qn) };
+    await qn.exec('view.infoPane'); await wait(100);
+    out.infoClosed = !qn.viewer.el.querySelector('.qn-infopane');
+    // Navigator at 2x.
+    await qn.exec('view.navigator');
+    qn.viewer.setZoom(2); qn.viewer.panTo(400, 250); await wait(150);
+    const vb = qn.viewer.el.getBoundingClientRect(); const nav = qn.viewer.navigatorBox();
+    out.nav = { box: nav, view: { left: vb.left, top: vb.top, w: vb.width, h: vb.height }, start: qn.viewer.viewCenter };
+    return out;
+  });
+  check('info pane shows the facts and a histogram, then closes', [vt0.name, vt0.info.inViewer, /nav-big\.png/.test(vt0.info.text), /1600 × 1000/.test(vt0.info.text), vt0.info.histInk > 500, vt0.info.active, vt0.infoClosed], ['nav-big.png', true, true, true, true, true, true]);
+  check('navigator shown when zoomed in', !!vt0.nav.box, true);
+  if (vt0.nav.box) {
+    const n = vt0.nav.box, L = vt0.nav.view.left, T = vt0.nav.view.top;
+    // A click in the navigator's lower right centers the view there (clamped to the picture's edge).
+    await p.mouse.click(L + n.x + n.w * 0.85, T + n.y + n.h * 0.85);
+    const afterClick = await p.evaluate(() => ({ c: qn.viewer.viewCenter, sel: qn.tab.selection }));
+    // A drag inside it follows the pointer back toward the upper left.
+    await p.mouse.move(L + n.x + n.w * 0.8, T + n.y + n.h * 0.8); await p.mouse.down();
+    await p.mouse.move(L + n.x + n.w * 0.5, T + n.y + n.h * 0.4, { steps: 6 }); await p.mouse.move(L + n.x + n.w * 0.3, T + n.y + n.h * 0.3, { steps: 6 }); await p.mouse.up();
+    const afterDrag = await p.evaluate(() => qn.viewer.viewCenter);
+    check('navigator click pans to the lower right', [afterClick.c.x > 1150, afterClick.c.y > 700, afterClick.sel], [true, true, null]);
+    check('navigator drag follows the pointer', [Math.abs(afterDrag.x - 0.3 * 1600) < 30, Math.abs(afterDrag.y - 0.3 * 1000) < 30], [true, true]);
+  }
+  // Measure: two clicks give the distance and angle; Set Scale from that line; then a closed shape.
+  const mv = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await qn.exec('view.navigator'); qn.viewer.setZoom('fit'); await wait(150);
+    await qn.exec('view.measure', 'toggle'); await wait(50);
+    const r = qn.viewer.pictureRect(), z = qn.viewer.zoom, b = qn.viewer.el.getBoundingClientRect();
+    const at = (x, y) => [b.left + r.x + x * z, b.top + r.y + y * z];
+    return { a: at(100, 100), b: at(400, 500), c: at(700, 100), d: at(700, 500), z };
+  });
+  await p.mouse.click(...mv.a); await p.mouse.click(...mv.b);
+  const m1 = await p.evaluate(async () => { const V = await window.__qnView2(); const m = V.viewState.measure; return { n: m.pts.length, len: V.dist(m.pts[0], m.pts[1]), lines: V.readout(m.pts, m.closed, m.scale) }; });
+  check('measure: distance and angle from two clicks', [m1.n, Math.abs(m1.len - 500) < 5, /^Distance /.test(m1.lines[0]), /^Angle -5[23]\.\d+°$/.test(m1.lines[1])], [2, true, true, true]);
+  const msc = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop();
+    const run = qn.exec('view.measure', 'scale'); let d; for (let i = 0; i < 80 && !(d = top())?.querySelector('[id^="f_known_"]'); i++) await wait(50);
+    const k = d.querySelector('[id^="f_known_"]'); k.value = '50'; k.dispatchEvent(new Event('input', { bubbles: true }));
+    const u = d.querySelector('[id^="f_unit_"]'); u.value = 'cm'; u.dispatchEvent(new Event('input', { bubbles: true }));
+    d.querySelector('.ql-primary').click(); await run; for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const V = await window.__qnView2(); const m = V.viewState.measure;
+    const lines = V.readout(m.pts, m.closed, m.scale);
+    await qn.exec('view.measure', 'clear');
+    return { unit: m.scale?.unit, line: lines[0] };
+  });
+  check('measure: scale set from the measured line', [msc.unit, /^Distance 50 cm \(/.test(msc.line)], ['cm', true]);
+  await p.mouse.click(...mv.a); await p.mouse.click(...mv.c); await p.mouse.dblclick(...mv.d);
+  const m2 = await p.evaluate(async () => {
+    const V = await window.__qnView2(); const m = V.viewState.measure;
+    const out = { n: m.pts.length, closed: m.closed, areaPx: V.polygonArea(m.pts), lines: V.readout(m.pts, m.closed, m.scale) };
+    await qn.exec('view.measure', 'toggle');
+    out.offPts = V.viewState.measure.pts.length; out.on = V.viewState.measure.on;
+    return out;
+  });
+  // Triangle (100,100) (700,100) (700,500): 0.5 × 600 × 400 = 120000 px².
+  check('measure: a closed shape gives its area in the scale\'s unit', [m2.n, m2.closed, Math.abs(m2.areaPx - 120000) / 120000 < 0.03, /^Perimeter .* cm /.test(m2.lines[0]), /^Area .* cm² /.test(m2.lines[1]), m2.on, m2.offPts], [3, true, true, true, true, false, 0]);
+  const vt1 = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pixel = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3);
+    const N = await window.__qnNative();
+    const out = {};
+    // Filmstrip.
+    await qn.exec('view.filmstrip'); await wait(100);
+    out.strip = [qn.tab.thumbs.open, qn.tab.thumbs.mode];
+    await qn.exec('view.filmstrip'); await wait(100);
+    out.stripOff = qn.tab.thumbs.open;
+    // Reset All Adjustments.
+    out.resetDisabled = !window.__qnGetCommand('adjust.resetAll').isEnabled(qn);
+    const p0 = pixel(200, 200);
+    await qn.exec('image.negative', 'all'); await wait(150);
+    const p1 = pixel(200, 200);
+    await qn.exec('adjust.resetAll'); await wait(250);
+    out.reset = { p0, p1, p2: pixel(200, 200), label: qn.tab.undoLabel };
+    qn.tab.undo(); await wait(150); out.reset.undone = pixel(200, 200);
+    qn.tab.undo(); await wait(150);
+    // Keep the original on save, then Revert to Original.
+    const files = new Map(); const fileHandle = (name, bytes) => ({ kind: 'file', name, isSameEntry: async (o) => o === undefined, getFile: async () => new File([bytes.value], name, { type: 'image/png' }), createWritable: async () => { const parts = []; return { write: async (b) => { parts.push(b); }, close: async () => { bytes.value = new Uint8Array(await new Blob(parts).arrayBuffer()); } }; } });
+    const origBytes = qn.picture.bytes.slice();
+    const self = { value: origBytes };
+    const fh = fileHandle('nav-big.png', self);
+    const dir = { kind: 'directory', name: 'scans', isSameEntry: async () => false, getFileHandle: async (name, o) => { if (!files.has(name)) { if (!o?.create) throw new DOMException('missing', 'NotFoundError'); files.set(name, { value: new Uint8Array() }); } return fileHandle(name, files.get(name)); } };
+    qn.picture.entry.uri = 'fsa:' + (await N.handleId(fh));
+    qn.folder.uri = 'fsadir:' + (await N.handleId(dir));
+    qn.prefs.keepOriginal = true;
+    await qn.exec('image.negative', 'all'); await wait(150);
+    await qn.exec('file.save'); await wait(600);
+    out.kept = { names: [...files.keys()], sameAsOriginal: files.has('nav-big (original).png') && files.get('nav-big (original).png').value.length === origBytes.length && files.get('nav-big (original).png').value.every((v, i) => v === origBytes[i]), savedChanged: self.value.length > 0 && !(self.value.length === origBytes.length && self.value.every((v, i) => v === origBytes[i])), inFolder: qn.folder.entries.some((e) => e.name === 'nav-big (original).png'), afterSave: pixel(200, 200) };
+    // A second save keeps the first original.
+    await qn.exec('image.negative', 'all'); await wait(150); await qn.exec('file.save'); await wait(600);
+    out.kept.count = [...files.keys()].filter((n) => /original/.test(n)).length;
+    await qn.exec('image.negative', 'all'); await wait(150);
+    await qn.exec('adjust.revertOriginal'); await wait(600);
+    out.revert = { pixel: pixel(200, 200), label: qn.tab.undoLabel, dirty: qn.tab.dirty };
+    qn.prefs.keepOriginal = false;
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    return out;
+  });
+  check('filmstrip toggles the thumbnail strip', [vt1.strip, vt1.stripOff], [[true, 'strip'], false]);
+  check('reset all adjustments returns to the opened pixels as one undoable step', [vt1.resetDisabled, vt1.reset.p1.join() !== vt1.reset.p0.join(), vt1.reset.p2, vt1.reset.label, vt1.reset.undone], [true, true, vt1.reset.p0, 'Reset All Adjustments', vt1.reset.p1]);
+  check('keep the original on the first save over a file', [vt1.kept.names.includes('nav-big (original).png'), vt1.kept.sameAsOriginal, vt1.kept.savedChanged, vt1.kept.inFolder, vt1.kept.count], [true, true, true, true, 1]);
+  check('revert to original restores the kept pixels', [vt1.revert.pixel, vt1.revert.label, vt1.revert.dirty], [[255, 255, 255], 'Revert to Original', true]);
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {

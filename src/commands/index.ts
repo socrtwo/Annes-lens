@@ -38,4 +38,5 @@ import './aiGenerate';
 import './platformFile';
 import './metaGeo';
 import './vectorPdf';
+import './viewTools2';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

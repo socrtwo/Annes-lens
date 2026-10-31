@@ -10,6 +10,7 @@ import { allCommands, getCommand } from './registry';
 import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
+import { keepOriginalCopy } from '../picture/keepOriginal';
 
 /** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
 export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
@@ -135,6 +136,7 @@ export async function saveTab(app: App, tab: PictureTab, opts: { as?: boolean; f
     try {
       const out = await produce(app, writable, app.prefs.jpegQuality);
       if (!out) return false;
+      await keepOriginalCopy(app, tab);
       if (await writeBack(pic.entry.uri, out.blob)) { await reloadAfterSave(app, tab, out.blob); toast(`Saved ${pic.name}`); return true; }
     } catch (e) { console.warn(e); }
   }
@@ -371,6 +373,7 @@ def([
         { key: 'jpegQuality', label: 'JPEG / WebP quality', type: 'range', min: 1, max: 100, value: p.jpegQuality, half: true },
         { key: 'defaultSaveFormat', label: 'Default Save As format', type: 'select', options: SAVE_OPTIONS, value: p.defaultSaveFormat, half: true },
         { key: 'keepMetadata', label: 'Keep EXIF, XMP and color profile when saving JPEG, PNG, WebP', type: 'checkbox', value: p.keepMetadata, half: true },
+        { key: 'keepOriginal', label: 'Keep the original when saving over a file ("name (original).ext" beside it, once)', type: 'checkbox', value: p.keepOriginal, half: true },
         { key: 'h5', type: 'heading', label: 'Customize' },
         { key: 'bq', type: 'button', label: 'Customize Quick Access Bar…', onClick: () => app.exec('file.customizeQat') },
         { key: 'br', type: 'button', label: 'Customize Tabs (Ribbon)…', onClick: () => app.exec('file.customizeRibbon') },
@@ -384,7 +387,7 @@ def([
         alphaDisplay: r.alphaDisplay, alphaColor: r.alphaColor, background: String(r.background || '').trim(), fullScreenBackground: r.fullScreenBackground,
         sort: r.sort, sortDescending: r.sortDescending,
         theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose, confirmDelete: r.confirmDelete,
-        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat, keepMetadata: !!r.keepMetadata,
+        jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat, keepMetadata: !!r.keepMetadata, keepOriginal: !!r.keepOriginal,
       } satisfies Partial<Prefs>);
       app.savePrefs();
       app.ui.applyPrefs();

@@ -5,7 +5,7 @@
  * from the decoded bitmap; only the visible part is drawn, so panning a large picture stays smooth.
  */
 import type { App, PictureTab } from '../app';
-import { drawOverlays, displayFrame, viewState } from './overlays';
+import { drawOverlays, displayFrame, viewState, navigatorRect, navigatorShown } from './overlays';
 import { maskOverlay, maskBounds, ellipseMask, polygonMask } from '../picture/mask';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
@@ -34,6 +34,7 @@ export class Viewer {
   private pixelCanvas: HTMLCanvasElement | null = null;
   private maskCanvas: { mask: Uint8Array; canvas: HTMLCanvasElement } | null = null;
   private lassoPts: [number, number][] = [];
+  private navigating = false;
   private pixelKey = '';
   private destroyed = false;
   private ro: ResizeObserver;
@@ -148,6 +149,17 @@ export class Viewer {
   }
 
   center(): void { const p = this.picture; if (!p) return; this.cx = p.width / 2; this.cy = p.height / 2; this.draw(); }
+  /** The picture point at the center of the view. */
+  get viewCenter(): { x: number; y: number } { return { x: this.cx, y: this.cy }; }
+  /** Centers the view on a picture point (clamped like a drag). */
+  panTo(x: number, y: number): void { this.cx = x; this.cy = y; this.clampCenter(); this.draw(); }
+  /** The navigator's rectangle when it is showing (CSS px), else null. */
+  navigatorBox(): { x: number; y: number; w: number; h: number; k: number } | null {
+    const p = this.picture, r = this.pictureRect(); if (!p || !r) return null;
+    const vw = this.el.clientWidth, vh = this.el.clientHeight;
+    return navigatorShown(vw, vh, r) ? navigatorRect(vw, vh, p.width, p.height) : null;
+  }
+  private navigateTo(vx: number, vy: number): void { const n = this.navigatorBox(); if (!n) return; this.panTo((vx - n.x) / n.k, (vy - n.y) / n.k); }
 
   /** View coordinates (CSS px inside the element) → picture pixels. */
   toPicture(x: number, y: number): { x: number; y: number } {
@@ -201,7 +213,7 @@ export class Viewer {
     const sel = this.tab.selection;
     if (sel) this.drawSelection(ctx, r, sel);
     const vs = viewState;
-    if (vs.grid !== 'off' || vs.rulers || vs.clipping || vs.peaking || vs.histogram || vs.osd || vs.loupe) {
+    if (vs.grid !== 'off' || vs.rulers || vs.clipping || vs.peaking || vs.histogram || vs.osd || vs.loupe || vs.navigator || (vs.measure.on && vs.measure.pts.length)) {
       const f = this.tab.folder;
       drawOverlays(ctx, this, r, frame, { name: p.name, index: f.index, total: f.length, exif: p.exif, size: p.bytes.length, page: p.page, pages: p.pages.length, dpi: p.current.dpi, template: this.app.prefs.osdTemplate, pointer: this.pointer });
     }
@@ -337,6 +349,21 @@ export class Viewer {
       el.focus();
       const rr = el.getBoundingClientRect();
       const vx = e.clientX - rr.left, vy = e.clientY - rr.top;
+      const nav = this.navigatorBox();
+      if (nav && vx >= nav.x && vy >= nav.y && vx <= nav.x + nav.w && vy <= nav.y + nav.h) {
+        this.navigating = true; this.navigateTo(vx, vy);
+        try { el.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
+        return;
+      }
+      if (viewState.measure.on && this.picture) {
+        const m = viewState.measure, q = this.toPicture(vx, vy), p = this.picture;
+        const pt: [number, number] = [Math.max(0, Math.min(p.width, q.x)), Math.max(0, Math.min(p.height, q.y))];
+        if (m.closed) { m.pts = []; m.closed = false; }
+        const last = m.pts[m.pts.length - 1];
+        if (!last || Math.hypot(pt[0] - last[0], pt[1] - last[1]) * this._zoom > 3) m.pts.push(pt);
+        this.draw(); this.app.refresh();
+        return;
+      }
       const hit = this.hitSelection(vx, vy);
       // Shift+drag or the selection tool draws a selection; a drag on an existing selection moves or resizes it.
       if (this.picture && (hit >= 0 || e.shiftKey || this.tab.selectTool) && e.pointerType !== 'touch' || (this.picture && this.tab.selectTool && e.pointerType === 'touch')) {
@@ -354,6 +381,7 @@ export class Viewer {
       const r = el.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (viewState.loupe) this.draw();
+      if (this.navigating) { this.navigateTo(this.pointer.x, this.pointer.y); return; }
       if (this.selecting && this.picture && this.lassoPts.length) { const q = this.toPicture(this.pointer.x, this.pointer.y); const last = this.lassoPts[this.lassoPts.length - 1]; if (Math.abs(q.x - last[0]) + Math.abs(q.y - last[1]) >= 1) this.lassoPts.push([q.x, q.y]); this.draw(); return; }
       if (this.selecting && this.picture) {
         const q = this.toPicture(this.pointer.x, this.pointer.y);
@@ -380,7 +408,7 @@ export class Viewer {
         return;
       }
       const hit = this.picture && !this.dragging ? this.hitSelection(this.pointer.x, this.pointer.y) : -1;
-      el.style.cursor = hit < 0 ? '' : hit === 8 ? 'move' : ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize'][hit];
+      el.style.cursor = viewState.measure.on ? 'crosshair' : this.navigatorBox() && this.pointer && (() => { const n = this.navigatorBox()!; return this.pointer!.x >= n.x && this.pointer!.y >= n.y && this.pointer!.x <= n.x + n.w && this.pointer!.y <= n.y + n.h; })() ? 'pointer' : hit < 0 ? '' : hit === 8 ? 'move' : ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize'][hit];
       if (this.dragging && !this.pinch) {
         const dx = e.clientX - this.dragging.x, dy = e.clientY - this.dragging.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) this.dragging.moved = true;
@@ -389,6 +417,7 @@ export class Viewer {
       this.reportPointer();
     });
     const up = (e: PointerEvent) => {
+      if (this.navigating) { this.navigating = false; return; }
       if (this.selecting) {
         const p = this.picture; const shape = this.tab.selectShape;
         if (p && this.lassoPts.length > 2) { const m = polygonMask(p.width, p.height, this.lassoPts); const b = maskBounds(m, p.width, p.height); this.lassoPts = []; this.tab.setSelection(b, b ? m : null); }
@@ -404,10 +433,12 @@ export class Viewer {
       }
     };
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', () => { this.dragging = null; this.selecting = null; });
+    el.addEventListener('pointercancel', () => { this.dragging = null; this.selecting = null; this.navigating = false; });
     el.addEventListener('pointerleave', () => { this.pointer = null; this.reportPointer(); });
     el.addEventListener('dblclick', (e) => {
       if (!this.picture) return;
+      if (viewState.measure.on) { const m = viewState.measure; if (m.pts.length >= 3) m.closed = true; this.draw(); this.app.refresh(); return; }
+      if (this.navigatorBox()) { const rr = el.getBoundingClientRect(), n = this.navigatorBox()!, x = e.clientX - rr.left, y = e.clientY - rr.top; if (x >= n.x && y >= n.y && x <= n.x + n.w && y <= n.y + n.h) return; }
       const r = el.getBoundingClientRect();
       const anchor = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (this.mode === 'fit' || this.mode === 'fit-large' || this.mode === null && this._zoom < 1) this.setZoom(1, anchor); else this.setZoom('fit');

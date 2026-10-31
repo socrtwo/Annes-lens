@@ -4,6 +4,7 @@
  * preview, color-blindness simulation and display adjustments (brightness, contrast, gamma).
  * Nothing here changes the picture.
  */
+import { readout } from '../picture/measure';
 import type { Viewer } from './viewer';
 import type { Frame } from '../picture/model';
 
@@ -12,7 +13,20 @@ export type ColorBlind = 'off' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 
 export const viewState = {
   grid: 'off' as GridMode, gridSize: 50, rulers: false, clipping: false, peaking: false, histogram: false, osd: false, loupe: false, loupeZoom: 4,
   grayscale: false, colorBlind: 'off' as ColorBlind, display: { brightness: 0, contrast: 0, gamma: 1 },
+  /** Navigator: a mini-map of the whole picture with the visible part outlined (when it does not fit). */
+  navigator: false,
+  /** Measure: points in picture pixels, whether the shape is closed, and the scale. */
+  measure: { on: false, pts: [] as [number, number][], closed: false, scale: null as { perPx: number; unit: string } | null },
 };
+
+/** Where the navigator sits (CSS px, bottom right) and its scale (navigator px per picture px). */
+export function navigatorRect(vw: number, vh: number, pw: number, ph: number, size = 180, margin = 12): { x: number; y: number; w: number; h: number; k: number } {
+  const k = Math.min(size / pw, size / ph);
+  const w = Math.max(1, Math.round(pw * k)), h = Math.max(1, Math.round(ph * k));
+  return { x: vw - w - margin, y: vh - h - margin, w, h, k };
+}
+/** The navigator is shown only when the picture is larger than the view. */
+export const navigatorShown = (vw: number, vh: number, r: { w: number; h: number }): boolean => viewState.navigator && (r.w > vw + 1 || r.h > vh + 1);
 export const displayActive = (): boolean => viewState.grayscale || viewState.colorBlind !== 'off' || viewState.display.brightness !== 0 || viewState.display.contrast !== 0 || viewState.display.gamma !== 1;
 
 // Pure helpers (tested) ----------------------------------------------------------------------------
@@ -133,6 +147,41 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, v: Viewer, r: { x: n
     ctx.save(); ctx.font = '13px sans-serif'; ctx.textBaseline = 'top'; const lines = text.split('\n'); const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(10 + (s.rulers ? 18 : 0), 10 + (s.rulers ? 18 : 0), w, lines.length * 17 + 10); ctx.fillStyle = '#fff';
     lines.forEach((l, i) => ctx.fillText(l, 18 + (s.rulers ? 18 : 0), 15 + (s.rulers ? 18 : 0) + i * 17)); ctx.restore();
+  }
+  const vw = ctx.canvas.clientWidth || ctx.canvas.width, vh = ctx.canvas.clientHeight || ctx.canvas.height;
+  if (navigatorShown(vw, vh, r)) {
+    const pw = f.width, ph = f.height, n = navigatorRect(vw, vh, pw, ph);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(n.x - 3, n.y - 3, n.w + 6, n.h + 6);
+    ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'medium';
+    try { ctx.drawImage(displayFrame(f), 0, 0, pw, ph, n.x, n.y, n.w, n.h); } catch { /* closed bitmap */ }
+    const z = v.zoom, vx = (0 - r.x) / z, vy = (0 - r.y) / z, vwP = vw / z, vhP = vh / z;
+    const bx = n.x + Math.max(0, vx) * n.k, by = n.y + Math.max(0, vy) * n.k, bw = Math.min(pw, vx + vwP) * n.k - Math.max(0, vx) * n.k, bh = Math.min(ph, vy + vhP) * n.k - Math.max(0, vy) * n.k;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.rect(n.x, n.y, n.w, n.h); ctx.rect(bx, by, bw, bh); ctx.fill('evenodd');
+    ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2; ctx.strokeRect(bx + 1, by + 1, Math.max(2, bw - 2), Math.max(2, bh - 2));
+    ctx.restore();
+  }
+  if (s.measure.on && s.measure.pts.length) {
+    const m = s.measure, toV = (q: [number, number]): [number, number] => [r.x + q[0] * v.zoom, r.y + q[1] * v.zoom];
+    const pv = m.pts.map(toV);
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const path = () => { ctx.beginPath(); pv.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); if (m.closed) ctx.closePath(); };
+    if (m.closed && pv.length > 2) { path(); ctx.fillStyle = 'rgba(255,212,0,0.18)'; ctx.fill(); }
+    path(); ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2; ctx.stroke();
+    for (const q of pv) { ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, Math.PI * 2); ctx.fillStyle = '#ffd400'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke(); }
+    const lines = readout(m.pts, m.closed, m.scale);
+    if (lines.length) {
+      ctx.font = '13px sans-serif'; ctx.textBaseline = 'top';
+      const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 14, hh = lines.length * 17 + 8;
+      const last = pv[pv.length - 1]; let x = last[0] + 12, y = last[1] + 12;
+      if (x + w > vw - 4) x = last[0] - w - 12; if (y + hh > vh - 4) y = last[1] - hh - 12;
+      x = Math.max(4, x); y = Math.max(4, y);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, y, w, hh); ctx.fillStyle = '#fff';
+      lines.forEach((l, i) => ctx.fillText(l, x + 7, y + 5 + i * 17));
+    }
+    ctx.restore();
   }
   if (s.loupe && info.pointer) {
     const R = 70, z = s.loupeZoom, p = v.toPicture(info.pointer.x, info.pointer.y);
