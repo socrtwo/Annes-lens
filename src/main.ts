@@ -50,6 +50,7 @@ app.ui.tabsChanged();
 (window as any).__qnOcr = () => Promise.all([import('./picture/ocr'), import('./picture/barcode'), import('./platform/runtimes'), import('./ui/overlays')]).then(([a, b, c, d]) => ({ ...a, ...b, ...c, viewState: d.viewState, ocrMatch: d.ocrMatch }));
 (window as any).__qnPaint = () => Promise.all([import('./paint/session'), import('./paint/markup'), import('./paint/engine')]).then(([a, b, c]) => ({ ...a, markup: b, engine: c }));
 (window as any).__qnCompare = () => Promise.all([import('./ui/viewHooks'), import('./ui/compareView'), import('./ui/syncWindows'), import('./commands/compare2')]).then(([a, b, c, d]) => ({ ...a, ...b, ...c, ...d }));
+(window as any).__qnSpecial = () => Promise.all([import('./ui/specialView'), import('./picture/stereo'), import('./picture/sphere'), import('./picture/motionPhoto'), import('./commands/specialViews')]).then(([a, b, c, d, e]) => ({ ...a, ...b, ...c, ...d, ...e }));
 (window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite'), import('./meta/geo'), import('./meta/places')]).then(([m, x, e, i, w]) => ({ ...m, ...x, ...e, ...i, ...w }));
 
 // Files dropped on the window open as a folder of their own.

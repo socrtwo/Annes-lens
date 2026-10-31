@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **510 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **517 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -22,7 +22,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Create**: Create (15)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
-- **View**: Zoom (12) · Navigate (7) · Window (13) · Inspect (12) · Display (5) · Compare (4) · Quick Access Bar and search (5)
+- **View**: Zoom (12) · Navigate (7) · Window (13) · Inspect (12) · Display (9) · Compare (4) · Media (3) · Quick Access Bar and search (5)
 - **Slideshow**: Slideshow (11)
 - **Tools**: Text and codes (4) · Documents and print (4) · Color and vector (2) · Organize (1)
 - **AI**: Generate (10) · Edit (20) · Select (3) · Understand (12) · Provenance (2) · Providers (9)
@@ -43,7 +43,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 101 |
 | All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 316 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 510 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 517 |
 
 ## File (77 of 82)
 
@@ -460,7 +460,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Show Embedded Preview | RAW |  | `raw.preview` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
 | Use Embedded Preview by Default | RAW |  | `raw.preferPreview` | from IrfanView, FastStone Image Viewer |
 
-## View (59 of 72)
+## View (66 of 72)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -508,15 +508,22 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Pixel Grid | Inspect |  | `view.pixelGrid` | from new in Anne's Lens |
 | Pixel Information | Inspect |  | `view.pixelInfo` | from IrfanView, ImageGlass |
 | Rulers | Inspect |  | `view.rulers` | from new in Anne's Lens |
+| 360° View | Display |  | `view.sphere` | from Google Photos |
 | Background Color… | Display |  | `view.background` | from IrfanView |
 | Color-Blindness Simulation | Display |  | `view.colorBlindSim` | has options menu; from new in Anne's Lens |
 | Display Adjustments | Display |  | `view.displayAdjust` | from JPEGView, new in Anne's Lens |
 | Grayscale Preview | Display |  | `view.grayscalePreview` | from new in Anne's Lens |
+| Right-to-Left Reading | Display |  | `view.rtl` | from Honeyview |
+| Stereo View | Display |  | `view.stereo` | has options menu; from Geeqie (GQview) |
 | Transparency Display | Display |  | `view.alphaDisplay` | has options menu; from XnView Classic and XnView MP, ImageGlass |
+| Two-Page View | Display |  | `view.twoPage` | from Honeyview |
 | Before/After Slider | Compare |  | `view.compareSplit` | has options menu; from new in Anne's Lens |
 | Compare Pictures | Compare | Ctrl+Shift+y | `view.compare` | from FastStone Image Viewer, XnView Classic and XnView MP, nomacs, digiKam |
 | Difference Overlay | Compare |  | `view.diffOverlay` | from new in Anne's Lens |
 | Synchronize Windows | Compare |  | `view.syncWindows` | from nomacs |
+| Motion Photo | Media |  | `view.motionPhoto` | from Apple Photos and iPhoto, Google Photos |
+| Play / Pause | Media | k | `view.mediaPlay` | from IrfanView, Microsoft Photos |
+| Save Current Frame | Media |  | `view.mediaFrame` | from IrfanView, Microsoft Photos |
 | Add All Choices to Quick Access Bar | Quick Access Bar and search |  | `view.qatAddAll` | from the Anne's Office suite |
 | Hide Quick Access Bar | Quick Access Bar and search |  | `view.qatHide` | from the Anne's Office suite |
 | Quick Access Bar Labels | Quick Access Bar and search |  | `view.qatLabels` | from the Anne's Office suite |
@@ -640,7 +647,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (47)
+## Planned, not yet built (40)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -650,7 +657,7 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Browse** (15): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`
 - **Create** (2): `create.panoramaStitch`, `create.photoBook`
 - **RAW** (1): `raw.develop`
-- **View** (13): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.language`, `view.colorManaged`, `view.stereo`, `view.sphere`, `view.twoPage`, `view.rtl`, `view.mediaPlay`, `view.mediaFrame`, `view.motionPhoto`
+- **View** (6): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.language`, `view.colorManaged`
 - **Slideshow** (2): `show.music`, `show.remote`
 - **Tools** (3): `tools.backup`, `tools.plugins`, `tools.external`
 - **Developer** (2): `dev.console`, `dev.cliHelp`

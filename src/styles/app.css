@@ -646,3 +646,8 @@ body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important
 .ql-workspace.qn-tiled > .qn-window { min-width: 0; min-height: 0; outline: 2px solid transparent; outline-offset: -2px; }
 .ql-workspace.qn-tiled > .qn-window.qn-window-active { outline-color: #4da3ff; }
 @media (max-width: 700px) { .ql-workspace.qn-tiled { grid-template-columns: 1fr; } }
+.qn-special .qn-sv-stage { flex: 1; position: relative; min-height: 0; }
+.qn-special .qn-sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; image-rendering: auto; }
+.qn-special .qn-sv-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.qn-sv-bar select, .qn-sv-bar label { font-size: 12px; }
+.qn-sv-bar label { display: inline-flex; gap: 4px; align-items: center; }

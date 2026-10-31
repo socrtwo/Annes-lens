@@ -42,4 +42,5 @@ import './viewTools2';
 import './ocrCodes';
 import './paintCmds';
 import './compare2';
+import './specialViews';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

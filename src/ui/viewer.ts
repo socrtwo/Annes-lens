@@ -9,6 +9,7 @@ import { drawOverlays, displayFrame, viewState, navigatorRect, navigatorShown } 
 import { maskOverlay, maskBounds, ellipseMask, polygonMask } from '../picture/mask';
 import { paintHooks } from '../paint/hooks';
 import { split, viewHooks } from './viewHooks';
+import { specialOpen } from './specialView';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
 
@@ -86,6 +87,8 @@ export class Viewer {
     const p = this.picture;
     // A different picture: the Before/After slider's "before" no longer matches it (edits keep it on).
     if (fresh && split.tab === this.tab && split.on) { split.on = false; split.before = null; split.tab = null; }
+    // A stereo, 360° or motion view belongs to the picture it was opened on (the two-page view turns its own pages).
+    const sv = specialOpen(); if (fresh && sv && sv.kind !== 'spread' && this.tab === this.app.tab) sv.close();
     this.stopAnimation();
     this.pixelCanvas = null; this.pixelKey = '';
     this.empty.style.display = p ? 'none' : '';

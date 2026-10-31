@@ -84,12 +84,14 @@ export function findEmbeddedJpegs(u8: Uint8Array, limit = 8): EmbeddedJpeg[] {
 /** Walks the segments from SOI at `start`; returns the range and the SOF size, or null when it is not a whole JPEG. */
 function scanJpeg(u8: Uint8Array, start: number): EmbeddedJpeg | null {
   let p = start + 2, width = 0, height = 0;
-  while (p + 4 <= u8.length) {
+  // The end-of-image marker is two bytes, so a JPEG that ends exactly at the end of the data counts too.
+  while (p + 2 <= u8.length) {
     if (u8[p] !== 0xff) return null;
     const marker = u8[p + 1];
     if (marker === 0xff) { p++; continue; }
     if (marker === 0xd8) return null;
     if (marker === 0xd9) return width ? { offset: start, length: p + 2 - start, width, height } : null;
+    if (p + 4 > u8.length) return null;
     const len = (u8[p + 2] << 8) | u8[p + 3];
     if (len < 2) return null;
     if ((marker >= 0xc0 && marker <= 0xcf) && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc && p + 9 <= u8.length) { height = (u8[p + 5] << 8) | u8[p + 6]; width = (u8[p + 7] << 8) | u8[p + 8]; }

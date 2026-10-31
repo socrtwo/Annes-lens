@@ -98,7 +98,8 @@
 
 - 8BF plug-in host (Windows), panorama stitching, focus stacking and exposure merge refinements, content-aware resize (done), vectorize (done: Trace to Vector).
 - Network-synchronized viewing with the suite's relay; shared albums.
-- Stereo and 360° viewing refinements; DICOM and FITS tools.
+- [x] Stereo View (MPO pairs, side-by-side pictures or two marked pictures; red-cyan anaglyph in color, half color or gray, cross-eye, parallel, either eye, swap) and 360° View (equirectangular panoramas: drag to look, wheel for the field of view, save the view). Two-Page View with Right-to-Left Reading (a folder or a multipage file as facing pages, the first page alone, keys turn two pages), Motion Photo (the clip in Google and Samsung motion photos: play, pause, save the clip or a frame).
+- [ ] Video and audio files in folders; DICOM and FITS tools.
 
 ## Recovery (throughout)
 

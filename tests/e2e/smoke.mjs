@@ -1164,6 +1164,88 @@ try {
   check('synchronize windows: side by side, next steps both, zoom follows', [sw.tiled, sw.hidden, sw.activeFramed, sw.afterNext, sw.rel[0] === sw.rel[1]], [true, [false, false], true, ['v2.png', 'w2.png'], true]);
   check('a click makes the other window the one followed; turning sync off hides it again', [sw2.bActive, sw2.untiled, sw2.hiddenAfter, sw2.tabs], [true, true, 1, 1]);
 
+  // Special views: Stereo (a real two-JPEG MPO), 360° (mouse drag), Two-Page with right-to-left
+  // reading (keyboard), and a motion photo (a JPEG with a VP9 clip appended): play, pause, frame.
+  const vp9 = readFileSync('tests/fixtures/media/blue-vp9.mp4').toString('base64');
+  const stv = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const eye = (x0) => { const c = document.createElement('canvas'); c.width = 300; c.height = 200; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 300, 200); x.fillStyle = '#fff'; x.fillRect(x0, 50, 50, 100); return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.97)); };
+    const L = new Uint8Array(await (await eye(100)).arrayBuffer()), R = new Uint8Array(await (await eye(120)).arrayBuffer());
+    const mpo = new Uint8Array(L.length + R.length); mpo.set(L); mpo.set(R, L.length);
+    const bands = document.createElement('canvas'); bands.width = 400; bands.height = 200; const bx = bands.getContext('2d'); ['#ff0000', '#00ff00', '#0000ff', '#ffff00'].forEach((c, i) => { bx.fillStyle = c; bx.fillRect(i * 100, 0, 100, 200); });
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([mpo], 'x-pair.jpg', { type: 'image/jpeg' }), new File([await new Promise((r) => bands.toBlob(r, 'image/png'))], 'x-sphere.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'x-pair.jpg'; i++) await wait(50); await wait(200);
+    const S = await window.__qnSpecial();
+    await qn.exec('view.stereo', 'gray'); await wait(300);
+    const sv = S.specialOpen(), comp = sv.stereo.composite, at = (x, y) => [...comp.data.subarray((y * comp.width + x) * 4, (y * comp.width + x) * 4 + 3)];
+    const out = { how: sv.el.querySelector('b').textContent, size: [comp.width, comp.height], leftOnly: at(110, 100), both: at(135, 100), rightOnly: at(160, 100), none: at(250, 100) };
+    const sel = sv.el.querySelector('select'); sel.value = 'crossEye'; sel.dispatchEvent(new Event('change')); await wait(100);
+    out.cross = [sv.stereo.composite.width, sv.stereo.composite.height];
+    sv.close();
+    // 360°: yaw 45° faces the blue band; then a drag turns the view.
+    await qn.exec('view.next'); for (let i = 0; i < 60 && qn.picture?.name !== 'x-sphere.png'; i++) await wait(50); await wait(150);
+    await qn.exec('view.sphere'); await wait(200);
+    const sp = S.specialOpen(); sp.look = { yaw: 45, pitch: 0, fov: 40 }; sp.paint();
+    const cv = sp.canvas, d = cv.getContext('2d').getImageData(Math.floor(cv.width / 2), Math.floor(cv.height / 2), 1, 1).data;
+    out.sphere = { kind: sp.kind, center: [d[0], d[1], d[2]] };
+    const r = cv.getBoundingClientRect(); out.drag = [r.left + r.width / 2, r.top + r.height / 2]; out.yaw0 = sp.look.yaw; out.vw = cv.clientWidth; out.fov = sp.look.fov;
+    return out;
+  });
+  check('stereo: an MPO pair as a gray anaglyph', [stv.how, stv.size, stv.leftOnly[0] > 200 && stv.leftOnly[1] < 60, stv.both.every((v) => v > 200), stv.rightOnly[0] < 60 && stv.rightOnly[2] > 200, stv.none.every((v) => v < 40), stv.cross], ['Stereo View · MPO pair', [300, 200], true, true, true, true, [600, 200]]);
+  check('360° view faces the band at its yaw', [stv.sphere.kind, stv.sphere.center], ['sphere', [0, 0, 255]]);
+  await p.mouse.move(...stv.drag); await p.mouse.down(); await p.mouse.move(stv.drag[0] - 120, stv.drag[1], { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(100);
+  const sph2 = await p.evaluate(async () => { const S = await window.__qnSpecial(); const sv = S.specialOpen(); const yaw = sv.look.yaw; await qn.exec('view.previous'); await new Promise((r) => setTimeout(r, 300)); return { yaw, closedOnNav: !S.specialOpen() }; });
+  check('360° drag turns the view by the dragged share of the field of view; a new picture closes it', [Math.abs(sph2.yaw - (stv.yaw0 + 120 * stv.fov / stv.vw)) < 0.5, sph2.closedOnNav], [true, true], `yaw ${sph2.yaw}, expected ${stv.yaw0 + 120 * stv.fov / stv.vw}`);
+  // Two-page view over four pictures.
+  await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mk = (c) => { const cv = document.createElement('canvas'); cv.width = 200; cv.height = 300; const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 200, 300); return new Promise((r) => cv.toBlob(r, 'image/png')); };
+    const files = []; for (const [i, c] of ['#ff0000', '#00ff00', '#0000ff', '#ffff00'].entries()) files.push(new File([await mk(c)], `y${i + 1}.png`, { type: 'image/png' }));
+    await qn.exec('file.openDropped', files); for (let i = 0; i < 60 && qn.picture?.name !== 'y1.png'; i++) await wait(50); await wait(150);
+    await qn.exec('view.twoPage'); await wait(300);
+  });
+  const spread = () => p.evaluate(async () => { const S = await window.__qnSpecial(); const sv = S.specialOpen(); const c = sv.image, x = c.getContext('2d'); const at = (f) => [...x.getImageData(Math.floor(c.width * f), Math.floor(c.height / 2), 1, 1).data].slice(0, 3); return { w: c.width, h: c.height, left: at(0.25), right: at(0.75), info: sv.el.querySelector('.ql-help').textContent }; });
+  const sp0 = await spread();
+  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(250);
+  const spA = await spread();
+  await p.evaluate(() => qn.exec('view.rtl')); await p.waitForTimeout(250);
+  const spB = await spread();
+  await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(250);
+  const spC = await spread();
+  await p.keyboard.press('Escape'); await p.waitForTimeout(250);
+  const spEnd = await p.evaluate(async () => { const S = await window.__qnSpecial(); const out = { closed: !S.specialOpen(), current: qn.picture?.name }; if (S.reading.rtl) await qn.exec('view.rtl'); return out; });
+  check('two-page view: the cover alone, then facing pages', [sp0.w, sp0.left, spA.w, spA.left, spA.right, spA.info], [200, [255, 0, 0], 400, [0, 255, 0], [0, 0, 255], '2–3 of 4']);
+  check('right-to-left reading swaps the pages and the arrow keys', [spB.left, spB.right, /right to left/.test(spB.info), spC.w, spC.left, spEnd.closed, spEnd.current], [[0, 0, 255], [0, 255, 0], true, 200, [255, 255, 0], true, 'y4.png']);
+  // Motion photo.
+  const mov = await p.evaluate(async (vp9) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const c = document.createElement('canvas'); c.width = 256; c.height = 144; const x = c.getContext('2d'); x.fillStyle = '#d02020'; x.fillRect(0, 0, 256, 144);
+    const jpg = new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9))).arrayBuffer());
+    const clip = Uint8Array.from(atob(vp9), (ch) => ch.charCodeAt(0));
+    const both = new Uint8Array(jpg.length + clip.length); both.set(jpg); both.set(clip, jpg.length);
+    await qn.exec('file.openDropped', [new File([both], 'z-motion.jpg', { type: 'image/jpeg' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'z-motion.jpg'; i++) await wait(50); await wait(150);
+    const S = await window.__qnSpecial();
+    const out = { enabled: window.__qnGetCommand('view.motionPhoto').isEnabled(qn), clipLen: S.clipOf(qn.picture)?.length, expected: clip.length };
+    await qn.exec('view.motionPhoto'); await wait(100);
+    const v = S.specialOpen()?.video;
+    out.loaded = await new Promise((r) => { if (!v) return r('no video'); if (v.readyState >= 2) return r('loaded'); v.onloadeddata = () => r('loaded'); v.onerror = () => r('error'); setTimeout(() => r('timeout'), 8000); });
+    out.size = v ? [v.videoWidth, v.videoHeight] : null;
+    await wait(300);
+    await qn.exec('view.mediaPlay'); await wait(100); out.pausedAfterToggle = v.paused;
+    await qn.exec('view.mediaPlay'); await wait(200); out.playingAgain = !v.paused;
+    const tabs0 = qn.tabs.length;
+    await qn.exec('view.mediaFrame'); for (let i = 0; i < 80 && qn.tabs.length === tabs0; i++) await wait(50); await wait(300);
+    out.frame = { name: qn.picture?.name, size: [qn.picture?.width, qn.picture?.height], px: qn.picture ? [...qn.picture.frameCanvas().getContext('2d').getImageData(128, 72, 1, 1).data].slice(0, 3) : null };
+    if (qn.tabs.length > tabs0) qn.closeTab(qn.tab);
+    await wait(150); S.specialOpen()?.close();
+    return out;
+  }, vp9);
+  check('motion photo: the appended clip found and played', [mov.enabled, mov.clipLen, mov.loaded, mov.size, mov.pausedAfterToggle, mov.playingAgain], [true, mov.expected, 'loaded', [256, 144], true, true]);
+  check('save current frame opens the clip frame as a picture', [/^z-motion \(frame [\d.]+ s\)\.png$/.test(mov.frame.name || ''), mov.frame.size, mov.frame.px && mov.frame.px[2] > 200 && mov.frame.px[0] < 40], [true, [256, 144], true]);
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {
