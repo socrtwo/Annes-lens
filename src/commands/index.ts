@@ -41,4 +41,5 @@ import './vectorPdf';
 import './viewTools2';
 import './ocrCodes';
 import './paintCmds';
+import './compare2';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

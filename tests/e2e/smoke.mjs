@@ -1068,6 +1068,102 @@ try {
   check('numbered steps count up and Flatten draws the markup in', [steps, beforeFlat[0] < 100 && beforeFlat[2] > 150, flat.px[0] > 180 && flat.px[1] < 80, flat.items, flat.label], [[1, 2], true, true, 0, 'Flatten Markup']);
   check('closing the pane hands the mouse back', [closed.open, closed.pane], [false, false]);
 
+  // Before/After Slider, Compare Pictures and Synchronize Windows, with real mouse input.
+  const sp = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([await mk(300, 200, '#ffffff')], 'r-split.png', { type: 'image/png' }), new File([await mk(300, 200, '#00c000')], 'r-zz.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'r-split.png'; i++) await wait(50);
+    qn.viewer.setZoom(1); qn.viewer.center(); await wait(150);
+    await qn.exec('image.negative', 'all'); await wait(150);
+    await qn.exec('view.compareSplit'); await wait(300);
+    const C = await window.__qnCompare();
+    const canvas = qn.viewer.el.querySelector('canvas.qn-canvas'), dpr = canvas.width / qn.viewer.el.clientWidth;
+    const r = qn.viewer.pictureRect(), b = qn.viewer.el.getBoundingClientRect();
+    const sample = (x, y) => [...canvas.getContext('2d').getImageData(Math.round((r.x + x) * dpr), Math.round((r.y + y) * dpr), 1, 1).data].slice(0, 3);
+    return { on: C.split.on, label: C.split.labelA, left: sample(50, 100), right: sample(250, 100), handle: [b.left + r.x + 150, b.top + r.y + 100], to: [b.left + r.x + 30, b.top + r.y + 100], dpr };
+  });
+  check('slider shows the picture as opened left of the divider', [sp.on, sp.label, sp.left, sp.right], [true, 'As opened', [255, 255, 255], [0, 0, 0]]);
+  await p.mouse.move(...sp.handle); await p.mouse.down(); await p.mouse.move(...sp.to, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(150);
+  const sp2 = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const C = await window.__qnCompare();
+    const canvas = qn.viewer.el.querySelector('canvas.qn-canvas'), dpr = canvas.width / qn.viewer.el.clientWidth, r = qn.viewer.pictureRect();
+    const out = { x: C.split.x, at50: [...canvas.getContext('2d').getImageData(Math.round((r.x + 50) * dpr), Math.round((r.y + 100) * dpr), 1, 1).data].slice(0, 3), sel: qn.tab.selection };
+    await qn.exec('view.next'); for (let i = 0; i < 60 && qn.picture?.name !== 'r-zz.png'; i++) await wait(50); await wait(150);
+    out.offAfterNav = !C.split.on;
+    return out;
+  });
+  check('dragging the divider moves it (no selection drawn); a new picture turns the slider off', [Math.abs(sp2.x - 0.1) < 0.02, sp2.at50, sp2.sel, sp2.offAfterNav], [true, [0, 0, 0], null, true]);
+  // Compare three marked pictures.
+  const cmp = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); x.fillStyle = '#000'; x.fillRect(w / 2 - 2, 0, 4, h); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    await qn.exec('file.openDropped', [new File([await mk(400, 300, '#e00000')], 's-red.png', { type: 'image/png' }), new File([await mk(400, 300, '#00b000')], 't-green.png', { type: 'image/png' }), new File([await mk(400, 300, '#0000e0')], 'u-blue.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 's-red.png'; i++) await wait(50); await wait(200);
+    for (const e of qn.folder.entries) qn.tab.marked.add(e);
+    await qn.exec('view.compare'); await wait(400);
+    const C = await window.__qnCompare(), cv = C.compareOpen();
+    const panes = [...qn.viewer.el.querySelectorAll('.qn-cmp-pane')];
+    const color = (pane) => { const c = pane.querySelector('canvas'); const d = c.getContext('2d').getImageData(Math.round(c.width * 0.25), Math.round(c.height / 2), 1, 1).data; return [d[0], d[1], d[2]]; };
+    const box = (pane) => { const r = pane.querySelector('canvas').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width, r.height]; };
+    return { open: !!cv, n: panes.length, labels: panes.map((x) => x.querySelector('.qn-cmp-label').textContent.split(' · ')[0]), colors: panes.map(color), boxes: panes.map(box) };
+  });
+  check('compare opens three panes with their pictures', [cmp.open, cmp.n, cmp.labels, cmp.colors.map((c) => c.indexOf(Math.max(...c)))], [true, 3, ['s-red.png', 't-green.png', 'u-blue.png'], [0, 1, 2]]);
+  if (cmp.boxes.length === 3) {
+    await p.mouse.move(cmp.boxes[1][0], cmp.boxes[1][1]); for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, -100); await p.waitForTimeout(40); } await p.waitForTimeout(120);
+    await p.mouse.move(cmp.boxes[0][0], cmp.boxes[0][1]); await p.mouse.down(); await p.mouse.move(cmp.boxes[0][0] + 60, cmp.boxes[0][1], { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(150);
+  }
+  const cmp2 = await p.evaluate(async () => {
+    const C = await window.__qnCompare(), cv = C.compareOpen();
+    const zooms = [...qn.viewer.el.querySelectorAll('.qn-cmp-label')].map((l) => l.textContent.split(' · ')[2]);
+    const st = cv ? { ...cv.state } : null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 100));
+    return { st, zooms, closed: !C.compareOpen() && !qn.viewer.el.querySelector('.qn-compare') };
+  });
+  check('compare: wheel zooms and a drag pans every pane together; Esc closes', [cmp2.st && cmp2.st.rel > 1.5, cmp2.st && cmp2.st.nx < 0.5, new Set(cmp2.zooms).size, cmp2.closed], [true, true, 1, true]);
+  // Synchronize two windows.
+  const sw = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const mk = (w, h, color) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, w, h); return new Promise((r) => c.toBlob(r, 'image/png')); };
+    qn.tab.marked.clear();
+    await qn.exec('file.openDropped', [new File([await mk(800, 600, '#aa0000')], 'v1.png', { type: 'image/png' }), new File([await mk(800, 600, '#aa5500')], 'v2.png', { type: 'image/png' }), new File([await mk(800, 600, '#aaaa00')], 'v3.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'v1.png'; i++) await wait(50);
+    const A = qn.tab; // the window that received v1–v3 (a window with unsaved edits makes the drop open a new one)
+    for (const t of [...qn.tabs]) if (t !== A) qn.closeTab(t);
+    qn.activate(A);
+    let B = qn.createTab(); qn.activate(B);
+    await qn.exec('file.openDropped', [new File([await mk(400, 300, '#0000aa')], 'w1.png', { type: 'image/png' }), new File([await mk(400, 300, '#0055aa')], 'w2.png', { type: 'image/png' }), new File([await mk(400, 300, '#00aaaa')], 'w3.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'w1.png'; i++) await wait(50);
+    B = qn.tab;
+    for (const t of [...qn.tabs]) if (t !== A && t !== B) qn.closeTab(t);
+    qn.activate(A); await wait(150);
+    await qn.exec('view.syncWindows'); await wait(300);
+    const out = { tiled: qn.ui.workspace.classList.contains('qn-tiled'), hidden: qn.tabs.map((t) => t.el.classList.contains('ql-hidden-tab')), activeFramed: A.el.classList.contains('qn-window-active') };
+    await qn.exec('view.next'); for (let i = 0; i < 60 && !(A.picture?.name === 'v2.png' && B.picture?.name === 'w2.png'); i++) await wait(50);
+    out.afterNext = [A.picture?.name, B.picture?.name];
+    A.ui.setZoom(A.ui.zoom * 2); await wait(250);
+    out.rel = [A.ui.viewRel().rel, B.ui.viewRel().rel].map((v) => +v.toFixed(3));
+    const bb = B.ui.el.getBoundingClientRect(); out.clickB = [bb.left + bb.width / 2, bb.top + bb.height / 2];
+    return out;
+  });
+  await p.mouse.click(...sw.clickB); await p.waitForTimeout(150);
+  const sw2 = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const B = qn.tabs[qn.tabs.length - 1];
+    const out = { bActive: qn.tab === B };
+    await qn.exec('view.syncWindows'); await wait(150);
+    out.untiled = !qn.ui.workspace.classList.contains('qn-tiled'); out.hiddenAfter = qn.tabs.filter((t) => t.el.classList.contains('ql-hidden-tab')).length;
+    qn.closeTab(B); await wait(150);
+    out.tabs = qn.tabs.length;
+    return out;
+  });
+  check('synchronize windows: side by side, next steps both, zoom follows', [sw.tiled, sw.hidden, sw.activeFramed, sw.afterNext, sw.rel[0] === sw.rel[1]], [true, [false, false], true, ['v2.png', 'w2.png'], true]);
+  check('a click makes the other window the one followed; turning sync off hides it again', [sw2.bActive, sw2.untiled, sw2.hiddenAfter, sw2.tabs], [true, true, 1, 1]);
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {

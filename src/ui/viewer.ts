@@ -8,6 +8,7 @@ import type { App, PictureTab } from '../app';
 import { drawOverlays, displayFrame, viewState, navigatorRect, navigatorShown } from './overlays';
 import { maskOverlay, maskBounds, ellipseMask, polygonMask } from '../picture/mask';
 import { paintHooks } from '../paint/hooks';
+import { split, viewHooks } from './viewHooks';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
 
@@ -37,6 +38,7 @@ export class Viewer {
   private lassoPts: [number, number][] = [];
   private navigating = false;
   private painting = false;
+  private splitDragging = false;
   private pixelKey = '';
   private destroyed = false;
   private ro: ResizeObserver;
@@ -82,6 +84,8 @@ export class Viewer {
   /** Called by the tab when the picture, page or frame changed. `fresh`: a different file. */
   pictureChanged(fresh = false): void {
     const p = this.picture;
+    // A different picture: the Before/After slider's "before" no longer matches it (edits keep it on).
+    if (fresh && split.tab === this.tab && split.on) { split.on = false; split.before = null; split.tab = null; }
     this.stopAnimation();
     this.pixelCanvas = null; this.pixelKey = '';
     this.empty.style.display = p ? 'none' : '';
@@ -155,6 +159,19 @@ export class Viewer {
   get viewCenter(): { x: number; y: number } { return { x: this.cx, y: this.cy }; }
   /** Centers the view on a picture point (clamped like a drag). */
   panTo(x: number, y: number): void { this.cx = x; this.cy = y; this.clampCenter(); this.draw(); }
+  /** Zoom relative to fitting the whole picture, and the view's center as fractions of the picture. */
+  viewRel(): { rel: number; nx: number; ny: number } | null {
+    const p = this.picture; if (!p) return null;
+    return { rel: this._zoom / this.fitZoom('fit', p.width, p.height), nx: this.cx / p.width, ny: this.cy / p.height };
+  }
+  /** Shows the same relative zoom and center (Synchronize Windows). */
+  applyRel(v: { rel: number; nx: number; ny: number }): void {
+    const p = this.picture; if (!p) return;
+    this.mode = null; this._zoom = this.clamp(v.rel * this.fitZoom('fit', p.width, p.height)); this.cx = v.nx * p.width; this.cy = v.ny * p.height;
+    this.clampCenter(); this.draw();
+  }
+  /** The slider's divider position in CSS px, when the Before/After slider shows here. */
+  splitX(): number | null { const r = this.pictureRect(); return split.on && split.tab === this.tab && split.before && r ? r.x + split.x * r.w : null; }
   /** The navigator's rectangle when it is showing (CSS px), else null. */
   navigatorBox(): { x: number; y: number; w: number; h: number; k: number } | null {
     const p = this.picture, r = this.pictureRect(); if (!p || !r) return null;
@@ -211,6 +228,22 @@ export class Viewer {
     try {
       ctx.drawImage(paintHooks.override(this.tab) || displayFrame(frame), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
     } catch (e) { /* a closed bitmap after a quick navigation */ }
+    const sxp = this.splitX();
+    if (sxp !== null) {
+      const b = split.before!;
+      ctx.save(); ctx.beginPath(); ctx.rect(Math.max(0, r.x), 0, Math.max(0, sxp - Math.max(0, r.x)), this.el.clientHeight); ctx.clip();
+      try { ctx.drawImage(b, 0, 0, split.beforeW, split.beforeH, r.x, r.y, r.w, r.h); } catch { /* */ }
+      ctx.restore();
+      ctx.save(); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4;
+      const top = Math.max(0, r.y), bot = Math.min(this.el.clientHeight, r.y + r.h);
+      ctx.fillRect(Math.round(sxp) - 1, top, 2, bot - top);
+      const my = (top + bot) / 2; ctx.beginPath(); ctx.arc(sxp, my, 14, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#333'; ctx.beginPath(); ctx.moveTo(sxp - 4, my - 6); ctx.lineTo(sxp - 10, my); ctx.lineTo(sxp - 4, my + 6); ctx.moveTo(sxp + 4, my - 6); ctx.lineTo(sxp + 10, my); ctx.lineTo(sxp + 4, my + 6); ctx.fill();
+      ctx.font = '12px sans-serif'; ctx.textBaseline = 'top';
+      const chip = (t: string, x: number, alignRight: boolean) => { const w = ctx.measureText(t).width + 12; const xx = alignRight ? x - w - 8 : x + 8; ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(xx, top + 8, w, 20); ctx.fillStyle = '#fff'; ctx.fillText(t, xx + 6, top + 12); };
+      chip(split.labelA, sxp, true); chip(split.labelB, sxp, false);
+      ctx.restore();
+    }
     if (this._zoom >= 8 && (this.app as any).pixelGrid) this.grid(ctx, r, sx, sy, ex, ey);
     const sel = this.tab.selection;
     if (sel) this.drawSelection(ctx, r, sel);
@@ -220,6 +253,7 @@ export class Viewer {
       drawOverlays(ctx, this, r, frame, { name: p.name, index: f.index, total: f.length, exif: p.exif, size: p.bytes.length, page: p.page, pages: p.pages.length, dpi: p.current.dpi, template: this.app.prefs.osdTemplate, pointer: this.pointer });
     }
     paintHooks.overlay(ctx, this, r, this.pointer);
+    viewHooks.changed(this);
   }
 
   private drawSelection(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, sel: { x: number; y: number; w: number; h: number }): void {
@@ -352,6 +386,9 @@ export class Viewer {
       el.focus();
       const rr = el.getBoundingClientRect();
       const vx = e.clientX - rr.left, vy = e.clientY - rr.top;
+      if (this.app.tab !== this.tab && viewHooks.tiled()) this.app.activate(this.tab);
+      const sxp = this.splitX();
+      if (sxp !== null && Math.abs(vx - sxp) <= 16) { this.splitDragging = true; try { el.setPointerCapture(e.pointerId); } catch { /* synthetic */ } return; }
       const nav = this.navigatorBox();
       if (nav && vx >= nav.x && vy >= nav.y && vx <= nav.x + nav.w && vy <= nav.y + nav.h) {
         this.navigating = true; this.navigateTo(vx, vy);
@@ -390,6 +427,7 @@ export class Viewer {
       const r = el.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (viewState.loupe) this.draw();
+      if (this.splitDragging) { const r = this.pictureRect(); if (r) { split.x = Math.max(0, Math.min(1, (this.pointer.x - r.x) / r.w)); this.draw(); } return; }
       if (this.navigating) { this.navigateTo(this.pointer.x, this.pointer.y); return; }
       if (this.painting && this.picture) { const q = this.toPicture(this.pointer.x, this.pointer.y); paintHooks.move(this.tab, q.x, q.y, e); this.reportPointer(); return; }
       if (this.picture && paintHooks.active(this.tab)) { el.style.cursor = paintHooks.cursor(this.tab); this.draw(); this.reportPointer(); return; }
@@ -419,7 +457,8 @@ export class Viewer {
         return;
       }
       const hit = this.picture && !this.dragging ? this.hitSelection(this.pointer.x, this.pointer.y) : -1;
-      el.style.cursor = viewState.measure.on ? 'crosshair' : this.navigatorBox() && this.pointer && (() => { const n = this.navigatorBox()!; return this.pointer!.x >= n.x && this.pointer!.y >= n.y && this.pointer!.x <= n.x + n.w && this.pointer!.y <= n.y + n.h; })() ? 'pointer' : hit < 0 ? '' : hit === 8 ? 'move' : ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize'][hit];
+      const sxq = this.splitX();
+      el.style.cursor = sxq !== null && Math.abs(this.pointer.x - sxq) <= 16 ? 'ew-resize' : viewState.measure.on ? 'crosshair' : this.navigatorBox() && this.pointer && (() => { const n = this.navigatorBox()!; return this.pointer!.x >= n.x && this.pointer!.y >= n.y && this.pointer!.x <= n.x + n.w && this.pointer!.y <= n.y + n.h; })() ? 'pointer' : hit < 0 ? '' : hit === 8 ? 'move' : ['nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'ew-resize', 'nesw-resize', 'ns-resize', 'nwse-resize'][hit];
       if (this.dragging && !this.pinch) {
         const dx = e.clientX - this.dragging.x, dy = e.clientY - this.dragging.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) this.dragging.moved = true;
@@ -428,6 +467,7 @@ export class Viewer {
       this.reportPointer();
     });
     const up = (e: PointerEvent) => {
+      if (this.splitDragging) { this.splitDragging = false; return; }
       if (this.navigating) { this.navigating = false; return; }
       if (this.painting) { this.painting = false; paintHooks.up(this.tab, e); return; }
       if (this.selecting) {
@@ -445,7 +485,7 @@ export class Viewer {
       }
     };
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', (e) => { this.dragging = null; this.selecting = null; this.navigating = false; if (this.painting) { this.painting = false; paintHooks.up(this.tab, e); } });
+    el.addEventListener('pointercancel', (e) => { this.dragging = null; this.selecting = null; this.navigating = false; this.splitDragging = false; if (this.painting) { this.painting = false; paintHooks.up(this.tab, e); } });
     el.addEventListener('pointerleave', () => { this.pointer = null; this.reportPointer(); });
     el.addEventListener('dblclick', (e) => {
       if (!this.picture) return;

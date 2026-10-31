@@ -70,7 +70,7 @@
 - [x] Difference Overlay; Find Files (name, size, dimensions, dates, caption text); Compare Folders; the Tools tab's Print Size Calculator, Extract Palette, Make QR Code, Document Cleanup, Restore Old Photo, Print Check; Encrypt / Open Encrypted Picture (.qlpe), Save Selection As, Recover Pictures from Any File.
 - [x] Filter Bar, Group By, Timeline, stacks (bursts and RAW+JPEG pairs), Light Table, Cull Mode; per-entry info cached (type, date taken, camera, lens, size, location, rating, label, keywords, flag).
 - [x] Measure (distance, angle, path length and area; scale from a known length or the DPI), Navigator, Info Pane, Filmstrip.
-- [ ] Compare up to four, before/after slider, synchronized windows.
+- [x] Compare Pictures (two to four panes with one zoom and pan, by fractions of each picture so different sizes line up; flag the pick or open one), Before/After Slider (the picture as opened against the edits, or against another picture; a draggable divider), Synchronize Windows (the open windows side by side, following the active one's zoom, pan and navigation).
 - [x] Slideshow with transitions (fade, wipe, slide, zoom, pan and zoom, random), timing, order, loop, captions through the information overlay, kiosk mode, HTML export.
 - [ ] Background music and the phone remote.
 - [x] Find Duplicates (byte-identical, same pixels, same picture at another size, similar within a threshold; groups with thumbnails, mark all but the largest), Find Similar Pictures (DCT and difference hashes, nearest first), Sort by Quality (variance of the Laplacian, flat-area residual, clipping and mean, bytes per pixel). Stacks come with the catalog.

@@ -3,6 +3,7 @@
  * execution, undo/redo of picture edits and macro recording. Each tab shows one picture out of a
  * folder; next/previous move through the folder with pictures decoded ahead of time.
  */
+import { viewHooks } from './ui/viewHooks';
 import { getCommand, allCommands, type Command } from './commands/registry';
 import { loadPrefs, savePrefs, type Prefs } from './prefs';
 import { toast } from './ui/dialog';
@@ -173,6 +174,8 @@ export class App {
   private refreshQueued = false;
   private listeners = new Set<(app: App) => void>();
   lastCommand: { id: string; arg?: any } | null = null;
+  /** Called after each command runs (Synchronize Windows follows navigation with it). */
+  afterExec: ((id: string, arg?: any) => void)[] = [];
   keyIndex = new Map<string, string>();
   keyCandidates = new Map<string, string[]>();
   /** Copied picture (for Paste as New Picture when the system clipboard is not readable). */
@@ -219,7 +222,8 @@ export class App {
 
   activate(tab: PictureTab): void {
     this.active = tab;
-    for (const d of this.tabs) d.el.classList.toggle('ql-hidden-tab', d !== tab);
+    const tiled = viewHooks.tiled();
+    for (const d of this.tabs) { d.el.classList.toggle('ql-hidden-tab', d !== tab && !tiled); d.el.classList.toggle('qn-window-active', tiled && d === tab); }
     this.ui.tabsChanged();
     tab.ui.layout();
     this.refresh();
@@ -294,6 +298,7 @@ export class App {
     try {
       const r = c.run(this, arg);
       if (r instanceof Promise) r.catch((e) => this.reportError(c, e)).finally(() => this.refresh());
+      for (const h of this.afterExec) { try { h(id, arg); } catch (e) { console.warn(e); } }
       this.refresh();
       return r;
     } catch (e) {

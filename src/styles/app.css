@@ -631,3 +631,18 @@ body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important
 .qn-pb-check { display: flex; gap: 6px; align-items: center; }
 .qn-paintbar .ql-btn { padding: 3px 8px; font-size: 12px; }
 .qn-paintbar .ql-help { color: #bbb; margin: 0; }
+
+/* Compare Pictures (Ctrl+Shift+Y) */
+.qn-compare { position: absolute; inset: 0; z-index: 7; background: var(--qn-canvas, #1b1b1b); display: flex; flex-direction: column; }
+.qn-cmp-bar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: rgba(0, 0, 0, 0.55); color: #eee; }
+.qn-cmp-grid { flex: 1; display: grid; gap: 4px; padding: 4px; min-height: 0; grid-auto-rows: 1fr; }
+.qn-cmp-pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #111; border-radius: 6px; }
+.qn-cmp-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.qn-cmp-label { position: absolute; left: 8px; top: 8px; background: rgba(0, 0, 0, 0.65); color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 12px; pointer-events: none; }
+.qn-cmp-actions { position: absolute; right: 8px; top: 6px; display: flex; gap: 4px; }
+.qn-cmp-actions .ql-btn { padding: 2px 8px; font-size: 12px; }
+/* Synchronize Windows: the open windows side by side */
+.ql-workspace.qn-tiled { display: grid; grid-template-columns: repeat(min(var(--qn-tiles, 2), 2), 1fr); grid-auto-rows: 1fr; gap: 4px; }
+.ql-workspace.qn-tiled > .qn-window { min-width: 0; min-height: 0; outline: 2px solid transparent; outline-offset: -2px; }
+.ql-workspace.qn-tiled > .qn-window.qn-window-active { outline-color: #4da3ff; }
+@media (max-width: 700px) { .ql-workspace.qn-tiled { grid-template-columns: 1fr; } }
