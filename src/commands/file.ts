@@ -12,6 +12,7 @@ import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 import { keepOriginalCopy } from '../picture/keepOriginal';
 import { paintHooks } from '../paint/hooks';
+import { iccForSave, writeWithProfile, profileName } from '../color/embedded';
 
 /** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
 export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
@@ -107,6 +108,7 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
       { key: 'rle', label: 'Compress runs (RLE)', type: 'checkbox', value: app.prefs.tgaRle, visibleIf: (v) => v.format === 'tga' },
       { key: 'threshold', label: 'Black below this brightness', type: 'range', min: 1, max: 254, value: 128, visibleIf: (v) => v.format === 'wbmp' },
       { key: 'keepMeta', label: 'Keep metadata (EXIF, XMP, color profile)', type: 'checkbox', value: app.prefs.keepMetadata, visibleIf: (v) => ['jpeg', 'png', 'webp'].includes(v.format) },
+      ...(pic.current.icc ? [{ key: 'icc', type: 'info' as const, label: `Color profile: ${profileName(pic.current.icc)}. JPEG, PNG and WebP embed it whether or not metadata is kept; the other formats save the values untagged, so convert to sRGB first (Image ▸ Convert to Color Profile) for them.` }] : []),
       { key: 'i', type: 'info', label: `${pic.current.hasAlpha ? 'Transparent pixels: kept in PNG, WebP, BMP, TGA, PAM and QOI; flattened onto white in JPEG, PPM, PGM and WBMP. ' : ''}${hasMeta(extractMeta(pic.bytes)) ? 'The file\'s EXIF, XMP and color profile go into JPEG, PNG and WebP output when "Keep metadata" is on; the orientation tag is reset when the picture was turned upright.' : 'This file carries no EXIF, XMP or color profile to pass on.'}` },
     ], ok: 'Save' });
     if (!r) return null;
@@ -115,16 +117,21 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
   }
   const c = pic.frameCanvas();
   let blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
-  if (app.prefs.keepMetadata && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty);
+  if ((app.prefs.keepMetadata || pic.current.icc) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty, { keep: app.prefs.keepMetadata, icc: pic.current.icc });
   return { blob, name: `${base}.${EXT[fmt!]}` };
 }
 
-/** Adds the source file's EXIF, XMP and ICC profile to an encoded JPEG, PNG or WebP; `upright` resets the Orientation tag. */
-export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg' | 'png' | 'webp', upright: boolean): Promise<Blob> {
-  const meta = extractMeta(source);
-  if (!hasMeta(meta)) return blob;
+/**
+ * Adds the source file's EXIF and XMP (unless `keep` is false) and the color profile to an encoded
+ * JPEG, PNG or WebP: the page's profile (`icc`), or the source's own when the pixels are sRGB and it
+ * is an sRGB profile. `upright` resets the Orientation tag.
+ */
+export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg' | 'png' | 'webp', upright: boolean, o: { keep?: boolean; icc?: Uint8Array } = {}): Promise<Blob> {
+  const meta = o.keep === false ? {} : extractMeta(source);
+  const icc = iccForSave(o.icc, meta.icc);
+  if (!hasMeta({ ...meta, icc })) return blob;
   if (meta.exif && upright) meta.exif = setExifOrientation(meta.exif, 1);
-  const bytes = injectMeta(new Uint8Array(await blob.arrayBuffer()), format, meta);
+  const bytes = await writeWithProfile(new Uint8Array(await blob.arrayBuffer()), format, meta, icc);
   return new Blob([bytes as BlobPart], { type: blob.type });
 }
 

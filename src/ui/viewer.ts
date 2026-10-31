@@ -229,7 +229,7 @@ export class Viewer {
     ctx.imageSmoothingEnabled = this._zoom < 1 || prefs.smoothZoom;
     ctx.imageSmoothingQuality = 'high';
     try {
-      ctx.drawImage(paintHooks.override(this.tab) || displayFrame(frame), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
+      ctx.drawImage(paintHooks.override(this.tab) || displayFrame(frame, p.current), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
     } catch (e) { /* a closed bitmap after a quick navigation */ }
     const sxp = this.splitX();
     if (sxp !== null) {

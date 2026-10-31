@@ -4,6 +4,7 @@
  * the same scene line up). Wheel zooms about the pointer, a drag pans, double-click toggles fit
  * and 100%, Esc closes. Each pane can be opened or flagged as the pick.
  */
+import { displayFrame } from './overlays';
 import type { App } from '../app';
 import type { Entry } from '../picture/folder';
 import { decodePicture } from '../codecs/registry';
@@ -46,8 +47,10 @@ export class CompareView {
     for (const e of list) {
       const cur = this.app.picture;
       let img: CanvasImageSource & { width: number; height: number };
-      if (cur && cur.entry === e) img = cur.frameCanvas();
-      else { const pic = await decodePicture(new Uint8Array(await e.read()), e); img = pic.frameCanvas(); }
+      // Color-managed like the main view (displayFrame returns the frame itself when nothing applies).
+      const pic = cur && cur.entry === e ? cur : await decodePicture(new Uint8Array(await e.read()), e);
+      const shown = displayFrame(pic.currentFrame, pic.current);
+      img = shown instanceof HTMLCanvasElement ? shown : pic.frameCanvas();
       const canvas = h('canvas', { class: 'qn-cmp-canvas' }) as HTMLCanvasElement;
       const label = h('div', { class: 'qn-cmp-label' });
       this.panes.push({ entry: e, img, w: img.width, h: img.height, canvas, label });

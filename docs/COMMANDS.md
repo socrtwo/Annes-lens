@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **517 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **521 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -13,7 +13,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (6) · Organize (7) · View (5) · Share (4)
 - **File**: Open (16) · Save (9) · Export (5) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (11)
 - **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (5) · Find (2)
-- **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12)
+- **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12) · Color management (3)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (7)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
 - **Browse**: Views (8) · Rate and label (8) · Find and compare (7) · Catalog (1)
@@ -22,7 +22,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Create**: Create (15)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
-- **View**: Zoom (12) · Navigate (7) · Window (13) · Inspect (12) · Display (9) · Compare (4) · Media (3) · Quick Access Bar and search (5)
+- **View**: Zoom (12) · Navigate (7) · Window (13) · Inspect (12) · Display (10) · Compare (4) · Media (3) · Quick Access Bar and search (5)
 - **Slideshow**: Slideshow (11)
 - **Tools**: Text and codes (4) · Documents and print (4) · Color and vector (2) · Organize (1)
 - **AI**: Generate (10) · Edit (20) · Select (3) · Understand (12) · Provenance (2) · Providers (9)
@@ -35,15 +35,15 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 |---|---|---|
 | IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 198 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 85 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 167 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 170 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 136 |
 | ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 115 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 93 |
 | Picasa style (`picasa`) | Picasa 3 | 111 |
 | Preview style (`preview`) | macOS Preview | 104 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 101 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 316 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 517 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 102 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 319 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 521 |
 
 ## File (77 of 82)
 
@@ -187,7 +187,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Find Files… | Find | Ctrl+f | `edit.findFiles` | from IrfanView, XnView Classic and XnView MP |
 | Go to File by Name | Find | Ctrl+Shift+g | `edit.gotoFile` | from new in Anne's Lens |
 
-## Image (38 of 41)
+## Image (41 of 41)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -229,6 +229,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Replace Color… | Color depth and palette |  | `image.replaceColor` | from IrfanView |
 | Swap Color Channels | Color depth and palette |  | `image.swapChannels` | has options menu; from IrfanView |
 | Transparent Color… | Color depth and palette |  | `image.transparentColor` | from IrfanView, Graphic Workshop |
+| Assign Color Profile… | Color management |  | `image.assignProfile` | from digiKam |
+| Convert to Color Profile… | Color management |  | `image.convertProfile` | from digiKam, XnView Classic and XnView MP |
+| Soft Proof… | Color management |  | `image.softProof` | from Lightroom Classic (Library and Develop), new in Anne's Lens |
 
 ## Adjust (47 of 47)
 
@@ -460,7 +463,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Show Embedded Preview | RAW |  | `raw.preview` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
 | Use Embedded Preview by Default | RAW |  | `raw.preferPreview` | from IrfanView, FastStone Image Viewer |
 
-## View (66 of 72)
+## View (67 of 72)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -511,6 +514,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | 360° View | Display |  | `view.sphere` | from Google Photos |
 | Background Color… | Display |  | `view.background` | from IrfanView |
 | Color-Blindness Simulation | Display |  | `view.colorBlindSim` | has options menu; from new in Anne's Lens |
+| Color-Managed Display | Display |  | `view.colorManaged` | from XnView Classic and XnView MP, digiKam |
 | Display Adjustments | Display |  | `view.displayAdjust` | from JPEGView, new in Anne's Lens |
 | Grayscale Preview | Display |  | `view.grayscalePreview` | from new in Anne's Lens |
 | Right-to-Left Reading | Display |  | `view.rtl` | from Honeyview |
@@ -647,17 +651,16 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (40)
+## Planned, not yet built (36)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (5): `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.customizeMenus`
-- **Image** (3): `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (15): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`
 - **Create** (2): `create.panoramaStitch`, `create.photoBook`
 - **RAW** (1): `raw.develop`
-- **View** (6): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.language`, `view.colorManaged`
+- **View** (5): `view.nextFolder`, `view.previousFolder`, `view.fullScreenDisplay`, `view.frameless`, `view.language`
 - **Slideshow** (2): `show.music`, `show.remote`
 - **Tools** (3): `tools.backup`, `tools.plugins`, `tools.external`
 - **Developer** (2): `dev.console`, `dev.cliHelp`

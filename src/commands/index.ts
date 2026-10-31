@@ -43,4 +43,5 @@ import './ocrCodes';
 import './paintCmds';
 import './compare2';
 import './specialViews';
+import './colorMgmt';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

@@ -6,7 +6,8 @@
  */
 import { readout } from '../picture/measure';
 import type { Viewer } from './viewer';
-import type { Frame } from '../picture/model';
+import type { Frame, Page } from '../picture/model';
+import { colorStep } from '../color/display';
 
 export type GridMode = 'off' | 'thirds' | 'golden' | 'square';
 export type ColorBlind = 'off' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'achromatopsia';
@@ -102,11 +103,16 @@ const canvasFrom = (data: Uint8ClampedArray, w: number, h: number) => { const c 
 function cacheFor(f: Frame, key: string) { let c = caches.get(f); if (!c || c.key !== key) { c = { key }; caches.set(f, c); } return c; }
 
 /** The frame to draw: the original, or a copy with the display filters applied (cached). */
-export function displayFrame(f: Frame): CanvasImageSource {
-  if (!displayActive()) return f.image as CanvasImageSource;
-  const d = viewState.display, key = `d:${viewState.grayscale}:${viewState.colorBlind}:${d.brightness}:${d.contrast}:${d.gamma}`;
+export function displayFrame(f: Frame, page?: Page | null): CanvasImageSource {
+  const cm = colorStep(page), adjust = displayActive();
+  if (!adjust && !cm) return f.image as CanvasImageSource;
+  const d = viewState.display, key = `d:${cm?.key || ''}:${viewState.grayscale}:${viewState.colorBlind}:${d.brightness}:${d.contrast}:${d.gamma}`;
   const c = cacheFor(f, key);
-  if (!c.display) { const { data } = frameData(f); c.display = canvasFrom(applyDisplay(data, { grayscale: viewState.grayscale, colorBlind: viewState.colorBlind, lut: d.brightness || d.contrast || d.gamma !== 1 ? displayLut(d.brightness, d.contrast, d.gamma) : null }), f.width, f.height); }
+  if (!c.display) {
+    const { data } = frameData(f);
+    if (cm) cm.fn(data);
+    c.display = canvasFrom(adjust ? applyDisplay(data, { grayscale: viewState.grayscale, colorBlind: viewState.colorBlind, lut: d.brightness || d.contrast || d.gamma !== 1 ? displayLut(d.brightness, d.contrast, d.gamma) : null }) : data, f.width, f.height);
+  }
   return c.display;
 }
 
@@ -161,7 +167,7 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, v: Viewer, r: { x: n
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(n.x - 3, n.y - 3, n.w + 6, n.h + 6);
     ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'medium';
-    try { ctx.drawImage(displayFrame(f), 0, 0, pw, ph, n.x, n.y, n.w, n.h); } catch { /* closed bitmap */ }
+    try { ctx.drawImage(displayFrame(f, v.picture?.current), 0, 0, pw, ph, n.x, n.y, n.w, n.h); } catch { /* closed bitmap */ }
     const z = v.zoom, vx = (0 - r.x) / z, vy = (0 - r.y) / z, vwP = vw / z, vhP = vh / z;
     const bx = n.x + Math.max(0, vx) * n.k, by = n.y + Math.max(0, vy) * n.k, bw = Math.min(pw, vx + vwP) * n.k - Math.max(0, vx) * n.k, bh = Math.min(ph, vy + vhP) * n.k - Math.max(0, vy) * n.k;
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -216,7 +222,7 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, v: Viewer, r: { x: n
     if (p.x >= 0 && p.y >= 0 && p.x < f.width && p.y < f.height) {
       const src = (R * 2) / (v.zoom * z); // source size in picture pixels
       ctx.save(); ctx.beginPath(); ctx.arc(info.pointer.x, info.pointer.y, R, 0, Math.PI * 2); ctx.closePath(); ctx.clip(); ctx.imageSmoothingEnabled = z * v.zoom < 1;
-      ctx.drawImage(displayFrame(f), p.x - src / 2, p.y - src / 2, src, src, info.pointer.x - R, info.pointer.y - R, R * 2, R * 2);
+      ctx.drawImage(displayFrame(f, v.picture?.current), p.x - src / 2, p.y - src / 2, src, src, info.pointer.x - R, info.pointer.y - R, R * 2, R * 2);
       ctx.restore(); ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.shadowColor = '#000'; ctx.shadowBlur = 4; ctx.beginPath(); ctx.arc(info.pointer.x, info.pointer.y, R, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; ctx.fillText(`${z}×`, info.pointer.x + R - 24, info.pointer.y + R - 14); ctx.restore();
     }

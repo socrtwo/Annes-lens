@@ -30,6 +30,8 @@ export interface Page {
   dpi?: [number, number];
   /** Descriptive notes from the decoder (compression, color type, "grayscale"...). */
   notes: string[];
+  /** The ICC profile the pixel values are in (embedded, assigned or converted to); absent means sRGB. */
+  icc?: Uint8Array;
 }
 
 export class Picture {

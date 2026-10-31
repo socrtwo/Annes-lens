@@ -1246,6 +1246,74 @@ try {
   check('motion photo: the appended clip found and played', [mov.enabled, mov.clipLen, mov.loaded, mov.size, mov.pausedAfterToggle, mov.playingAgain], [true, mov.expected, 'loaded', [256, 144], true, true]);
   check('save current frame opens the clip frame as a picture', [/^z-motion \(frame [\d.]+ s\)\.png$/.test(mov.frame.name || ''), mov.frame.size, mov.frame.px && mov.frame.px[2] > 200 && mov.frame.px[0] < 40], [true, [256, 144], true]);
 
+  // Color management: a PNG and a JPEG tagged with the Adobe RGB-compatible profile decode to their
+  // own values and display through the profile (LittleCMS: (180, 60, 60) shows as (208, 57, 57));
+  // the toggle, soft proof (gray, a CMYK press with the gamut warning), Convert and Assign, and a
+  // save that carries the new profile and looks the same after reopening.
+  const cref = JSON.parse(readFileSync('tests/fixtures/color/lcms-reference.json', 'utf8'));
+  const cfx = ['tagged-adobergb.png', 'tagged-adobergb.jpg', 'press-cmyk.icc'].map((f) => readFileSync('tests/fixtures/color/' + f).toString('base64'));
+  const cm = await p.evaluate(async ([png64, jpg64, press64]) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const b64 = (s) => Uint8Array.from(atob(s), (ch) => ch.charCodeAt(0));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const C = await window.__qnColor(), N = await window.__qnNative();
+    const seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('ql-toast')) seen.push(n.textContent); }).observe(document.body, { childList: true, subtree: true });
+    const raw = (fx) => [...qn.picture.frameCanvas().getContext('2d').getImageData(Math.floor(qn.picture.width * fx), 24, 1, 1).data].slice(0, 3);
+    const shown = (fx) => { const v = qn.viewer, r = v.pictureRect(), dpr = window.devicePixelRatio || 1; return [...v.canvas.getContext('2d').getImageData(Math.round((r.x + r.w * fx) * dpr), Math.round((r.y + r.h / 2) * dpr), 1, 1).data].slice(0, 3); };
+    const both = () => ({ raw: [raw(0.25), raw(0.75)], shown: [shown(0.25), shown(0.75)] });
+    const redraw = async () => { qn.tab.ui.draw(); await wait(120); };
+    const pngBytes = b64(png64), jpgBytes = b64(jpg64);
+    await qn.exec('file.openDropped', [new File([pngBytes], 'cm-adobe.png', { type: 'image/png' }), new File([jpgBytes], 'cm-adobe.jpg', { type: 'image/jpeg' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'cm-adobe.png'; i++) await wait(50); await wait(250); await redraw();
+    const out = { png: { ...both(), note: qn.picture.current.notes.find((n) => /color profile/.test(n)) } };
+    await qn.exec('view.colorManaged'); await redraw(); out.unmanaged = both().shown; await qn.exec('view.colorManaged'); await redraw(); out.managedAgain = both().shown;
+    // The platform's own default decode converts to sRGB (what the app used to show).
+    const bmp = await createImageBitmap(new Blob([jpgBytes], { type: 'image/jpeg' })); const c0 = document.createElement('canvas'); c0.width = bmp.width; c0.height = bmp.height; c0.getContext('2d').drawImage(bmp, 0, 0);
+    out.platformDefault = [...c0.getContext('2d').getImageData(16, 24, 1, 1).data].slice(0, 3);
+    const goto = async (name) => { const i = qn.folder.entries.findIndex((e) => e.name === name); if (i >= 0 && qn.folder.select(i)) await qn.tab.show(); for (let k = 0; k < 60 && qn.picture?.name !== name; k++) await wait(50); await wait(250); await redraw(); };
+    await goto('cm-adobe.jpg');
+    out.jpg = { ...both(), tagged: !!qn.picture.current.icc };
+    await goto('cm-adobe.png'); out.backOnPng = qn.picture.name;
+    // Soft proof: gray, then the CMYK press with the gamut warning; both leave the values alone.
+    await qn.exec('image.softProof', { profile: 'S:gray22' }); await redraw(); out.proofGray = both(); out.proofActive = window.__qnGetCommand('image.softProof').isActive(qn);
+    await qn.exec('image.softProof'); await redraw(); out.proofOff = both().shown;
+    const press = await C.loadProfileFile([new File([b64(press64)], 'press.icc')]);
+    await qn.exec('image.softProof', { profile: 'L:' + C.loadedProfiles.indexOf(press), gamutWarning: true }); await redraw(); out.proofPress = both().shown;
+    await qn.exec('image.softProof', { profile: 'L:' + C.loadedProfiles.indexOf(press), gamutWarning: false }); await redraw(); out.proofPressPlain = both().shown;
+    await qn.exec('image.softProof'); await redraw();
+    // Convert keeps the look and changes the values; Assign keeps the values and changes the look.
+    await qn.exec('image.convertProfile', { to: 'S:srgb' }); await redraw(); out.toSrgb = { ...both(), name: C.profileName(qn.picture.current.icc), label: qn.tab.undoLabel };
+    qn.tab.undo(); await redraw(); out.undone = { ...both(), name: C.profileName(qn.picture.current.icc) };
+    await qn.exec('image.assignProfile', 'S:srgb'); await redraw(); out.assigned = both(); qn.tab.undo(); await redraw();
+    await qn.exec('image.convertProfile', { to: 'L:' + C.loadedProfiles.indexOf(press) }); out.refusedCmyk = seen.some((t) => /pictures can be in RGB or gray profiles only/.test(t)) && C.profileName(qn.picture.current.icc) === 'Adobe RGB (1998) compatible';
+    await qn.exec('image.convertProfile', { to: 'S:gray22' }); await redraw(); out.gray = both(); qn.tab.undo(); await redraw();
+    // Convert to Display P3 and save through a writable handle; the file reopens tagged and looks the same.
+    await qn.exec('image.convertProfile', { to: 'S:p3' }); await redraw(); const p3 = both();
+    const saved = { value: null }; const fh = { kind: 'file', name: 'cm-adobe.png', isSameEntry: async (o) => o === undefined, getFile: async () => new File([saved.value || pngBytes], 'cm-adobe.png', { type: 'image/png' }), createWritable: async () => { const parts = []; return { write: async (b) => { parts.push(b); }, close: async () => { saved.value = new Uint8Array(await new Blob(parts).arrayBuffer()); } }; } };
+    qn.picture.entry.uri = 'fsa:' + (await N.handleId(fh)); qn.prefs.keepOriginal = false;
+    await qn.exec('file.save'); for (let i = 0; i < 60 && !saved.value; i++) await wait(50); await wait(500); await redraw();
+    const embedded = saved.value && (await C.pngIcc(saved.value));
+    out.saved = { p3, embedded: embedded && C.profileName(embedded), reopened: { ...both(), name: C.profileName(qn.picture.current.icc), dirty: qn.tab.dirty } };
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    out.toasts = seen;
+    return out;
+  }, cfx);
+  const near = (a, b, t = 2) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= t);
+  const [adobeRed, adobeGreen] = cref.tagged['adobergb>srgb'];
+  check('color: a tagged PNG keeps its values and displays through its profile', [near(cm.png.raw[0], [180, 60, 60], 1) && near(cm.png.raw[1], [0, 200, 0], 1), near(cm.png.shown[0], adobeRed), near(cm.png.shown[1], adobeGreen), cm.png.note], [true, true, true, 'color profile: Adobe RGB (1998) compatible'], JSON.stringify(cm.png.shown));
+  check('color: Color-Managed Display off shows the raw values, on again the managed ones', [near(cm.unmanaged[0], [180, 60, 60], 1) && near(cm.unmanaged[1], [0, 200, 0], 1), near(cm.managedAgain[0], adobeRed)], [true, true], JSON.stringify(cm.unmanaged));
+  check('color: the platform converts by default (why the app decodes tagged files itself)', near(cm.platformDefault, adobeRed, 3), true, JSON.stringify(cm.platformDefault));
+  check('color: a tagged JPEG (APP2) too', [cm.backOnPng === 'cm-adobe.png', cm.jpg.tagged, near(cm.jpg.raw[0], [180, 60, 60], 2), near(cm.jpg.shown[0], adobeRed, 3)], [true, true, true, true], JSON.stringify(cm.jpg));
+  const g = cm.proofGray.shown[0];
+  check('color: soft proof on gray shows neutral tones and leaves the values', [cm.proofActive, g[0] === g[1] && g[1] === g[2], Math.abs(g[0] - cref.tagged['adobergb>gray22'][0][0]) <= 3, near(cm.proofGray.raw[0], [180, 60, 60], 1), near(cm.proofOff[0], adobeRed)], [true, true, true, true, true], JSON.stringify(cm.proofGray));
+  check('color: press proof marks the out-of-gamut green in magenta; without the warning it prints duller', [cm.proofPress[1], cm.proofPressPlain[1][0] - adobeGreen[0] > 30 && cm.proofPressPlain[1][2] - adobeGreen[2] > 30], [[255, 0, 255], true], JSON.stringify([cm.proofPress, cm.proofPressPlain]));
+  check('color: Convert to sRGB changes the values, keeps the look, and undoes', [near(cm.toSrgb.raw[0], adobeRed, 1), near(cm.toSrgb.shown[0], adobeRed), cm.toSrgb.name, cm.toSrgb.label, near(cm.undone.raw[0], [180, 60, 60], 1), cm.undone.name], [true, true, 'sRGB IEC61966-2.1', 'Convert to sRGB IEC61966-2.1', true, 'Adobe RGB (1998) compatible'], JSON.stringify(cm.toSrgb));
+  check('color: Assign sRGB keeps the values and changes the look', [near(cm.assigned.raw[0], [180, 60, 60], 1), near(cm.assigned.shown[0], cm.assigned.raw[0], 1)], [true, true], JSON.stringify(cm.assigned));
+  check('color: a CMYK profile is refused for the pixels', cm.refusedCmyk, true);
+  check('color: Convert to gray makes neutral values', [cm.gray.raw[0][0] === cm.gray.raw[0][1] && cm.gray.raw[0][1] === cm.gray.raw[0][2], Math.abs(cm.gray.raw[0][0] - cref.tagged['adobergb>gray22'][0][0]) <= 1], [true, true], JSON.stringify(cm.gray));
+  check('color: Convert to P3 and save; the file carries the profile and looks the same reopened', [cm.saved.embedded, cm.saved.reopened.name, near(cm.saved.reopened.raw[0], cm.saved.p3.raw[0], 1) && near(cm.saved.reopened.raw[1], cm.saved.p3.raw[1], 1), near(cm.saved.reopened.shown[0], adobeRed), cm.saved.reopened.dirty], ['Display P3', 'Display P3', true, true, false], JSON.stringify(cm.saved));
+  if (cm.toasts.some((t) => /Not converted|failed/i.test(t))) failures.push('color toasts: ' + cm.toasts.join(' | '));
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {

@@ -4,6 +4,7 @@
  * or the whole folder; outputs go to a chosen folder (desktop, Android, File System Access) or, where
  * nothing can be written, into a ZIP download. Every batch is one journal entry Undo Last Batch reverses.
  */
+import { iccForSave, writeWithProfile } from '../color/embedded';
 import { def } from './registry';
 import type { App } from '../app';
 import { openDialog, toast, confirmDialog } from '../ui/dialog';
@@ -124,10 +125,11 @@ async function processOne(job: BatchJob, e: Entry, index: number, name: string):
     const fmt: EncodeFormat = job.format === 'keep' ? encoderFor(pic.format.id) || 'png' : job.format;
     const c = rasterFrame(r, 0).image as HTMLCanvasElement;
     let blob = await encodeCanvas(c, fmt, job.quality / 100);
-    if ((job.keepMeta || metaAction.length) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) {
+    if ((job.keepMeta || metaAction.length || pic.current.icc) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) {
       const meta = job.keepMeta ? extractMeta(u8) : {};
       if (metaAction.length) { let xml = meta.xmp ? decodeText(meta.xmp) : null; for (const a of metaAction) xml = updateXmp(xml, a.patch); meta.xmp = new TextEncoder().encode(xml!); }
-      if (hasMeta(meta)) { if (meta.exif) meta.exif = setExifOrientation(meta.exif, 1); blob = new Blob([injectMeta(new Uint8Array(await blob.arrayBuffer()), fmt, meta) as BlobPart], { type: blob.type }); }
+      const icc = iccForSave(pic.current.icc, meta.icc);
+      if (hasMeta({ ...meta, icc })) { if (meta.exif) meta.exif = setExifOrientation(meta.exif, 1); blob = new Blob([await writeWithProfile(new Uint8Array(await blob.arrayBuffer()), fmt, meta, icc) as BlobPart], { type: blob.type }); }
     }
     const out = new Uint8Array(await blob.arrayBuffer());
     const outName = job.format === 'keep' && encoderFor(pic.format.id) !== fmt ? name.replace(/\.[^.]+$/, '') + '.' + ENCODERS[fmt].ext : name;

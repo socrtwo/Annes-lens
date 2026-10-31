@@ -1,7 +1,7 @@
 /**
  * Carrying metadata across saves: pulls the EXIF block, the XMP packet and the ICC profile out of a
- * JPEG, PNG or WebP file, and writes them into a freshly encoded JPEG (APP1/APP2), PNG (eXIf, iTXt,
- * iCCP is skipped because it needs zlib) or WebP (VP8X + EXIF/XMP/ICCP chunks). The EXIF Orientation
+ * JPEG, PNG or WebP file, and writes them into a freshly encoded JPEG (APP1/APP2), PNG (eXIf, iTXt;
+ * iCCP separately, through the platform's zlib streams) or WebP (VP8X + EXIF/XMP/ICCP chunks). The EXIF Orientation
  * tag can be reset when the pixels were turned upright before saving.
  */
 
@@ -133,7 +133,7 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
   return out;
 }
 
-/** Inserts eXIf and an XMP iTXt chunk before the first IDAT. (An ICC profile needs zlib for iCCP and is left out.) */
+/** Inserts eXIf and an XMP iTXt chunk before the first IDAT. (The ICC profile goes in with injectPngIcc.) */
 export function injectPngMeta(png: Uint8Array, m: PictureMeta): Uint8Array {
   if (!(m.exif || m.xmp) || png[0] !== 0x89 || png[1] !== 0x50) return png;
   let p = 8, at = -1;
@@ -198,4 +198,30 @@ export function injectMeta(bytes: Uint8Array, format: string, m: PictureMeta): U
   if (format === 'png') return injectPngMeta(bytes, m);
   if (format === 'webp') return injectWebpMeta(bytes, m);
   return bytes;
+}
+
+async function zlib(data: Uint8Array, mode: 'compress' | 'decompress'): Promise<Uint8Array> {
+  const cs = mode === 'compress' ? new CompressionStream('deflate') : new DecompressionStream('deflate'), w = cs.writable.getWriter();
+  const done = Promise.all([w.write(data as BufferSource), w.close()]);
+  const [out] = await Promise.all([new Response(cs.readable).arrayBuffer(), done]);
+  return new Uint8Array(out);
+}
+const pngChunks = (png: Uint8Array) => { const out: { type: string; at: number; len: number }[] = []; let p = 8; while (p + 12 <= png.length) { const len = ((png[p] << 24) | (png[p + 1] << 16) | (png[p + 2] << 8) | png[p + 3]) >>> 0; const type = str(png, p + 4, 4); out.push({ type, at: p, len }); if (type === 'IEND') break; p += 12 + len; } return out; };
+
+/** The ICC profile in a PNG's iCCP chunk (inflated), or null. */
+export async function pngIcc(png: Uint8Array): Promise<Uint8Array | null> {
+  if (png[0] !== 0x89 || png[1] !== 0x50) return null;
+  const c = pngChunks(png).find((k) => k.type === 'iCCP'); if (!c) return null;
+  const d = c.at + 8; let q = d; while (q < d + c.len && png[q]) q++;
+  try { return await zlib(png.subarray(q + 2, d + c.len), 'decompress'); } catch { return null; }
+}
+
+/** Puts an iCCP chunk after IHDR, replacing any iCCP, sRGB, gAMA and cHRM chunk (the profile supersedes them). */
+export async function injectPngIcc(png: Uint8Array, icc: Uint8Array, name = 'ICC profile'): Promise<Uint8Array> {
+  if (png[0] !== 0x89 || png[1] !== 0x50) return png;
+  const chunks = pngChunks(png), ihdr = chunks[0]; if (!ihdr || ihdr.type !== 'IHDR') return png;
+  const label = name.replace(/[^\x20-\x7e]/g, '').trim().slice(0, 79) || 'ICC profile';
+  const parts: Uint8Array[] = [png.subarray(0, ihdr.at + 12 + ihdr.len), pngChunk('iCCP', concat([ascii(label), Uint8Array.from([0, 0]), await zlib(icc, 'compress')]))];
+  for (const c of chunks.slice(1)) if (!['iCCP', 'sRGB', 'gAMA', 'cHRM'].includes(c.type)) parts.push(png.subarray(c.at, c.at + 12 + c.len));
+  return concat(parts);
 }

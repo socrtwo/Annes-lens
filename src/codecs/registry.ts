@@ -6,6 +6,7 @@
  * platform allows (createImageBitmap) and is tolerant: a damaged GIF or TIFF shows what was readable.
  */
 import { Picture, transformPage, orientationOps, type Page, type Frame } from '../picture/model';
+import { keepEmbedded } from '../color/embedded';
 import type { Entry } from '../picture/folder';
 import { decodeGif, isGif } from './gif';
 import { decodeTiff, isTiff } from './tiff';
@@ -163,6 +164,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
       } else throw e;
     }
   }
+  if (fmt.id === 'tiff') { const own = await keepEmbedded(u8, 'tiff'); if (own) for (const pg of decoded.pages) { pg.icc = own.icc; pg.notes.push(`color profile: ${own.profile.description || 'embedded'}`); } }
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;
   // EXIF orientation: the platform decodes with imageOrientation 'none', so the pixels are as stored.
@@ -277,14 +279,18 @@ async function fromPlatform(u8: Uint8Array, fmt: FormatInfo, info: ContainerInfo
     }
   }
   let bmp: ImageBitmap;
+  // A tagged JPEG, PNG or WebP in a profile other than sRGB keeps its own pixel values; the viewer color-manages them.
+  let own = fmt.id === 'jpeg' || fmt.id === 'png' || fmt.id === 'webp' ? await keepEmbedded(u8, fmt.id) : null;
   try {
-    bmp = await createImageBitmap(blob, { imageOrientation: 'none' as any, premultiplyAlpha: 'none' as any });
+    bmp = await createImageBitmap(blob, { imageOrientation: 'none' as any, premultiplyAlpha: 'none' as any, ...(own ? { colorSpaceConversion: 'none' as any } : {}) });
   } catch (e: any) {
     // Some engines reject the options or the format through createImageBitmap but render it in an <img>.
     bmp = await viaImageElement(blob, fmt);
+    own = null; // an <img> always converts to sRGB
   }
   const page: Page = { width: bmp.width, height: bmp.height, frames: [{ image: bmp, width: bmp.width, height: bmp.height, delay: 0 }], loops: 0, bitDepth: meta.bitDepth, hasAlpha: meta.hasAlpha, dpi: meta.dpi, paletteSize: meta.paletteSize, notes: [...notes] };
   if (fmt.id === 'svg') page.notes.push('vector, rendered at its intrinsic size');
+  if (own) { page.icc = own.icc; page.notes.push(`color profile: ${own.profile.description || 'embedded'}`); }
   return { pages: [page], info: info?.info || {}, warnings, decoder: 'platform' };
 }
 
