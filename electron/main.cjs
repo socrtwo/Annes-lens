@@ -80,6 +80,27 @@ function fileResult(p) {
   return { uri: pathToFileURL(p).href, name: path.basename(p), mime: MIME[ext] || 'application/octet-stream', data: data.toString('base64'), size: st.size, mtime: st.mtimeMs };
 }
 /** The picture files in a folder, natural-sorted, as {uri, name, size, mtime}. */
+// Next / Previous Folder walk the folder tree the user is browsing: each folder reached that way is
+// granted for listing and reading pictures (as when its pictures are opened), never for writing.
+function listSubdirs(dir) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  const out = [];
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return out; }
+  for (const name of names) {
+    if (name.startsWith('.')) continue;
+    const p = path.join(dir, name);
+    try { if (fs.statSync(p).isDirectory()) out.push({ uri: pathToFileURL(p).href, name, p }); } catch { /* unreadable */ }
+  }
+  out.sort((a, b) => collator.compare(a.name, b.name));
+  return out.map(({ uri, name, p }) => { grantDir(p); return { uri, name }; });
+}
+function grantedDir(uri) {
+  if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a file address');
+  const dir = path.resolve(fileURLToPath(uri));
+  if (!grantedDirs.has(dir)) throw new Error('Anne\'s Lens has no permission for this folder; open it first.');
+  return dir;
+}
 function listDir(dir) {
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
   const out = [];
@@ -148,6 +169,47 @@ function registerIpc() {
     if (!grantedDirs.has(dir) && !grants.has(p)) throw new Error('Anne\'s Lens has no permission for this folder; open a picture in it first.');
     grantDir(dir);
     return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir) };
+  });
+  handle('listSubfolders', async ({ uri }) => ({ folders: listSubdirs(grantedDir(uri)) }));
+  handle('parentFolder', async ({ uri }) => {
+    const dir = grantedDir(uri), parent = path.dirname(dir);
+    if (parent === dir) return null;
+    grantDir(parent);
+    return { uri: pathToFileURL(parent).href, name: path.basename(parent) || parent };
+  });
+  handle('listDisplays', async () => {
+    const { screen } = require('electron');
+    const cur = win ? screen.getDisplayMatching(win.getBounds()).id : null, primary = screen.getPrimaryDisplay().id;
+    return screen.getAllDisplays().map((d, i) => ({ id: d.id, label: d.label || `Display ${i + 1}`, bounds: d.bounds, primary: d.id === primary, current: d.id === cur }));
+  });
+  handle('moveToDisplay', async ({ id, fullScreen }) => {
+    const { screen } = require('electron');
+    const d = screen.getAllDisplays().find((x) => x.id === id);
+    if (!d || !win) return { ok: false };
+    if (win.isFullScreen()) win.setFullScreen(false);
+    if (!restoreBounds) restoreBounds = win.getBounds();
+    const b = win.getBounds(), wa = d.workArea, width = Math.min(b.width, wa.width), height = Math.min(b.height, wa.height);
+    win.setBounds({ x: wa.x + Math.round((wa.width - width) / 2), y: wa.y + Math.round((wa.height - height) / 2), width, height });
+    if (fullScreen) win.setFullScreen(true); else restoreBounds = null;
+    return { ok: true };
+  });
+  handle('setFrameless', async ({ on, reopen }) => {
+    saveWindowPrefs({ frameless: !!on });
+    if (!!on === frameless || !win) return { ok: true };
+    // The frame is fixed when a window is made: open a new one in the same place and close this one.
+    const old = win, bounds = old.isMaximized() || old.isFullScreen() ? null : old.getBounds();
+    if (typeof reopen === 'string' && reopen.startsWith('file:')) { try { pendingFiles.push(grantedPath(reopen)); } catch { /* no longer allowed */ } }
+    rendererReady = false;
+    createWindow(bounds || undefined);
+    old.destroy();
+    return { ok: true };
+  });
+  handle('windowControl', async ({ action }) => {
+    if (action === 'minimize') win.minimize();
+    else if (action === 'maximize') { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
+    else if (action === 'close') win.close();
+    else if (action === 'leaveFullScreen' && win.isFullScreen()) win.setFullScreen(false);
+    return { maximized: win.isMaximized(), frameless, fullScreen: win.isFullScreen() };
   });
   handle('saveAs', async ({ name, data }) => {
     const ext = path.extname(String(name || '')).slice(1);
@@ -497,10 +559,20 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createWindow() {
-  win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+// Window settings kept between runs (the frameless choice).
+const windowFile = () => path.join(app.getPath('userData'), 'window.json');
+function windowPrefs() { try { return JSON.parse(fs.readFileSync(windowFile(), 'utf8')) || {}; } catch { return {}; } }
+function saveWindowPrefs(p) { try { fs.writeFileSync(windowFile(), JSON.stringify({ ...windowPrefs(), ...p })); } catch { /* read-only profile */ } }
+let frameless = false;
+let restoreBounds = null; // where the window was before Full Screen on Another Display
+
+function createWindow(bounds) {
+  frameless = !!windowPrefs().frameless;
+  const w = new BrowserWindow({
+    width: bounds ? bounds.width : 1280,
+    height: bounds ? bounds.height : 860,
+    ...(bounds ? { x: bounds.x, y: bounds.y } : {}),
+    frame: !frameless,
     minWidth: 360,
     minHeight: 480,
     title: 'Anne\'s Lens',
@@ -516,6 +588,7 @@ function createWindow() {
       spellcheck: false,
     },
   });
+  win = w;
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (safeUrl(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -525,8 +598,9 @@ function createWindow() {
     const choice = dialog.showMessageBoxSync(win, { type: 'question', buttons: ['Close without saving', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Unsaved changes', message: 'Some pictures have unsaved changes. Close Anne\'s Lens anyway?' });
     if (choice === 0) e.preventDefault();
   });
-  win.webContents.on('did-start-loading', () => { rendererReady = false; });
-  win.on('closed', () => { win = null; rendererReady = false; });
+  win.webContents.on('did-start-loading', () => { if (win === w) rendererReady = false; });
+  win.on('closed', () => { if (win === w) { win = null; rendererReady = false; } });
+  win.on('leave-full-screen', () => { if (restoreBounds && win === w) { const b = restoreBounds; restoreBounds = null; setTimeout(() => { if (!w.isDestroyed()) w.setBounds(b); }, 50); } });
   void win.loadURL(`${ORIGIN}/index.html`);
 }
 

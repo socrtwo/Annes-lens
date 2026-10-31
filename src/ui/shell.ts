@@ -12,6 +12,7 @@ import { ThumbPanel } from './thumbs';
 import { QAT_STANDARD, QAT_EXTRAS } from '../prefs';
 import { CLASSIC_MENUS, DEFAULT_LAYOUT, type ClassicItem } from './classicMenus';
 import { PLAN_COMMANDS } from '../plan.generated';
+import { desktopBridge } from '../platform/native';
 
 export class Shell {
   root: HTMLElement;
@@ -54,7 +55,10 @@ export class Shell {
     const search = h('button', { class: 'ql-iconbtn', title: 'Search commands (Alt+Q)', 'aria-label': 'Search commands', onclick: () => this.commandPalette() }, icon('search'));
     const full = h('button', { class: 'ql-btn ql-present', title: 'Full Screen (Enter)', onclick: () => this.app.exec('view.fullScreen') }, icon('fullscreen'), h('span', { class: 'ql-present-label' }, ' Full Screen'));
     const more = h('button', { class: 'ql-iconbtn', title: 'More', 'aria-label': 'More', onclick: (e: MouseEvent) => this.moreMenu(e.currentTarget as HTMLElement) }, icon('more_vert'));
-    this.titlebar.append(fileBtn, this.qatEl, this.titleBtn, h('span', { class: 'ql-spacer' }), search, full, more);
+    // Frameless Window (desktop): the title bar moves the window and carries its buttons.
+    const winBtn = (name: string, label: string, action: 'minimize' | 'maximize' | 'close') => h('button', { class: `ql-iconbtn ql-win-${action}`, title: label, 'aria-label': label, onclick: () => void desktopBridge()?.windowControl({ action }) }, icon(name));
+    const winCtl = h('span', { class: 'ql-winctl' }, winBtn('minimize', 'Minimize', 'minimize'), winBtn('crop_square', 'Maximize or Restore', 'maximize'), winBtn('close', 'Close', 'close'));
+    this.titlebar.append(fileBtn, this.qatEl, this.titleBtn, h('span', { class: 'ql-spacer' }), search, full, more, winCtl);
     this.menuBarEl = h('nav', { class: 'ql-menubar', role: 'menubar', 'aria-label': 'Menu bar' });
     this.tabsEl = h('nav', { class: 'ql-tabs', role: 'tablist' });
     this.ribbonEl = h('div', { class: 'ql-ribbon', role: 'toolbar' });

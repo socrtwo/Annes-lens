@@ -57,6 +57,8 @@ interface QuillNativePlugin {
   createInFolder?(opts: { dirUri: string; name: string; mime: string; data: string }): Promise<{ uri: string; name: string }>;
   /** Lists the pictures in a picked folder. */
   listFolder?(opts: { uri: string }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
+  /** The folders inside a picked tree (or a folder in it), as folder URIs. */
+  listSubfolders?(opts: { uri: string }): Promise<{ folders: FolderRef[] }>;
 }
 
 /** The desktop bridge adds what a file system and a window manager make possible. */
@@ -104,7 +106,17 @@ interface DesktopBridge extends QuillNativePlugin {
   createSubfolder(opts: { dirUri: string; name: string }): Promise<{ uri: string; name: string }>;
   /** HTTP request for AI services (no cross-origin limits). Body and answer travel as base64. */
   request(opts: { url: string; method: string; headers: Record<string, string>; body?: string; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; data: string }>;
+  /** The folder above one the app may list. */
+  parentFolder(opts: { uri: string }): Promise<FolderRef | null>;
+  /** The displays, and moving the window onto one (full screen there when asked). */
+  listDisplays(): Promise<DisplayInfo[]>;
+  moveToDisplay(opts: { id: number; fullScreen?: boolean }): Promise<{ ok: boolean }>;
+  /** Recreates the window with or without its frame, reopening `reopen` (a file URI) in it. */
+  setFrameless(opts: { on: boolean; reopen?: string | null }): Promise<{ ok: boolean }>;
+  windowControl(opts: { action: 'minimize' | 'maximize' | 'close' | 'state' | 'leaveFullScreen' }): Promise<{ maximized: boolean; frameless: boolean; fullScreen: boolean }>;
 }
+export interface FolderRef { uri: string; name: string }
+export interface DisplayInfo { id: number; label: string; bounds: { x: number; y: number; width: number; height: number }; primary: boolean; current: boolean }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
 const Native: QuillNativePlugin = desktop || registerPlugin<QuillNativePlugin>('QuillNative');
@@ -589,4 +601,43 @@ export function onAppResume(cb: () => void): () => void {
     import('@capacitor/app').then(({ App }) => App.addListener('resume', cb)).then((h) => { remove = () => h.remove(); }).catch(() => undefined);
   }
   return () => { document.removeEventListener('visibilitychange', vis); remove?.(); };
+}
+
+// ------------------------------------------------------------------------------------------
+// Folder tree (Next / Previous Folder): subfolders of a folder the app can list, and its parent.
+
+const folderCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+/** True when this platform can list the folders inside `uri`. */
+export function canListSubfolders(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  if (desktop) return uri.startsWith('file:');
+  if (uri.startsWith(FSA_DIR)) return !!fsaDir(uri);
+  return isNative() && /^content:/.test(uri) && !!Native.listSubfolders;
+}
+/** The folders inside `uri` in name order (numbers in order: 2 before 10); null where it cannot be listed. */
+export async function listSubfolders(uri: string): Promise<FolderRef[] | null> {
+  let out: FolderRef[] | null = null;
+  if (desktop && uri.startsWith('file:')) out = (await desktop.listSubfolders!({ uri })).folders;
+  else if (uri.startsWith(FSA_DIR)) {
+    const dir = fsaDir(uri); if (!dir) return null;
+    out = [];
+    for await (const [name, h] of dir.entries()) if (h.kind === 'directory' && !name.startsWith('.')) out.push({ name, uri: FSA_DIR + (await handleId(h)) });
+  } else if (isNative() && /^content:/.test(uri) && Native.listSubfolders) out = (await Native.listSubfolders({ uri })).folders;
+  return out ? out.sort((a, b) => folderCollator.compare(a.name, b.name)) : null;
+}
+/** The folder above `uri` (desktop file systems only; elsewhere the opened folder is the top). */
+export async function parentFolderOf(uri: string): Promise<FolderRef | null> {
+  if (desktop && uri.startsWith('file:')) { try { return await desktop.parentFolder({ uri }); } catch { return null; } }
+  return null;
+}
+/** The picture files directly in a folder, as entries for listFolderOf-style results or File System Access handles. */
+export async function listFolderFiles(uri: string): Promise<{ entries?: FolderEntry[]; handles?: { name: string; handle: any }[] } | null> {
+  if (uri.startsWith(FSA_DIR)) {
+    const dir = fsaDir(uri); if (!dir) return null;
+    const handles: { name: string; handle: any }[] = [];
+    for await (const [name, h] of dir.entries()) if (h.kind === 'file') handles.push({ name, handle: h });
+    return { handles };
+  }
+  const r = await listFolderOf(uri);
+  return r ? { entries: r.entries } : null;
 }

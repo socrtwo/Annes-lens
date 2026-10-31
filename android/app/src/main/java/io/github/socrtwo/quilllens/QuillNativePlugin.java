@@ -438,7 +438,8 @@ public class QuillNativePlugin extends Plugin {
             try {
                 Uri tree = Uri.parse(uriString);
                 ContentResolver resolver = getContext().getContentResolver();
-                String treeId = DocumentsContract.getTreeDocumentId(tree);
+                // A picked tree, or a folder inside it (Next / Previous Folder hand those back).
+                String treeId = folderDocumentId(tree);
                 Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, treeId);
                 JSArray entries = new JSArray();
                 String[] columns = {
@@ -473,12 +474,65 @@ public class QuillNativePlugin extends Plugin {
                 }
                 String folderName = queryDisplayName(DocumentsContract.buildDocumentUriUsingTree(tree, treeId));
                 JSObject ret = new JSObject();
-                ret.put("uri", tree.toString());
+                ret.put("uri", uriString);
                 ret.put("name", folderName != null ? folderName : "Folder");
                 ret.put("entries", entries);
                 call.resolve(ret);
             } catch (Throwable e) {
                 call.reject("Could not list the folder: " + e.getMessage(), asException(e));
+            }
+        });
+    }
+
+    /** The document id of a tree URI's root, or of a folder document inside a tree. */
+    private String folderDocumentId(Uri uri) {
+        if (DocumentsContract.isDocumentUri(getContext(), uri)) {
+            return DocumentsContract.getDocumentId(uri);
+        }
+        return DocumentsContract.getTreeDocumentId(uri);
+    }
+
+    /** The folders directly inside a picked tree or a folder in it, in name order, as folder document URIs. */
+    @PluginMethod
+    public void listSubfolders(PluginCall call) {
+        final String uriString = call.getString("uri");
+        if (uriString == null || uriString.isEmpty()) {
+            call.reject("listSubfolders requires 'uri'");
+            return;
+        }
+        io.execute(() -> {
+            try {
+                Uri tree = Uri.parse(uriString);
+                ContentResolver resolver = getContext().getContentResolver();
+                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderDocumentId(tree));
+                String[] columns = { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE };
+                java.util.List<String[]> found = new java.util.ArrayList<>();
+                try (Cursor cursor = resolver.query(children, columns, null, null, null)) {
+                    while (cursor != null && cursor.moveToNext()) {
+                        String id = cursor.getString(0);
+                        String name = cursor.getString(1);
+                        String mime = cursor.isNull(2) ? null : cursor.getString(2);
+                        if (name == null || name.startsWith(".") || !DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
+                            continue;
+                        }
+                        found.add(new String[] { DocumentsContract.buildDocumentUriUsingTree(tree, id).toString(), name });
+                    }
+                }
+                java.text.Collator collator = java.text.Collator.getInstance();
+                collator.setStrength(java.text.Collator.SECONDARY);
+                found.sort((a, b) -> collator.compare(a[1], b[1]));
+                JSArray folders = new JSArray();
+                for (String[] f : found) {
+                    JSObject o = new JSObject();
+                    o.put("uri", f[0]);
+                    o.put("name", f[1]);
+                    folders.put(o);
+                }
+                JSObject ret = new JSObject();
+                ret.put("folders", folders);
+                call.resolve(ret);
+            } catch (Throwable e) {
+                call.reject("Could not list the subfolders: " + e.getMessage(), asException(e));
             }
         });
     }

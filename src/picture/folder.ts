@@ -57,6 +57,8 @@ export class Folder {
   name = '';
   /** Platform address of the folder itself, when known (file: URL, Android tree URI, fsadir: handle id). */
   uri: string | null = null;
+  /** The top of the folder tree Next / Previous Folder may walk (null: as high as the platform allows). */
+  treeTop?: string | null;
   private listeners = new Set<() => void>();
 
   constructor(entries: Entry[] = [], name = '') { this.entries = entries; this.name = name; }

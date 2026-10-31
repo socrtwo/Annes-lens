@@ -19,6 +19,8 @@ step "File facts (File Properties)" "the same size from ls and MediaStore"; ls -
 step "Default apps (File Associations)" "the Default apps page; then the PNG opener"; am start -a android.settings.MANAGE_DEFAULT_APPS_SETTINGS; pm resolve-activity --brief -a android.intent.action.VIEW -t image/png; pause
 step "Camera capture (Scan)" "a full-resolution JPEG"; termux-camera-photo -c 0 ~/annes-lens-scan.jpg && magick identify ~/annes-lens-scan.jpg; pause
 step "Import folders" "DCIM photos listed; nested folders created"; ls ~/storage/dcim/Camera 2>/dev/null | head -5; mkdir -p ~/storage/shared/Pictures/Import/2026/2026-10-30 && ls -R ~/storage/shared/Pictures/Import; pause
+T=~/storage/shared/Pictures/AnnesLensTree
+step "Folder tree (Next / Previous Folder)" "the tree listed; then in the app: Open Folder AnnesLensTree, Next Folder twice (extras, 2020 Wedding)"; for d in "2019 Reunion" "2019 Reunion/extras" "2020 Wedding" Empty; do mkdir -p "$T/$d"; done; cp "$PIC" "$T/2019 Reunion/a.png"; cp "$PIC" "$T/2019 Reunion/extras/b.png"; cp "$PIC" "$T/2020 Wedding/c.png"; ls -R "$T"; pause
 step "AI service reachable" "401 (reachable, key needed)"; curl -sS -m 10 https://api.openai.com/v1/models -o /dev/null -w "%{http_code}\n"
 step "Model download reachable" "200 6632188"; curl -sSL -m 30 -o /dev/null -w "%{http_code} %{size_download}\n" https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_quantized.onnx
 echo; echo "Done. Set your wallpaper back from the launcher if needed."

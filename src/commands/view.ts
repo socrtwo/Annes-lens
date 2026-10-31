@@ -20,9 +20,11 @@ function nav(app: App, d: number): void {
   if (document.fullscreenElement || document.body.classList.contains('ql-fullscreen')) app.viewer.flash(`${f.index + 1} / ${f.length}  ${f.current?.name || ''}`);
 }
 
-export function fullScreen(app: App, on: boolean): void {
+/** `screen` (Window Management API) picks the display; `native: false` when the desktop shell already made the window full screen. */
+export function fullScreen(app: App, on: boolean, o: { screen?: any; native?: boolean } = {}): void {
   document.body.classList.toggle('ql-fullscreen', on);
-  try { if (on) void document.documentElement.requestFullscreen?.(); else if (document.fullscreenElement) void document.exitFullscreen(); } catch { /* not allowed */ }
+  try { if (on) { if (o.native !== false) void document.documentElement.requestFullscreen?.(o.screen ? ({ screen: o.screen } as FullscreenOptions) : undefined)?.catch(() => undefined); } else if (document.fullscreenElement) void document.exitFullscreen(); } catch { /* not allowed */ }
+  if (!on) void desktopBridge()?.windowControl?.({ action: 'leaveFullScreen' }).catch(() => undefined);
   void keepAwake(on);
   requestAnimationFrame(() => { for (const t of app.tabs) t.ui.layout(); });
   app.refresh();

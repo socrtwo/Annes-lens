@@ -1246,6 +1246,53 @@ try {
   check('motion photo: the appended clip found and played', [mov.enabled, mov.clipLen, mov.loaded, mov.size, mov.pausedAfterToggle, mov.playingAgain], [true, mov.expected, 'loaded', [256, 144], true, true]);
   check('save current frame opens the clip frame as a picture', [/^z-motion \(frame [\d.]+ s\)\.png$/.test(mov.frame.name || ''), mov.frame.size, mov.frame.px && mov.frame.px[2] > 200 && mov.frame.px[0] < 40], [true, [256, 144], true]);
 
+  // Next / Previous Folder through a File System Access tree (a folder of folders: Open Folder shows
+  // the first one with pictures), with the keyboard; Full Screen on Another Display on a stubbed
+  // two-screen Window Management API.
+  const fnav = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('ql-toast')) seen.push(n.textContent); }).observe(document.body, { childList: true, subtree: true });
+    const png = async (color) => { const c = document.createElement('canvas'); c.width = 8; c.height = 8; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 8, 8); return new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/png'))).arrayBuffer()); };
+    const file = (name, bytes) => { const f = { kind: 'file', name, isSameEntry: async (o) => o === f, getFile: async () => new File([bytes], name, { type: 'image/png' }) }; return f; };
+    const dir = (name, kids) => { const d = { kind: 'directory', name, isSameEntry: async (o) => o === d, entries: async function* () { for (const k of kids) yield [k.name, k]; } }; return d; };
+    const root = dir('Family', [file('notes.txt', new Uint8Array([1])), dir('2019 Reunion', [file('a.png', await png('#ff0000')), dir('extras', [file('b.png', await png('#00ff00'))])]), dir('.hidden', [file('h.png', await png('#ffffff'))]), dir('2020 Wedding', [file('c.png', await png('#0000ff')), file('d.png', await png('#0000ff'))]), dir('Empty', [])]);
+    window.showDirectoryPicker = async () => root;
+    const where = () => ({ folder: qn.folder.name, n: qn.folder.length, pic: qn.picture?.name });
+    const settle = async (name) => { for (let i = 0; i < 60 && qn.folder.name !== name; i++) await wait(50); await wait(250); };
+    const out = {};
+    await qn.exec('file.openFolder'); await settle('2019 Reunion'); out.opened = where();
+    out.enabled = window.__qnGetCommand('view.nextFolder').isEnabled(qn);
+    return out;
+  });
+  check('open folder of folders shows the first with pictures', [fnav.opened, fnav.enabled], [{ folder: '2019 Reunion', n: 1, pic: 'a.png' }, true]);
+  const fsteps = [];
+  for (const key of ['Control+ArrowRight', 'Control+ArrowRight', 'Control+ArrowRight', 'Control+ArrowLeft', 'Control+ArrowLeft']) {
+    await p.keyboard.press(key); await p.waitForTimeout(700);
+    fsteps.push(await p.evaluate(() => `${qn.folder.name}:${qn.folder.length}:${qn.picture?.name}`));
+  }
+  check('next / previous folder walk the tree (subfolders first, hidden and empty skipped)', fsteps, ['extras:1:b.png', '2020 Wedding:2:c.png', '2020 Wedding:2:c.png', 'extras:1:b.png', '2019 Reunion:1:a.png']);
+  const fsd = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('ql-toast')) seen.push(n.textContent); }).observe(document.body, { childList: true, subtree: true });
+    const screens = [{ label: 'Built-in', width: 1920, height: 1080, isPrimary: true }, { label: 'Projector', width: 1280, height: 720, isPrimary: false }];
+    let count = 2;
+    window.getScreenDetails = async () => ({ screens: screens.slice(0, count), currentScreen: screens[0] });
+    const asked = []; const orig = document.documentElement.requestFullscreen; document.documentElement.requestFullscreen = function (o) { asked.push(o); return Promise.resolve(); };
+    const out = { enabled: window.__qnGetCommand('view.fullScreenDisplay').isEnabled(qn), framelessEnabled: window.__qnGetCommand('view.frameless').isEnabled(qn) };
+    // The dialog lists both displays and preselects the one the window is not on.
+    const run = qn.exec('view.fullScreenDisplay'); let d; for (let i = 0; i < 60 && !(d = document.querySelector('.ql-dialog .ql-primary')); i++) await wait(50);
+    const dlg = document.querySelector('.ql-dialog'); out.labels = [...dlg.querySelectorAll('label')].map((l) => l.textContent.trim()).filter((t) => /Built-in|Projector/.test(t));
+    out.preselected = dlg.querySelector('input[type=radio]:checked')?.value; d.click(); await run; await wait(100);
+    out.screen = asked[0]?.screen?.label; out.fullscreen = document.body.classList.contains('ql-fullscreen');
+    await qn.exec('view.fullScreen'); await wait(100); out.after = document.body.classList.contains('ql-fullscreen');
+    count = 1; await qn.exec('view.fullScreenDisplay'); await wait(150); out.single = seen.find((t) => /Only one display/.test(t)) || null; out.calls = asked.length;
+    document.documentElement.requestFullscreen = orig;
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    return out;
+  });
+  check('full screen on another display uses the chosen screen', [fsd.enabled, fsd.framelessEnabled, fsd.labels.length, fsd.preselected, fsd.screen, fsd.fullscreen, fsd.after, fsd.single, fsd.calls], [true, false, 2, '1', 'Projector', true, false, 'Only one display is connected.', 1], JSON.stringify(fsd));
+
   // Color management: a PNG and a JPEG tagged with the Adobe RGB-compatible profile decode to their
   // own values and display through the profile (LittleCMS: (180, 60, 60) shows as (208, 57, 57));
   // the toggle, soft proof (gray, a CMYK press with the gamut warning), Convert and Assign, and a

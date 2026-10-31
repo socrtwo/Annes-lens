@@ -85,7 +85,8 @@ async function start() {
   const lq = (window as any).launchQueue;
   if (lq?.setConsumer) lq.setConsumer(async (params: any) => { const files: File[] = []; for (const hnd of params.files || []) { try { files.push(await hnd.getFile()); } catch { /* */ } } if (files.length) void openDroppedFiles(app, files); });
   if (isDesktop()) { try { const st = await desktopBridge()!.getPortableMode(); (window as any).__qlPortable = st.on; } catch { /* */ } }
-  if (app.prefs.firstRun && !openedAny) setTimeout(() => app.ui.tour(), 600);
+  // On the desktop a launch file can arrive just after this point; skip the tour when a picture is open by then.
+  if (app.prefs.firstRun && !openedAny) setTimeout(() => { if (!app.picture) app.ui.tour(); }, 600);
   app.focus();
 }
 void start();

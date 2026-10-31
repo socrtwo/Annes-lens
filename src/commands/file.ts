@@ -2,6 +2,7 @@
 import { def } from './registry';
 import type { App, PictureTab } from '../app';
 import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, type Entry } from '../picture/folder';
+import { canListSubfolders, type FolderEntry } from '../platform/native';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
 import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
 import { openDialog, toast, confirmDialog, choiceDialog } from '../ui/dialog';
@@ -75,19 +76,33 @@ function addRecentFolder(app: App, name: string, uri: string | null): void {
   app.savePrefs();
 }
 
+/** Entries for a folder listing: platform URIs, File System Access handles or File objects. */
+export function listingEntries(r: { entries?: FolderEntry[]; handles?: { name: string; handle: any }[]; files?: File[] }): Entry[] {
+  if (r.entries) return r.entries.map(entryFromUri);
+  if (r.handles) return r.handles.filter((x) => isPictureName(x.name)).map((x) => entryFromHandle(x.name, x.handle));
+  if (r.files) return r.files.filter((f) => isPictureName(f.name)).map(entryFromFile);
+  return [];
+}
+/** Shows a listed folder in the current window, sorted as the preferences say. */
+export async function showFolder(app: App, name: string, uri: string | null, entries: Entry[], treeTop: string | null | undefined, index = 0): Promise<void> {
+  const folder = new Folder(entries, name);
+  folder.uri = uri; folder.treeTop = treeTop;
+  folder.sort(app.prefs.sort, app.prefs.sortDescending);
+  addRecentFolder(app, name, uri);
+  await app.openFolder(folder, index);
+}
+
 async function openFolderFromDialog(app: App): Promise<void> {
   const r = await openFolderDialog();
   if (!r) return;
-  let entries: Entry[] = [];
-  if (r.entries) entries = r.entries.map(entryFromUri);
-  else if (r.handles) entries = r.handles.filter((x) => isPictureName(x.name)).map((x) => entryFromHandle(x.name, x.handle));
-  else if (r.files) entries = r.files.filter((f) => isPictureName(f.name)).map(entryFromFile);
-  if (!entries.length) { toast(`No pictures in ${r.name}.`); return; }
-  const folder = new Folder(entries, r.name);
-  folder.uri = r.uri;
-  folder.sort(app.prefs.sort, app.prefs.sortDescending);
-  addRecentFolder(app, r.name, r.uri);
-  await app.openFolder(folder, 0);
+  const top = isDesktop() ? null : r.uri;
+  const entries = listingEntries(r);
+  if (!entries.length) {
+    // A folder of folders (years, events): show the first folder inside it that has pictures.
+    if (r.uri && canListSubfolders(r.uri)) { const { firstInside } = await import('./viewWindow'); if (await firstInside(app, { uri: r.uri, name: r.name }, top)) return; }
+    toast(`No pictures in ${r.name}.`); return;
+  }
+  await showFolder(app, r.name, r.uri, entries, top);
 }
 
 export type SaveFormat = EncodeFormat;
