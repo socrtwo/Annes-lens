@@ -48,7 +48,8 @@
 - [x] Ellipse, lasso, magic-wand and color-range selections and Invert Selection, as masks the viewer outlines and every edit respects.
 - [x] Content-Aware Resize (seam carving with protect and remove masks, enlargement by seam insertion), Alpha from Mask, Import Palette, Edit Palette.
 - [x] Magnifier Callout (inset in the farthest free corner, frame, outer connector lines, rectangle or circle); Search by Color (share of a picture within a ΔE of a color in L*a*b*).
-- [ ] Browser with folder tree and panes; paint pane, Markup Board; color profiles; RAW development.
+- [x] Paint pane (F12): brush (size, opacity, hardness; no build-up where a stroke overlaps itself), pencil, line, arrow, rectangle, ellipse, text, eraser (to transparency or a color), flood fill, spray, clone stamp, healing brush, red-eye brush, color replacer and color picker; each stroke is one Undo and stays inside the selection. Markup Board (Ctrl+Shift+D): arrows, lines, rectangles, ellipses, highlighter, text, numbered steps and callouts, editable (select, move, recolor, delete, undo) until Flatten Markup; saving offers to flatten.
+- [ ] Browser with folder tree and panes; color profiles; RAW development.
 - Thumbnails window and Browser with folder tree, panes, sorting, filmstrip; IrfanView Thumbnails, XnView, FastStone, ACDSee, Picasa, Preview, Photo Viewer and digiKam menu layouts; Customize Menus.
 
 ## M4 — Adjust, effects and organize (started)

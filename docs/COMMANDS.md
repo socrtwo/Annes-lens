@@ -1,8 +1,8 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **489 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **507 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
-10 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
+25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
 This file is generated from the source by `npm run catalog`; a unit test fails when it is out of date.
 
@@ -12,7 +12,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 - **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (6) · Organize (7) · View (4) · Share (4)
 - **File**: Open (16) · Save (9) · Export (5) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (11)
-- **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (2) · Find (2)
+- **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (5) · Find (2)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (7)
 - **Effects**: Browse (3) · Artistic (13) · Photographic (11) · Distort (14) · Frames and shadows (5)
@@ -33,17 +33,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 197 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 198 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 85 |
 | XnView style (`xnview`) | XnView MP browser and viewer | 165 |
-| FastStone style (`faststone`) | FastStone Image Viewer | 132 |
+| FastStone style (`faststone`) | FastStone Image Viewer | 135 |
 | ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 114 |
-| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 91 |
-| Picasa style (`picasa`) | Picasa 3 | 110 |
-| Preview style (`preview`) | macOS Preview | 103 |
+| Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 92 |
+| Picasa style (`picasa`) | Picasa 3 | 111 |
+| Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 101 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 310 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 489 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 314 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 507 |
 
 ## File (77 of 82)
 
@@ -127,7 +127,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Portable Mode | Close and options |  | `file.portableMode` | from IrfanView, XnView Classic and XnView MP |
 | Reset All Customizations | Close and options |  | `file.resetCustomizations` | from the Anne's Office suite |
 
-## Edit (37 of 55)
+## Edit (55 of 55)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -164,8 +164,26 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Insert Text… | Add | Ctrl+t | `edit.insertText` | from IrfanView |
 | Insert Watermark or Overlay… | Add |  | `edit.insertOverlay` | from IrfanView, FastStone Image Viewer |
 | Signature… | Add |  | `edit.signature` | from Preview |
+| Arrow | Paint and markup |  | `paint.arrow` | not in tabs; from IrfanView, FastStone Image Viewer |
+| Brush | Paint and markup |  | `paint.brush` | not in tabs; from IrfanView |
+| Clone Stamp | Paint and markup |  | `paint.clone` | not in tabs; from IrfanView, FastStone Image Viewer |
+| Color Picker | Paint and markup |  | `paint.colorPicker` | not in tabs; from IrfanView, ImageGlass |
+| Color Replacer Brush | Paint and markup |  | `paint.colorReplace` | not in tabs; from IrfanView |
+| Ellipse | Paint and markup |  | `paint.ellipse` | not in tabs; from IrfanView |
+| Eraser | Paint and markup |  | `paint.eraser` | not in tabs; from IrfanView |
+| Flatten Markup | Paint and markup |  | `edit.flattenMarkup` | from new in Anne's Lens |
+| Flood Fill | Paint and markup |  | `paint.fill` | not in tabs; from IrfanView |
+| Healing Brush | Paint and markup |  | `paint.heal` | not in tabs; from FastStone Image Viewer, Picasa |
+| Line | Paint and markup |  | `paint.line` | not in tabs; from IrfanView |
 | Magnifier Callout | Paint and markup |  | `edit.callout` | from new in Anne's Lens |
+| Markup Board | Paint and markup | Ctrl+Shift+d | `edit.markup` | from FastStone Image Viewer, Preview, Microsoft Photos |
+| Paint Tools | Paint and markup | F12 | `edit.paint` | from IrfanView |
+| Pencil | Paint and markup |  | `paint.pencil` | not in tabs; from IrfanView |
+| Rectangle | Paint and markup |  | `paint.rect` | not in tabs; from IrfanView |
+| Red-Eye Brush | Paint and markup |  | `paint.redEye` | not in tabs; from IrfanView, Picasa |
 | Redact Region (blur, pixelate, black out) | Paint and markup |  | `edit.redact` | from FastStone Image Viewer, new in Anne's Lens |
+| Spray | Paint and markup |  | `paint.spray` | not in tabs; from IrfanView |
+| Text Tool | Paint and markup |  | `paint.text` | not in tabs; from IrfanView |
 | Find Files… | Find | Ctrl+f | `edit.findFiles` | from IrfanView, XnView Classic and XnView MP |
 | Go to File by Name | Find | Ctrl+Shift+g | `edit.gotoFile` | from new in Anne's Lens |
 
@@ -619,12 +637,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (68)
+## Planned, not yet built (50)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **File** (5): `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.customizeMenus`
-- **Edit** (18): `edit.paint`, `edit.markup`, `paint.brush`, `paint.pencil`, `paint.line`, `paint.arrow`, `paint.rect`, `paint.ellipse`, `paint.text`, `paint.eraser`, `paint.fill`, `paint.spray`, `paint.clone`, `paint.heal`, `paint.redEye`, `paint.colorReplace`, `paint.colorPicker`, `edit.flattenMarkup`
 - **Image** (3): `image.convertProfile`, `image.assignProfile`, `image.softProof`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (15): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`

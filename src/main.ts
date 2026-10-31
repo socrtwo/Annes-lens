@@ -48,6 +48,7 @@ app.ui.tabsChanged();
 (window as any).__qnVector = () => Promise.all([import('./picture/trace'), import('./picture/callout'), import('./picture/colorSearch'), import('./codecs/pdfwrite'), import('./commands/vectorPdf')]).then(([a, b, c, d, e]) => ({ ...a, ...b, ...c, ...d, ...e }));
 (window as any).__qnView2 = () => Promise.all([import('./ui/overlays'), import('./picture/measure'), import('./ui/infoPane'), import('./picture/keepOriginal')]).then(([a, b, c, d]) => ({ ...a, ...b, ...c, ...d }));
 (window as any).__qnOcr = () => Promise.all([import('./picture/ocr'), import('./picture/barcode'), import('./platform/runtimes'), import('./ui/overlays')]).then(([a, b, c, d]) => ({ ...a, ...b, ...c, viewState: d.viewState, ocrMatch: d.ocrMatch }));
+(window as any).__qnPaint = () => Promise.all([import('./paint/session'), import('./paint/markup'), import('./paint/engine')]).then(([a, b, c]) => ({ ...a, markup: b, engine: c }));
 (window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite'), import('./meta/geo'), import('./meta/places')]).then(([m, x, e, i, w]) => ({ ...m, ...x, ...e, ...i, ...w }));
 
 // Files dropped on the window open as a folder of their own.

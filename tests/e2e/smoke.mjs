@@ -984,6 +984,90 @@ try {
   check('QR code read with its outline', [/QRCode/.test(ocr.code.text), /https:\/\/example\.org\/annes-lens/.test(ocr.code.text), ocr.code.outlines, ocr.code.corner, ocr.code.hasOpen, ocr.codesAfter], [true, true, 1, [32, 32], true, 0]);
   check('OCR and code reading made no requests off the machine', external, []);
 
+  // Paint pane and Markup Board with real mouse input.
+  const pz = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const c = document.createElement('canvas'); c.width = 400; c.height = 300; const x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 200, 300); x.fillStyle = '#2050c0'; x.fillRect(200, 0, 200, 300);
+    x.fillStyle = '#e02020'; x.beginPath(); x.arc(300, 150, 20, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#505050'; x.fillRect(60, 60, 40, 40);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([blob], 'q-paint.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'q-paint.png'; i++) await wait(50);
+    qn.viewer.setZoom(1); qn.viewer.center(); await wait(200);
+    const r = qn.viewer.pictureRect(), b = qn.viewer.el.getBoundingClientRect();
+    return { ox: b.left + r.x, oy: b.top + r.y, z: qn.viewer.zoom, folder: qn.folder.length };
+  });
+  const at = (x, y) => [pz.ox + (x + 0.5) * pz.z, pz.oy + (y + 0.5) * pz.z];
+  const px = (x, y) => p.evaluate(([x, y]) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data], [x, y]);
+  const setPaint = (o) => p.evaluate(async (o) => { const P = await window.__qnPaint(); Object.assign(P.paint, o); P.paint.onChange(); }, o);
+  const drag = async (a, b, steps = 12) => { await p.mouse.move(...at(...a)); await p.mouse.down(); await p.mouse.move(...at(...b), { steps }); await p.mouse.up(); await p.waitForTimeout(120); };
+  const click = async (x, y) => { await p.mouse.click(...at(x, y)); await p.waitForTimeout(120); };
+  const label = () => p.evaluate(() => qn.tab.undoLabel);
+  // Brush.
+  await p.evaluate(() => qn.exec('paint.brush'));
+  await setPaint({ color: '#000000', size: 10, opacity: 100, hardness: 100 });
+  await drag([20, 200], [180, 200]);
+  const brush = { on: await px(100, 200), off: await px(100, 185), label: await label(), paneOpen: await p.evaluate(() => !!qn.viewer.el.querySelector('.qn-paintbar')) };
+  await p.evaluate(() => qn.tab.undo()); await p.waitForTimeout(100);
+  brush.undone = await px(100, 200);
+  check('brush stroke painted, one undoable step', [brush.paneOpen, brush.on[0] < 30, brush.off, brush.label, brush.undone], [true, true, [255, 255, 255, 255], 'Brush', [255, 255, 255, 255]]);
+  // Flood fill the white half.
+  await p.evaluate(() => qn.exec('paint.fill')); await setPaint({ color: '#00ff00', tolerance: 16, contiguous: true });
+  await click(30, 30);
+  const fill = { inside: await px(30, 30), blue: await px(350, 30), gray: await px(80, 80), label: await label() };
+  await p.evaluate(() => qn.tab.undo()); await p.waitForTimeout(100);
+  check('flood fill stays in the clicked area', [fill.inside, fill.blue, fill.gray, fill.label], [[0, 255, 0, 255], [32, 80, 192, 255], [80, 80, 80, 255], 'Flood Fill']);
+  // Color picker.
+  await p.evaluate(() => qn.exec('paint.colorPicker')); await click(350, 30);
+  const picked = await p.evaluate(async () => (await window.__qnPaint()).paint.color);
+  check('color picker took the blue', picked, '#2050c0');
+  // Red-eye brush across the red disc.
+  await p.evaluate(() => qn.exec('paint.redEye')); await setPaint({ size: 60, hardness: 100 });
+  await drag([300, 150], [302, 151], 3);
+  const eye = await px(300, 150);
+  check('red-eye neutralized the red', [eye[0] < 60, eye[1], eye[2], await label()], [true, 32, 32, 'Red-Eye Brush']);
+  // Clone: Alt+click the gray square, then paint on the white area.
+  await p.evaluate(() => qn.exec('paint.clone')); await setPaint({ size: 16, hardness: 100, opacity: 100, cloneSource: null, cloneOffset: null });
+  await p.keyboard.down('Alt'); await click(80, 80); await p.keyboard.up('Alt');
+  await drag([30, 250], [40, 250], 4);
+  const cloned = await px(35, 250);
+  check('clone copied the gray square', [cloned, await label()], [[80, 80, 80, 255], 'Clone Stamp']);
+  // Rectangle outline.
+  await p.evaluate(() => qn.exec('paint.rect')); await setPaint({ color: '#000000', size: 4, opacity: 100, fillShapes: false });
+  await drag([140, 20], [190, 60]);
+  const rect = { edge: await px(140, 40), inside: await px(165, 40), label: await label() };
+  check('rectangle outline drawn, inside untouched', [rect.edge[0] < 40, rect.inside, rect.label], [true, [255, 255, 255, 255], 'Rectangle']);
+  // Markup Board: an arrow, select and move it, Delete removes it (the file stays), Undo, steps, Flatten.
+  await p.evaluate(() => qn.exec('edit.markup'));
+  await p.evaluate(async () => { const P = await window.__qnPaint(); P.paint.markupTool = 'arrow'; P.paint.markupColor = '#e02020'; P.paint.markupWidth = 4; P.paint.onChange(); });
+  const underStart = await p.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e ? `${e.tagName}.${e.className} ${e.textContent?.slice(0, 40) || ''}` : null; }, at(40, 280));
+  await drag([40, 280], [140, 230]);
+  const mk = await p.evaluate(async () => { const P = await window.__qnPaint(); const it = P.markup.itemsOf(qn.picture); return { n: it.length, kind: it[0]?.kind, pts: it[0]?.pts.map((q) => q.map(Math.floor)) }; });
+  const pixelNotChanged = await px(90, 255);
+  await p.evaluate(async () => { const P = await window.__qnPaint(); P.paint.markupTool = 'select'; P.paint.onChange(); });
+  await click(90, 255);
+  const sel = await p.evaluate(async () => (await window.__qnPaint()).paint.selected);
+  await drag([90, 255], [110, 255], 5);
+  const moved = await p.evaluate(async () => (await window.__qnPaint()).markup.itemsOf(qn.picture)[0]?.pts.map((q) => q.map(Math.floor)));
+  await p.keyboard.press('Delete'); await p.waitForTimeout(150);
+  const afterDelete = await p.evaluate(async () => ({ items: (await window.__qnPaint()).markup.itemsOf(qn.picture).length, folder: qn.folder.length, name: qn.picture?.name, dialogs: document.querySelectorAll('.ql-dialog').length }));
+  for (let i = 0; i < 20 && afterDelete.dialogs; i++) { await p.keyboard.press('Escape'); await p.waitForTimeout(100); afterDelete.dialogs = await p.evaluate(() => document.querySelectorAll('.ql-dialog').length); }
+  check('markup arrow created over the picture, not in it', [mk.n, mk.kind, mk.pts, pixelNotChanged], [1, 'arrow', [[40, 280], [140, 230]], [255, 255, 255, 255]], 'under the start point: ' + underStart);
+  check('markup select, move and Delete (the file is not deleted)', [sel > 0, moved, afterDelete.items, afterDelete.folder, afterDelete.name, afterDelete.dialogs], [true, [[60, 280], [160, 230]], 0, pz.folder, 'q-paint.png', 0]);
+  await p.evaluate(async () => { const P = await window.__qnPaint(); P.markup.undoMarkup(qn.picture); P.paint.markupTool = 'step'; P.paint.markupColor = '#e02020'; P.paint.onChange(); });
+  await click(250, 250); await click(330, 250);
+  const steps = await p.evaluate(async () => (await window.__qnPaint()).markup.itemsOf(qn.picture).filter((i) => i.kind === 'step').map((i) => i.n));
+  const beforeFlat = await px(260, 250);
+  await p.evaluate(() => qn.exec('edit.flattenMarkup')); await p.waitForTimeout(200);
+  const flat = { px: await px(260, 250), items: await p.evaluate(async () => (await window.__qnPaint()).markup.itemsOf(qn.picture).length), label: await label() };
+  await p.evaluate(() => qn.exec('edit.markup')); await p.waitForTimeout(100);
+  const closed = await p.evaluate(async () => ({ open: (await window.__qnPaint()).paint.open, pane: !!qn.viewer.el.querySelector('.qn-paintbar') }));
+  check('numbered steps count up and Flatten draws the markup in', [steps, beforeFlat[0] < 100 && beforeFlat[2] > 150, flat.px[0] > 180 && flat.px[1] < 80, flat.items, flat.label], [[1, 2], true, true, 0, 'Flatten Markup']);
+  check('closing the pane hands the mouse back', [closed.open, closed.pane], [false, false]);
+
   // AI tab: a mock OpenAI-compatible service (text, vision, generation, masked edits) and the on-device
   // runtime (ONNX Runtime Web, WebAssembly) with tiny fixture models shaped like the real ones.
   const ai = await p.evaluate(async (AI_PORT) => {

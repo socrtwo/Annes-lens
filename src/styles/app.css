@@ -234,6 +234,9 @@ textarea { width: 100%; resize: vertical; font-family: ui-monospace, "Cousine", 
 .ql-toasts { position: fixed; left: calc((100% + var(--sal) - var(--sar)) / 2); bottom: calc(46px + var(--sab)); transform: translateX(-50%); z-index: 1100; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: max-content; max-width: min(92vw, calc(100vw - var(--sal) - var(--sar) - 16px)); }
 .ql-toast { background: #2a2f3a; color: #fff; padding: 9px 14px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 13.5px; display: flex; gap: 10px; align-items: center; pointer-events: auto; transition: opacity .3s; }
 .ql-toast.ql-out { opacity: 0; }
+/* Toasts never block the picture (painting, measuring, selecting under them); only their action buttons take clicks. */
+.ql-toast { pointer-events: none; }
+.ql-toast button, .ql-toast a { pointer-events: auto; }
 .ql-toast .ql-link { color: #ffd38a; }
 
 /* Command palette */
@@ -607,3 +610,24 @@ body.qn-kiosk .ql-statusbar, body.qn-kiosk .qn-thumbs { display: none !important
 .qn-info-v { overflow-wrap: anywhere; }
 .qn-infopane .ql-link { color: #9cf; margin-top: 6px; }
 @media (max-width: 600px) { .qn-infopane { width: auto; left: 12px; max-height: 45%; top: auto; bottom: 12px; } }
+
+/* Paint pane and Markup Board (Edit ▸ Paint Tools, F12; Edit ▸ Markup Board, Ctrl+Shift+D) */
+.qn-paintbar { position: absolute; top: 12px; left: 12px; width: 236px; max-height: calc(100% - 24px); overflow: auto; z-index: 6; background: rgba(24, 24, 24, 0.9); color: #eee; border-radius: 10px; padding: 8px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 6px; }
+.qn-pb-head { display: flex; justify-content: space-between; align-items: center; }
+.qn-pb-head .ql-iconbtn { color: #eee; font-size: 18px; line-height: 1; }
+.qn-pb-tabs { display: flex; gap: 4px; }
+.qn-pb-tab { background: transparent; color: #ccc; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.qn-pb-tab.on { background: #2b6fd6; color: #fff; border-color: #2b6fd6; }
+.qn-pb-tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.qn-pb-tool { background: rgba(255, 255, 255, 0.06); color: #eee; border: 1px solid transparent; border-radius: 6px; height: 34px; cursor: pointer; display: grid; place-items: center; }
+.qn-pb-tool.on { border-color: #4da3ff; background: rgba(77, 163, 255, 0.25); }
+.qn-pb-tool .material-symbols-outlined { font-size: 20px; }
+.qn-pb-name { font-weight: 600; }
+.qn-pb-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.qn-pb-color input { width: 34px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
+.qn-pb-range { display: grid; grid-template-columns: 62px 1fr 34px; align-items: center; gap: 4px; }
+.qn-pb-range input { width: 100%; }
+.qn-pb-val { text-align: right; opacity: 0.85; }
+.qn-pb-check { display: flex; gap: 6px; align-items: center; }
+.qn-paintbar .ql-btn { padding: 3px 8px; font-size: 12px; }
+.qn-paintbar .ql-help { color: #bbb; margin: 0; }

@@ -40,4 +40,5 @@ import './metaGeo';
 import './vectorPdf';
 import './viewTools2';
 import './ocrCodes';
+import './paintCmds';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

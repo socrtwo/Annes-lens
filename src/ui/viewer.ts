@@ -7,6 +7,7 @@
 import type { App, PictureTab } from '../app';
 import { drawOverlays, displayFrame, viewState, navigatorRect, navigatorShown } from './overlays';
 import { maskOverlay, maskBounds, ellipseMask, polygonMask } from '../picture/mask';
+import { paintHooks } from '../paint/hooks';
 import { h, clear, icon } from './dom';
 import type { ZoomMode } from '../prefs';
 
@@ -35,6 +36,7 @@ export class Viewer {
   private maskCanvas: { mask: Uint8Array; canvas: HTMLCanvasElement } | null = null;
   private lassoPts: [number, number][] = [];
   private navigating = false;
+  private painting = false;
   private pixelKey = '';
   private destroyed = false;
   private ro: ResizeObserver;
@@ -207,7 +209,7 @@ export class Viewer {
     ctx.imageSmoothingEnabled = this._zoom < 1 || prefs.smoothZoom;
     ctx.imageSmoothingQuality = 'high';
     try {
-      ctx.drawImage(displayFrame(frame), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
+      ctx.drawImage(paintHooks.override(this.tab) || displayFrame(frame), sx, sy, ex - sx, ey - sy, r.x + sx * this._zoom, r.y + sy * this._zoom, (ex - sx) * this._zoom, (ey - sy) * this._zoom);
     } catch (e) { /* a closed bitmap after a quick navigation */ }
     if (this._zoom >= 8 && (this.app as any).pixelGrid) this.grid(ctx, r, sx, sy, ex, ey);
     const sel = this.tab.selection;
@@ -217,6 +219,7 @@ export class Viewer {
       const f = this.tab.folder;
       drawOverlays(ctx, this, r, frame, { name: p.name, index: f.index, total: f.length, exif: p.exif, size: p.bytes.length, page: p.page, pages: p.pages.length, dpi: p.current.dpi, template: this.app.prefs.osdTemplate, pointer: this.pointer });
     }
+    paintHooks.overlay(ctx, this, r, this.pointer);
   }
 
   private drawSelection(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, sel: { x: number; y: number; w: number; h: number }): void {
@@ -355,6 +358,12 @@ export class Viewer {
         try { el.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
         return;
       }
+      if (this.picture && paintHooks.active(this.tab)) {
+        const q = this.toPicture(vx, vy); this.painting = true;
+        try { el.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
+        paintHooks.down(this.tab, q.x, q.y, e);
+        return;
+      }
       if (viewState.measure.on && this.picture) {
         const m = viewState.measure, q = this.toPicture(vx, vy), p = this.picture;
         const pt: [number, number] = [Math.max(0, Math.min(p.width, q.x)), Math.max(0, Math.min(p.height, q.y))];
@@ -382,6 +391,8 @@ export class Viewer {
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (viewState.loupe) this.draw();
       if (this.navigating) { this.navigateTo(this.pointer.x, this.pointer.y); return; }
+      if (this.painting && this.picture) { const q = this.toPicture(this.pointer.x, this.pointer.y); paintHooks.move(this.tab, q.x, q.y, e); this.reportPointer(); return; }
+      if (this.picture && paintHooks.active(this.tab)) { el.style.cursor = paintHooks.cursor(this.tab); this.draw(); this.reportPointer(); return; }
       if (this.selecting && this.picture && this.lassoPts.length) { const q = this.toPicture(this.pointer.x, this.pointer.y); const last = this.lassoPts[this.lassoPts.length - 1]; if (Math.abs(q.x - last[0]) + Math.abs(q.y - last[1]) >= 1) this.lassoPts.push([q.x, q.y]); this.draw(); return; }
       if (this.selecting && this.picture) {
         const q = this.toPicture(this.pointer.x, this.pointer.y);
@@ -418,6 +429,7 @@ export class Viewer {
     });
     const up = (e: PointerEvent) => {
       if (this.navigating) { this.navigating = false; return; }
+      if (this.painting) { this.painting = false; paintHooks.up(this.tab, e); return; }
       if (this.selecting) {
         const p = this.picture; const shape = this.tab.selectShape;
         if (p && this.lassoPts.length > 2) { const m = polygonMask(p.width, p.height, this.lassoPts); const b = maskBounds(m, p.width, p.height); this.lassoPts = []; this.tab.setSelection(b, b ? m : null); }
@@ -433,10 +445,11 @@ export class Viewer {
       }
     };
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', () => { this.dragging = null; this.selecting = null; this.navigating = false; });
+    el.addEventListener('pointercancel', (e) => { this.dragging = null; this.selecting = null; this.navigating = false; if (this.painting) { this.painting = false; paintHooks.up(this.tab, e); } });
     el.addEventListener('pointerleave', () => { this.pointer = null; this.reportPointer(); });
     el.addEventListener('dblclick', (e) => {
       if (!this.picture) return;
+      if (paintHooks.active(this.tab)) return;
       if (viewState.measure.on) { const m = viewState.measure; if (m.pts.length >= 3) m.closed = true; this.draw(); this.app.refresh(); return; }
       if (this.navigatorBox()) { const rr = el.getBoundingClientRect(), n = this.navigatorBox()!, x = e.clientX - rr.left, y = e.clientY - rr.top; if (x >= n.x && y >= n.y && x <= n.x + n.w && y <= n.y + n.h) return; }
       const r = el.getBoundingClientRect();

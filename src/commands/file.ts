@@ -11,6 +11,7 @@ import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 import { keepOriginalCopy } from '../picture/keepOriginal';
+import { paintHooks } from '../paint/hooks';
 
 /** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
 export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
@@ -129,6 +130,8 @@ export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg
 
 /** Save: back into the same file when the format can be written and the file is writable; otherwise Save As. */
 export async function saveTab(app: App, tab: PictureTab, opts: { as?: boolean; format?: SaveFormat; copy?: boolean } = {}): Promise<boolean> {
+  if (!tab.picture) return false;
+  if (!(await paintHooks.beforeSave(app, tab))) return false;
   const pic = tab.picture;
   if (!pic) return false;
   const writable = encoderFor(pic.format.id);
