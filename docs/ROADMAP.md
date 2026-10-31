@@ -32,6 +32,7 @@
 - [x] Export Palette (.gpl, .act, .pal, .aco, CSS), Export Metadata as CSV, Export as Icon (.ico, .icns), Export Animation (GIF with a median-cut palette, APNG), Open with External Editor (desktop, nine programs).
 - [x] Scanning (SANE on Linux, WIA on Windows through PowerShell, the camera app on Android, the in-app camera elsewhere; macOS ImageCapture still to do), Batch Scanning, Select Scan Source; Set as Wallpaper and Lock Screen, Set as Contact Photo, Cast to Display, File Properties (system), Copy as File, Hide Picture, File Associations, Import from Camera or Phone, Import with Rules (docs/TERMUX-VERIFY.md has the one-time device checks); Encrypt Picture.
 - [x] Export as PDF (paper, orientation, margins, fit / fill / actual size at a DPI, captions); New Folder (desktop, Android and the browser's picked folders).
+- [x] Language…: the ribbon, the menus, the command names and their tooltips from string tables ([TRANSLATING.md](TRANSLATING.md)); Spanish built in; tables loaded from a file, exported for translators, or translated by the configured AI service in batches and kept on the device. Dialogs and messages are still English only.
 - [ ] Send to Anne's Folio, Stage, Pen and Press; Customize Menus.
 - [ ] Tagged prerelease 0.2.0 for every platform.
 

@@ -1505,6 +1505,39 @@ try {
   check('ai requests carried the picture and the key', [sent.find((r) => r.kind === 'chat')?.images, sent.find((r) => r.kind === 'chat')?.auth, sent.find((r) => r.kind === 'generate')?.prompt, sent.find((r) => r.kind === 'edit')?.hasMask, sent.filter((r) => r.kind === 'chat' && r.json).length > 0], [1, 'Bearer k', 'a bicycle', true, true]);
   if (ai.toasts.some((t) => /: the service|Could not|failed|stopped/i.test(t))) failures.push('ai toasts: ' + ai.toasts.join(' | '));
 
+  // View ▸ Language: the built-in Spanish table (ribbon, menu bar, tooltips' names), a table loaded
+  // from a file, and one translated by the (mock) AI service in batches; back to English.
+  const lang = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const tabs = () => [...document.querySelectorAll('.ql-tabs .ql-tab')].map((b) => b.textContent.trim());
+    const menus = () => [...document.querySelectorAll('.ql-menubar .ql-menubar-item')].map((b) => b.textContent.trim());
+    const out = {};
+    await qn.exec('view.language', 'es'); await wait(150);
+    out.es = { tabs: tabs().slice(0, 4), menus: menus().slice(0, 2), label: window.__qnGetCommand('image.rotateRight').label, pref: qn.prefs.language, lang: document.documentElement.lang };
+    // The dialog lists the languages with their coverage; choosing English there switches back.
+    const run = qn.exec('view.language'); let d; for (let i = 0; i < 60 && !(d = document.querySelector('.ql-dialog .ql-primary')); i++) await wait(50);
+    const dlg = document.querySelector('.ql-dialog');
+    out.listed = [...dlg.querySelectorAll('option, [role=option], .ql-listbox *')].map((o) => o.textContent).filter((t) => /Español|English/.test(t)).slice(0, 2);
+    const list = dlg.querySelector('[id^="f_lang_"]'); if (list.tagName === 'SELECT') { list.value = 'en-US'; list.dispatchEvent(new Event('change', { bubbles: true })); } else { const opt = [...list.querySelectorAll('[data-value]')].find((o) => o.dataset.value === 'en-US'); opt?.click(); }
+    d.click(); await run; await wait(150);
+    out.en = { tabs: tabs().slice(0, 2), pref: qn.prefs.language };
+    const de = { format: 'annes-lens-strings', version: 1, language: 'de', name: 'Deutsch', labels: { 'file.open': 'Öffnen…', 'view.fullScreen': 'Vollbild' }, tabs: { File: 'Datei', View: 'Ansicht' } };
+    await qn.exec('view.language', { action: 'load', files: [new File([JSON.stringify(de)], 'de.json', { type: 'application/json' })] }); await wait(150);
+    out.de = { tabs: tabs().slice(0, 1), label: window.__qnGetCommand('file.open').label, untranslated: window.__qnGetCommand('file.save').label };
+    await qn.exec('view.language', { action: 'ai', code: 'fr', name: 'Français' });
+    for (let i = 0; i < 200 && qn.prefs.language !== 'fr'; i++) await wait(50); await wait(150);
+    out.ai = { pref: qn.prefs.language, label: window.__qnGetCommand('file.open').label, tab: tabs()[1], menu: menus()[0] };
+    await qn.exec('view.language', 'en-US'); await wait(150);
+    out.back = [window.__qnGetCommand('file.open').label, tabs()[0], menus()[0]];
+    return out;
+  });
+  check('language: built-in Spanish on the ribbon and menus', lang.es, { tabs: ['Archivo', 'Inicio', 'Archivo', 'Edición'], menus: ['Archivo', 'Edición'], label: 'Girar a la derecha', pref: 'es', lang: 'es' }, JSON.stringify(lang.es));
+  check('language: the dialog lists the languages and switches back to English', [lang.listed.length, lang.en], [2, { tabs: ['File', 'Home'], pref: 'en-US' }], JSON.stringify(lang.listed));
+  check('language: a loaded table (English where it has no entry)', lang.de, { tabs: ['Datei'], label: 'Öffnen…', untranslated: 'Save' });
+  const langReqs = mockAi.requests.filter((r) => /STRINGS:|user interfaces/.test(r.text + r.system));
+  check('language: AI translation in batches applies and switches', [lang.ai, langReqs.length >= 7, lang.back], [{ pref: 'fr', label: '[de] Open…', tab: '[de] Home', menu: '[de] File' }, true, ['Open…', 'File', 'File']], `${langReqs.length} requests`);
+
   if (errs.length) failures.push(...errs);
 } finally {
   await browser.close();

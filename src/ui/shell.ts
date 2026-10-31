@@ -13,6 +13,7 @@ import { QAT_STANDARD, QAT_EXTRAS } from '../prefs';
 import { CLASSIC_MENUS, DEFAULT_LAYOUT, type ClassicItem } from './classicMenus';
 import { PLAN_COMMANDS } from '../plan.generated';
 import { desktopBridge } from '../platform/native';
+import { word } from '../i18n/strings';
 
 export class Shell {
   root: HTMLElement;
@@ -203,7 +204,7 @@ export class Shell {
 
   renderTabs(): void {
     clear(this.tabsEl);
-    this.tabsEl.appendChild(h('button', { class: 'ql-tab ql-tab-file', role: 'tab', onclick: () => this.showBackstage() }, 'File'));
+    this.tabsEl.appendChild(h('button', { class: 'ql-tab ql-tab-file', role: 'tab', onclick: () => this.showBackstage() }, word('tabs', 'File')));
     for (const t of tabsFor(this.app)) {
       if (!t.custom && !t.groups.some((g) => g.items.some((id) => getCommand(id)))) continue; // a plan tab with nothing built yet
       const b = h('button', { class: 'ql-tab' + (t.contextual ? ' ql-contextual' : '') + (t.id === this.currentTab ? ' ql-active' : ''), role: 'tab', 'data-tab': t.id, style: t.accent ? `--tab-accent:${t.accent}` : '' }, t.label);

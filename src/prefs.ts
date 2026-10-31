@@ -22,6 +22,8 @@ export interface Prefs {
   tabOrder: string[];
   keymap: Record<string, string>;
   theme: 'system' | 'light' | 'dark' | 'black';
+  /** Interface language: 'en-US', a built-in table ('es') or one loaded or translated on this device. */
+  language: string;
   ribbon: 'full' | 'tabs' | 'hidden';
   /** The menu system: the suite ribbon, a classic menu bar, or both. */
   menuStyle: MenuStyle;
@@ -155,7 +157,7 @@ export function defaultPrefs(): Prefs {
     author: '',
     qat: [...DEFAULT_QAT], qatPosition: 'top', qatLabels: false, qatHidden: false,
     customTabs: [], hiddenTabs: [], tabOrder: [], keymap: {},
-    theme: 'system', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
+    theme: 'system', language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
     recent: [], recentFolders: [], macros: [],
     confirmClose: true, highContrastUI: false, uiScale: 1, pinnedCommands: [], firstRun: true, touchMode: false,
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,

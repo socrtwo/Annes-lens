@@ -8,6 +8,8 @@ export function startMockAi(port, fixtures) {
   const gen = readFileSync(`${fixtures}/gen.png`).toString('base64'), edit = readFileSync(`${fixtures}/edit.png`).toString('base64');
   const requests = [];
   const answer = (text) => {
+    // View ▸ Language: the strings come after STRINGS:, answered with a [de] prefix.
+    if (/STRINGS:\n/.test(text)) { const src = JSON.parse(text.slice(text.indexOf('STRINGS:\n') + 9)); return JSON.stringify(Object.fromEntries(Object.entries(src).map(([k, v]) => [k, `[de] ${v}`]))); }
     if (/single word OK/i.test(text)) return 'OK';
     if (/"keywords"/.test(text)) return '{"keywords": ["sunset", "beach", "sea"]}';
     if (/"alt"/.test(text)) return '{"alt": "A red square", "extended": "A plain red square on a white background."}';

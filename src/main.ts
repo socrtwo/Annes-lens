@@ -13,6 +13,7 @@ import { allCommands, getCommand } from './commands/registry';
 import { installScrollCues } from './ui/scrollcue';
 import { openFiles, openDroppedFiles } from './commands/file';
 import { pasteAsNew } from './commands/edit';
+import { applyPreferred } from './i18n/languages';
 
 const host = document.getElementById('app')!;
 
@@ -21,6 +22,7 @@ installScrollCues({
 });
 
 const app = new App(host);
+applyPreferred(app.prefs.language); // the interface language, before the ribbon is drawn
 app.ui = new Shell(app);
 app.rebuildKeyIndex();
 app.createTab();

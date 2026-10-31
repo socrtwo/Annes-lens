@@ -46,4 +46,5 @@ import './specialViews';
 import './colorMgmt';
 import './viewWindow';
 import './devConsole';
+import './language';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';
