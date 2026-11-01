@@ -18,6 +18,8 @@ export interface Prefs {
   qatLabels: boolean;
   qatHidden: boolean;
   customTabs: CustomTab[];
+  /** Classic menu layouts made with Customize Menus (keys start with "custom-"). */
+  customMenus: CustomMenuLayout[];
   hiddenTabs: string[];
   tabOrder: string[];
   keymap: Record<string, string>;
@@ -156,7 +158,7 @@ export function defaultPrefs(): Prefs {
   return {
     author: '',
     qat: [...DEFAULT_QAT], qatPosition: 'top', qatLabels: false, qatHidden: false,
-    customTabs: [], hiddenTabs: [], tabOrder: [], keymap: {},
+    customTabs: [], customMenus: [], hiddenTabs: [], tabOrder: [], keymap: {},
     theme: 'system', language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
     recent: [], recentFolders: [], macros: [],
     confirmClose: true, highContrastUI: false, uiScale: 1, pinnedCommands: [], firstRun: true, touchMode: false,
@@ -191,6 +193,18 @@ const ENUMS: Partial<Record<keyof Prefs, readonly string[]>> = {
   zoomMode: ['fit', 'fit-large', 'fit-width', 'fit-height', 'fill', 'actual'], alphaDisplay: ['checkerboard', 'white', 'black', 'custom'],
   wheel: ['navigate', 'zoom', 'scroll'], sort: ['name', 'natural', 'date', 'size', 'type'],
 };
+/** One classic menu item: a command id, '|' (separator) or a submenu. */
+export type MenuItemPref = string | { label: string; items: MenuItemPref[] };
+export interface CustomMenuLayout { key: string; name: string; menus: { label: string; items: MenuItemPref[] }[] }
+function sanitizeMenuItems(v: unknown, depth = 0): MenuItemPref[] {
+  if (!Array.isArray(v) || depth > 4) return [];
+  return v.flatMap((it): MenuItemPref[] => (typeof it === 'string' ? [it] : isObj(it) && typeof it.label === 'string' ? [{ label: it.label.slice(0, 80), items: sanitizeMenuItems(it.items, depth + 1) }] : []));
+}
+function sanitizeMenuLayouts(v: unknown): CustomMenuLayout[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((l) => isObj(l) && typeof l.key === 'string' && /^custom-[\w-]+$/.test(l.key) && typeof l.name === 'string' && Array.isArray(l.menus))
+    .map((l) => ({ key: l.key, name: l.name.slice(0, 80), menus: l.menus.filter((m: unknown) => isObj(m) && typeof m.label === 'string').map((m: any) => ({ label: m.label.slice(0, 80), items: sanitizeMenuItems(m.items) })) })).slice(0, 20);
+}
 const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
@@ -204,7 +218,8 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
     const def = d[k];
     if (Array.isArray(def) ? Array.isArray(v) : isObj(def) ? isObj(v) : typeof v === typeof def && (typeof v !== 'number' || Number.isFinite(v))) out[k] = v;
   }
-  for (const [k, ok] of Object.entries(ENUMS)) if (k in out && !ok!.includes(out[k])) delete out[k];
+  for (const [k, ok] of Object.entries(ENUMS)) if (k in out && !ok!.includes(out[k]) && !(k === 'menuLayout' && /^custom-/.test(String(out[k])))) delete out[k];
+  if (out.customMenus) out.customMenus = sanitizeMenuLayouts(out.customMenus);
   for (const k of ['qat', 'hiddenTabs', 'tabOrder', 'pinnedCommands']) if (k in out) out[k] = strings(out[k]);
   for (const k of ['keymap']) if (k in out) out[k] = Object.fromEntries(Object.entries(out[k]).filter(([, x]) => typeof x === 'string'));
   if (out.customTabs) {

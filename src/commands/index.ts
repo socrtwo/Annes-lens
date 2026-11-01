@@ -47,4 +47,5 @@ import './colorMgmt';
 import './viewWindow';
 import './devConsole';
 import './language';
+import './suite';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

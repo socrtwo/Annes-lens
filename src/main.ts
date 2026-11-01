@@ -14,6 +14,7 @@ import { installScrollCues } from './ui/scrollcue';
 import { openFiles, openDroppedFiles } from './commands/file';
 import { pasteAsNew } from './commands/edit';
 import { applyPreferred } from './i18n/languages';
+import { installCustomMenus } from './ui/classicMenus';
 
 const host = document.getElementById('app')!;
 
@@ -22,6 +23,7 @@ installScrollCues({
 });
 
 const app = new App(host);
+installCustomMenus(app.prefs.customMenus); // Customize Menus layouts
 applyPreferred(app.prefs.language); // the interface language, before the ribbon is drawn
 app.ui = new Shell(app);
 app.rebuildKeyIndex();

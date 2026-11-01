@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **528 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **532 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -11,7 +11,7 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
 - **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (6) · Organize (7) · View (5) · Share (4)
-- **File**: Open (16) · Save (9) · Export (5) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (11)
+- **File**: Open (16) · Save (9) · Export (8) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (12)
 - **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (5) · Find (2)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12) · Color management (3)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (7)
@@ -43,9 +43,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 102 |
 | All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 321 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 528 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 532 |
 
-## File (77 of 82)
+## File (81 of 82)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -80,6 +80,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Export as PDF… | Export |  | `file.export.pdf` | from IrfanView, Preview |
 | Export Metadata as CSV… | Export |  | `file.export.metadataCsv` | from XnView Classic and XnView MP, digiKam |
 | Export Palette… | Export |  | `file.export.palette` | from IrfanView |
+| Insert into Anne's Pen | Export |  | `file.export.pen` | from the Anne's Office suite |
+| Send to Anne's Folio | Export |  | `file.export.folio` | from the Anne's Office suite |
+| Send to Anne's Stage | Export |  | `file.export.stage` | from the Anne's Office suite |
 | Change File Date/Time… | Files |  | `file.setFileTime` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Copy as File (for pasting in file managers) | Files |  | `file.copyAsFile` | not in tabs; from XnView Classic and XnView MP |
 | Copy File Name | Files |  | `file.copyName` | not in tabs; from IrfanView |
@@ -118,6 +121,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Close | Close and options | Ctrl+w | `file.close` |  |
 | Close All | Close and options |  | `file.closeAll` |  |
 | Customize Keyboard… | Close and options |  | `file.customizeKeyboard` | from the Anne's Office suite, IrfanView |
+| Customize Menus… | Close and options |  | `file.customizeMenus` | from new in Anne's Lens |
 | Customize Quick Access Bar… | Close and options |  | `file.customizeQat` | from the Anne's Office suite |
 | Customize Tabs… | Close and options |  | `file.customizeRibbon` | from the Anne's Office suite |
 | Exit | Close and options | Escape, Alt+F4 | `file.exit` | from IrfanView |
@@ -658,11 +662,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (29)
+## Planned, not yet built (25)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
-- **File** (5): `file.export.folio`, `file.export.stage`, `file.export.pen`, `file.export.press`, `file.customizeMenus`
+- **File** (1): `file.export.press`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (15): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`
 - **Create** (2): `create.panoramaStitch`, `create.photoBook`

@@ -30,7 +30,7 @@ let current: StringTable | null = null;
 // English originals, captured the first time a language other than English is applied.
 let english: { labels: Map<string, string>; tips: Map<string, string | undefined>; keywords: Map<string, string | undefined>; tabs: Map<object, string>; menus: Map<object, string> } | null = null;
 
-const walkMenus = (fn: (node: { label: string }) => void) => { const walk = (items: ClassicItem[]) => { for (const it of items) if (typeof it !== 'string') { fn(it); walk(it.items); } }; for (const menus of Object.values(CLASSIC_MENUS)) for (const m of menus) { fn(m); walk(m.items); } };
+const walkMenus = (fn: (node: { label: string }) => void) => { const walk = (items: ClassicItem[]) => { for (const it of items) if (typeof it !== 'string') { fn(it); walk(it.items); } }; for (const [key, menus] of Object.entries(CLASSIC_MENUS)) if (!key.startsWith('custom-')) for (const m of menus) { fn(m); walk(m.items); } }; // your own menus keep your words
 
 function capture(): NonNullable<typeof english> {
   if (english) return english;

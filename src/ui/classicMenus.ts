@@ -33,3 +33,9 @@ export function menuPaths(layout: string, id: string): string[][] {
   for (const m of CLASSIC_MENUS[layout] || []) walk(m.items, [m.label]);
   return out;
 }
+
+/** Adds the layouts made with Customize Menus (replacing earlier ones), so every menu list and the menu map see them. */
+export function installCustomMenus(list: { key: string; name: string; menus: ClassicMenu[] }[]): void {
+  for (const k of Object.keys(CLASSIC_MENUS)) if (k.startsWith('custom-')) { delete CLASSIC_MENUS[k]; delete CLASSIC_LAYOUT_NAMES[k]; delete CLASSIC_LAYOUT_MODELS[k]; }
+  for (const l of list) { CLASSIC_MENUS[l.key] = JSON.parse(JSON.stringify(l.menus)); CLASSIC_LAYOUT_NAMES[l.key] = l.name; CLASSIC_LAYOUT_MODELS[l.key] = 'your own layout (Customize Menus)'; }
+}

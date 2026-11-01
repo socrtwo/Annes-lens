@@ -1505,6 +1505,79 @@ try {
   check('ai requests carried the picture and the key', [sent.find((r) => r.kind === 'chat')?.images, sent.find((r) => r.kind === 'chat')?.auth, sent.find((r) => r.kind === 'generate')?.prompt, sent.find((r) => r.kind === 'edit')?.hasMask, sent.filter((r) => r.kind === 'chat' && r.json).length > 0], [1, 'Bearer k', 'a bicycle', true, true]);
   if (ai.toasts.some((t) => /: the service|Could not|failed|stopped/i.test(t))) failures.push('ai toasts: ' + ai.toasts.join(' | '));
 
+  // Suite hand-offs: a JPEG with an embedded caption, alt text and title goes to Anne's Pen (DOCX),
+  // Stage (PPTX) and Folio (PDF); in a browser each is saved (the Android app opens the suite app).
+  // The files are checked with python-docx / python-pptx and pdfinfo when present.
+  const hand = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const M = await window.__qnMeta();
+    const c = document.createElement('canvas'); c.width = 400; c.height = 300; const x = c.getContext('2d'); x.fillStyle = '#c03030'; x.fillRect(0, 0, 400, 300);
+    const jpg = new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9))).arrayBuffer());
+    const xmp = new TextEncoder().encode(M.updateXmp(null, { description: 'Grandma & the barn, 1952', altText: 'A red barn', title: 'Barn' }));
+    const tagged = M.injectMeta(jpg, 'jpeg', { xmp });
+    c.width = 200; c.height = 300; c.getContext('2d').fillStyle = '#3030c0'; c.getContext('2d').fillRect(0, 0, 200, 300);
+    const png = new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/png'))).arrayBuffer());
+    await qn.exec('file.openDropped', [new File([tagged], 'h1-barn.jpg', { type: 'image/jpeg' }), new File([png], 'h2-blue.png', { type: 'image/png' })]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'h1-barn.jpg'; i++) await wait(50); await wait(250);
+    const saved = []; const picker = window.showSaveFilePicker;
+    window.showSaveFilePicker = async (o) => { const rec = { name: o?.suggestedName || '', parts: [] }; saved.push(rec); return { name: rec.name, createWritable: async () => ({ write: async (b) => { rec.parts.push(b); }, close: async () => {} }) }; };
+    const seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('ql-toast')) seen.push(n.textContent); }).observe(document.body, { childList: true, subtree: true });
+    await qn.exec('file.export.pen', { number: true, paper: 'letter' }); await wait(200);
+    qn.tab.marked.clear(); for (const e of qn.folder.entries) qn.tab.marked.add(e);
+    await qn.exec('file.export.stage', { titles: true }); await wait(200);
+    await qn.exec('file.export.folio', { paper: 'letter', captions: true }); await wait(200);
+    qn.tab.marked.clear();
+    window.showSaveFilePicker = picker;
+    const b64 = async (rec) => { const u8 = new Uint8Array(await new Blob(rec.parts).arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
+    return { folder: qn.folder.name || 'Pictures', names: saved.map((r) => r.name), files: await Promise.all(saved.map(b64)), toast: seen.find((t) => /works in the Android app/.test(t)) || null };
+  });
+  check('suite hand-offs save a DOCX, a PPTX and a PDF in the browser', [hand.names, !!hand.toast], [['h1-barn.docx', `${hand.folder}.pptx`, `${hand.folder}.pdf`], true], JSON.stringify(hand.names));
+  {
+    const { execFileSync } = await import('node:child_process');
+    const { writeFileSync, mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(`${tmpdir()}/qn-suite-`);
+    ['h.docx', 'h.pptx', 'h.pdf'].forEach((n, i) => hand.files[i] && writeFileSync(`${dir}/${n}`, Buffer.from(hand.files[i], 'base64')));
+    let py = '';
+    try { py = execFileSync('python3', ['-c', `import docx, pptx, zipfile, re, json
+d = docx.Document('${dir}/h.docx'); x = zipfile.ZipFile('${dir}/h.docx').read('word/document.xml').decode()
+p = pptx.Presentation('${dir}/h.pptx')
+print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'Caption'], 'docPr': re.findall(r'descr="([^"]*)" title="([^"]*)"', x), 'shapes': len(d.inline_shapes), 'slides': [[s.shapes.title.text if s.shapes.title else None, [sh._element.nvPicPr.cNvPr.get('descr') for sh in s.shapes if sh.shape_type == 13]] for s in p.slides]}))`], { encoding: 'utf8' }); } catch (e) { py = ''; }
+    if (py) {
+      const r = JSON.parse(py);
+      check('Pen document: picture, alt text and title, numbered caption', [r.shapes, r.docPr, r.caption.map((t) => t.replace(/^Figure\s*\d*:\s*/, ''))], [1, [['A red barn', 'Barn']], ['Grandma & the barn, 1952']]);
+      check('Stage deck: one slide per picture, caption as title, alt text kept', r.slides, [['Grandma & the barn, 1952', ['A red barn']], [null, ['']]]);
+    }
+    let info = ''; try { info = execFileSync('pdfinfo', [`${dir}/h.pdf`], { encoding: 'utf8' }); } catch { info = ''; }
+    if (info) check('Folio PDF: a letter page per picture (landscape for the wide one)', [+(info.match(/^Pages:\s+(\d+)/m) || [])[1], /792 x 612/.test(info)], [2, true], info);
+  }
+
+  // Customize Menus: a built-in layout is copied, a command and a separator are added to its first
+  // menu, and the copy becomes the menu bar.
+  const cm2 = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    qn.prefs.menuStyle = 'both'; qn.prefs.menuLayout = 'irfanview'; qn.savePrefs(); qn.ui.applyPrefs();
+    const run = qn.exec('file.customizeMenus'); let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => /Customize Menus/.test(d.textContent))); i++) await wait(50);
+    const btn = (label) => [...dlg.querySelectorAll('button')].find((b) => (b.querySelector('.ql-cust-btn-label')?.textContent || b.textContent).trim() === label);
+    dlg.querySelector('.qn-menu-tree .ql-group-row').click(); await wait(50);
+    const cats = dlg.querySelector('.ql-cust-col select'); cats.value = 'all'; cats.dispatchEvent(new Event('change')); await wait(50);
+    const filter = dlg.querySelector('input[placeholder="Filter commands…"]'); filter.value = 'rotate right'; filter.dispatchEvent(new Event('input')); await wait(50);
+    [...dlg.querySelectorAll('.ql-cust-col')][0].querySelector('.ql-cmdlist-row').click(); await wait(30);
+    btn('Add').click(); await wait(50); btn('Separator').click(); await wait(50);
+    const rows = [...dlg.querySelectorAll('.qn-menu-tree .ql-cmdlist-row')].map((r) => r.textContent.trim());
+    const layoutName = dlg.querySelector('.qn-menu-layout').selectedOptions[0].textContent;
+    dlg.querySelector('.ql-primary').click(); await run; await wait(150);
+    const first = document.querySelector('.ql-menubar .ql-menubar-item'); first.click(); await wait(150);
+    const menuItems = [...document.querySelectorAll('.ql-menu .ql-menu-item, .ql-menu [role=menuitem]')].map((m) => m.textContent.trim());
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(50);
+    const out = { layoutName, rowsHasRotate: rows.some((t) => t.endsWith('Rotate Right')), pref: qn.prefs.menuLayout.startsWith('custom-'), saved: qn.prefs.customMenus.map((l) => l.name), lastItems: qn.prefs.customMenus[0]?.menus[0].items.slice(-2), menuHasRotate: menuItems.some((t) => /Rotate Right/.test(t)) };
+    qn.prefs.menuLayout = 'irfanview'; qn.savePrefs(); qn.ui.applyPrefs();
+    return out;
+  });
+  check('customize menus: an edited copy of a built-in layout becomes the menu bar', cm2, { layoutName: 'IrfanView style (mine)', rowsHasRotate: true, pref: true, saved: ['IrfanView style (mine)'], lastItems: ['image.rotateRight', '|'], menuHasRotate: true }, JSON.stringify(cm2));
+
   // View ▸ Language: the built-in Spanish table (ribbon, menu bar, tooltips' names), a table loaded
   // from a file, and one translated by the (mock) AI service in batches; back to English.
   const lang = await p.evaluate(async () => {

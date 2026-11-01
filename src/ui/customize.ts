@@ -1,4 +1,4 @@
-/** Customize dialogs: Quick Access Bar, Tabs (ribbon), Keyboard. Every command in the registry is available. */
+/** Customize dialogs: Quick Access Bar, Tabs (ribbon), Menus (classic layouts), Keyboard. Every command in the registry is available. */
 import type { App } from '../app';
 import { allCommands, getCommand, type Command } from '../commands/registry';
 import { DEFAULT_QAT, addAllQatChoices, type CustomTab } from '../prefs';
@@ -6,6 +6,7 @@ import { DEFAULT_TABS, idsInTabs, tabsFor } from './ribbonLayout';
 import { h, icon, clear } from './dom';
 import { openDialog, toast, promptDialog, confirmDialog } from './dialog';
 import { prettyKey, canonicalKey, keyName } from '../util/keys';
+import { CLASSIC_MENUS, CLASSIC_LAYOUT_NAMES, DEFAULT_LAYOUT, installCustomMenus } from './classicMenus';
 
 export function categories(app: App): { id: string; label: string; list: () => Command[] }[] {
   const all = () => allCommands().sort((a, b) => a.label.localeCompare(b.label));
@@ -250,4 +251,102 @@ export async function customizeKeyboard(app: App, initialId?: string): Promise<v
   app.prefs.keymap = keymap;
   app.savePrefs();
   app.ui.rebuild();
+}
+
+/**
+ * Customize Menus: edit any classic menu layout (a built-in one is copied first) or start one of your
+ * own: menus, submenus, commands and separators, in any order. Saved layouts appear wherever classic
+ * layouts are listed (View ▸ Classic Menu Layout, Options, Help ▸ Menu Map).
+ */
+export async function customizeMenus(app: App): Promise<void> {
+  type Item = string | { label: string; items: Item[] };
+  type Layout = { key: string; name: string; menus: { label: string; items: Item[] }[] };
+  const customs: Layout[] = JSON.parse(JSON.stringify(app.prefs.customMenus));
+  const builtIns = Object.keys(CLASSIC_MENUS).filter((k) => !k.startsWith('custom-'));
+  let key = app.prefs.menuLayout in CLASSIC_MENUS ? app.prefs.menuLayout : DEFAULT_LAYOUT;
+  let sel: number[] = [];
+  const cats = categories(app);
+  let cat = cats[0], filter = '', leftSel = 0;
+  const layoutOf = (k: string): Layout => customs.find((l) => l.key === k) || { key: k, name: CLASSIC_LAYOUT_NAMES[k], menus: JSON.parse(JSON.stringify(CLASSIC_MENUS[k] || [])) };
+  const editable = (): Layout => {
+    const c = customs.find((l) => l.key === key); if (c) return c;
+    const base = layoutOf(key), copy: Layout = { key: `custom-${Date.now().toString(36)}`, name: `${base.name} (mine)`, menus: base.menus };
+    customs.push(copy); key = copy.key; toast(`Created "${copy.name}", an editable copy; the original stays as it was.`);
+    return copy;
+  };
+  // A path is [menu, item, item, …]; [menu] alone is the menu itself.
+  const listOf = (L: Layout, parent: number[]): Item[] => { let list = L.menus[parent[0]].items; for (const i of parent.slice(1)) list = (list[i] as { items: Item[] }).items; return list; };
+  const nodeAt = (L: Layout, p: number[]): Item | { label: string; items: Item[] } | undefined => (p.length === 1 ? L.menus[p[0]] : listOf(L, p.slice(0, -1))[p[p.length - 1]]);
+  const root = h('div', { class: 'ql-customize' });
+  const left = h('div', { class: 'ql-cust-col' }), mid = h('div', { class: 'ql-cust-mid' }), right = h('div', { class: 'ql-cust-col' });
+  const leftItems = () => cat.list().filter((c) => !filter || `${c.label} ${c.id}`.toLowerCase().includes(filter));
+  const catSel = h('select', null, ...cats.map((c) => h('option', { value: c.id }, c.label))) as HTMLSelectElement;
+  catSel.addEventListener('change', () => { cat = cats.find((c) => c.id === catSel.value) || cats[0]; leftSel = 0; draw(); });
+  const search = h('input', { placeholder: 'Filter commands…' }) as HTMLInputElement;
+  search.addEventListener('input', () => { filter = search.value.toLowerCase(); leftSel = 0; draw(); });
+  const draw = () => {
+    clearKeepingScroll(left, right);
+    left.append(h('label', { class: 'ql-label' }, 'Choose commands from:'), catSel, search, commandList(leftItems(), leftSel, (i) => { leftSel = i; draw(); }, (i) => { leftSel = i; add(); }));
+    const layoutSel = h('select', { class: 'qn-menu-layout' }, ...[...builtIns, ...customs.map((l) => l.key)].map((k) => h('option', { value: k, selected: k === key }, customs.find((l) => l.key === k)?.name || CLASSIC_LAYOUT_NAMES[k]))) as HTMLSelectElement;
+    layoutSel.addEventListener('change', () => { key = layoutSel.value; sel = []; draw(); });
+    const L = layoutOf(key), tree = h('div', { class: 'ql-cmdlist qn-menu-tree' });
+    const row = (p: number[], depth: number, content: (HTMLElement | string | null)[], cls = '') => { const r = h('div', { class: `ql-cmdlist-row ${cls}` + (p.join() === sel.join() ? ' ql-sel' : ''), style: `padding-left:${6 + depth * 18}px`, onclick: () => { sel = p; draw(); } }, ...content); tree.appendChild(r); };
+    const walk = (items: Item[], p: number[], depth: number) => items.forEach((it, i) => {
+      const q = [...p, i];
+      if (it === '|') row(q, depth, [h('span', { class: 'ql-icon-space' }), '──────────'], 'ql-sep-row');
+      else if (typeof it === 'string') { const c = getCommand(it); row(q, depth, [icon(c?.icon), c?.label || it, c ? null : h('span', { class: 'ql-help' }, ' (planned)')], c ? '' : 'ql-dim'); }
+      else { row(q, depth, [icon('subdirectory_arrow_right'), h('b', null, it.label)]); walk(it.items, q, depth + 1); }
+    });
+    L.menus.forEach((m, mi) => { row([mi], 0, [icon('menu'), h('b', null, m.label)], 'ql-group-row'); walk(m.items, [mi], 1); });
+    right.append(h('label', { class: 'ql-label' }, 'Layout:'), layoutSel, h('label', { class: 'ql-label' }, `Menus${customs.some((l) => l.key === key) ? '' : ' (built-in: editing makes a copy)'}:`), tree);
+  };
+  /** Where a new item goes: inside a selected menu or submenu (at its end), else after the selected item. */
+  const target = (L: Layout): { list: Item[]; at: number; path: number[] } => {
+    if (!L.menus.length) L.menus.push({ label: 'Menu', items: [] });
+    if (!sel.length) { const mi = L.menus.length - 1; return { list: L.menus[mi].items, at: L.menus[mi].items.length, path: [mi] }; }
+    const n = nodeAt(L, sel);
+    if (sel.length === 1 || (n && typeof n === 'object')) { const list = sel.length === 1 ? L.menus[sel[0]].items : (n as { items: Item[] }).items; return { list, at: list.length, path: sel }; }
+    return { list: listOf(L, sel.slice(0, -1)), at: sel[sel.length - 1] + 1, path: sel.slice(0, -1) };
+  };
+  const insert = (it: Item) => { const L = editable(); const t = target(L); t.list.splice(t.at, 0, it); sel = [...t.path, t.at]; draw(); };
+  const add = () => { const c = leftItems()[leftSel]; if (c) insert(c.id); };
+  const remove = async () => {
+    if (!sel.length) return; const L = editable();
+    if (sel.length === 1) { if (!(await confirmDialog('Remove Menu', `Remove the menu "${L.menus[sel[0]].label}" and everything in it?`, 'Remove'))) return; L.menus.splice(sel[0], 1); sel = []; }
+    else { const list = listOf(L, sel.slice(0, -1)); list.splice(sel[sel.length - 1], 1); sel = list.length ? [...sel.slice(0, -1), Math.min(sel[sel.length - 1], list.length - 1)] : sel.slice(0, -1); }
+    draw();
+  };
+  const move = (d: number) => {
+    if (!sel.length) return; const L = editable();
+    const list: unknown[] = sel.length === 1 ? L.menus : listOf(L, sel.slice(0, -1)), i = sel[sel.length - 1], j = i + d;
+    if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; sel = [...sel.slice(0, -1), j]; draw();
+  };
+  const rename = async () => {
+    const L = editable(), n = sel.length ? nodeAt(L, sel) : null;
+    if (n && typeof n === 'object') { const v = await promptDialog('Rename', 'Name:', n.label); if (v) n.label = v; }
+    else { const v = await promptDialog('Rename Layout', 'Layout name:', L.name); if (v) L.name = v; }
+    draw();
+  };
+  const b = midButton;
+  mid.append(
+    b('Add', 'arrow_forward', add), b('Remove', 'arrow_back', () => void remove()), b('Up', 'arrow_upward', () => move(-1)), b('Down', 'arrow_downward', () => move(1)),
+    b('Separator', 'horizontal_rule', () => insert('|')),
+    b('New Submenu', 'subdirectory_arrow_right', async () => { const n = await promptDialog('New Submenu', 'Submenu name:', 'More'); if (n) insert({ label: n, items: [] }); }),
+    b('New Menu', 'menu', async () => { const n = await promptDialog('New Menu', 'Menu name:', 'My Menu'); if (!n) return; const L = editable(); const at = sel.length ? sel[0] + 1 : L.menus.length; L.menus.splice(at, 0, { label: n, items: [] }); sel = [at]; draw(); }),
+    b('Rename', 'edit', () => void rename()),
+    b('New Layout', 'add', async () => { const n = await promptDialog('New Layout', 'Layout name:', 'My Menus'); if (!n) return; const l: Layout = { key: `custom-${Date.now().toString(36)}`, name: n, menus: [{ label: 'File', items: ['file.open', 'file.save', '|', 'file.exit'] }] }; customs.push(l); key = l.key; sel = []; draw(); }),
+    b('Delete Layout', 'delete', async () => { const i = customs.findIndex((l) => l.key === key); if (i < 0) { toast('Built-in layouts cannot be deleted; edit one to make your own copy.'); return; } if (await confirmDialog('Delete Layout', `Delete "${customs[i].name}"?`, 'Delete')) { customs.splice(i, 1); key = DEFAULT_LAYOUT; sel = []; draw(); } }),
+  );
+  root.append(left, mid, right);
+  draw();
+  const r = await openDialog({ title: 'Customize Menus', full: true, content: root, help: 'Pick a layout, then add commands, separators, submenus and menus, or move and rename them. Editing a built-in layout makes your own copy. Saving shows the layout you edited on the menu bar.' });
+  if (!r) return;
+  // Empty submenus and menus are dropped; the edited layout becomes the menu bar.
+  const prune = (items: Item[]): Item[] => items.flatMap((it): Item[] => { if (typeof it === 'string') return [it]; const k = prune(it.items); return k.length ? [{ label: it.label, items: k }] : []; });
+  for (const l of customs) l.menus = l.menus.map((m) => ({ label: m.label, items: prune(m.items) })).filter((m) => m.items.length);
+  app.prefs.customMenus = customs.filter((l) => l.menus.length);
+  installCustomMenus(app.prefs.customMenus);
+  if (key in CLASSIC_MENUS) app.prefs.menuLayout = key;
+  if (app.prefs.menuStyle === 'ribbon') app.prefs.menuStyle = 'both';
+  app.savePrefs(); app.ui.applyPrefs();
 }

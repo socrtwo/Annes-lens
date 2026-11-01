@@ -13,6 +13,7 @@ import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
 import { keepOriginalCopy } from '../picture/keepOriginal';
 import { paintHooks } from '../paint/hooks';
+import { installCustomMenus } from '../ui/classicMenus';
 import { iccForSave, writeWithProfile, profileName } from '../color/embedded';
 
 /** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
@@ -424,6 +425,7 @@ def([
   { id: 'file.customizeQat', icon: 'tune', popular: true, noRecord: true, run: (app) => app.ui.customizeQat() },
   { id: 'file.customizeRibbon', icon: 'view_quilt', noRecord: true, run: (app) => app.ui.customizeRibbon() },
   { id: 'file.customizeKeyboard', icon: 'keyboard', noRecord: true, run: (app) => app.ui.customizeKeyboard() },
+  { id: 'file.customizeMenus', icon: 'menu_open', noRecord: true, tip: 'Edit any classic menu layout (a built-in one is copied) or build your own: menus, submenus, commands, separators', run: async (app) => { const { customizeMenus } = await import('../ui/customize'); await customizeMenus(app); } },
   {
     id: 'file.exportSettings', icon: 'import_export', noRecord: true,
     tip: 'One JSON text for every setting, shared with the sister apps; or an IrfanView-style key list',
@@ -472,7 +474,7 @@ def([
       void app;
     },
   },
-  { id: 'file.resetCustomizations', icon: 'restart_alt', noRecord: true, run: async (app) => { if (!(await confirmDialog('Reset', 'Reset the Quick Access Bar, custom tabs, menus and keyboard shortcuts to defaults?'))) return; app.prefs.qat = [...DEFAULT_QAT]; app.prefs.customTabs = []; app.prefs.hiddenTabs = []; app.prefs.tabOrder = []; app.prefs.keymap = {}; app.prefs.menuLayout = 'irfanview'; app.prefs.menuStyle = 'both'; app.savePrefs(); app.ui.applyPrefs(); app.ui.rebuild(); } },
+  { id: 'file.resetCustomizations', icon: 'restart_alt', noRecord: true, run: async (app) => { if (!(await confirmDialog('Reset', 'Reset the Quick Access Bar, custom tabs, menus and keyboard shortcuts to defaults?'))) return; app.prefs.qat = [...DEFAULT_QAT]; app.prefs.customTabs = []; app.prefs.hiddenTabs = []; app.prefs.tabOrder = []; app.prefs.keymap = {}; app.prefs.customMenus = []; installCustomMenus([]); app.prefs.menuLayout = 'irfanview'; app.prefs.menuStyle = 'both'; app.savePrefs(); app.ui.applyPrefs(); app.ui.rebuild(); } },
 ]);
 
 export { FORMATS, getCommand, fmtSize };
