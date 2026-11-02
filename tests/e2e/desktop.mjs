@@ -152,6 +152,28 @@ try {
   });
   check('desktop script console runs under the app\'s security policy', /← \[ 4, 4, 255, 0, 0 \]/.test(con), true, con);
 
+  // Phone Remote: Node plays the phone. It loads the page through the token address, follows the state stream, and Next / Start / Pause / Stop drive the app.
+  const rm = await w.evaluate(async () => { const wait = (ms) => new Promise((r) => setTimeout(r, ms)); await qn.exec('browse.favorites', 0); for (let i = 0; i < 60 && qn.folder.name !== '2024'; i++) await wait(50); await wait(300); const r = await qn.exec('show.remote', { quiet: true }); return { urls: r.urls, port: r.port, on: window.__qnGetCommand('show.remote').isActive(qn), name: qn.picture.name }; });
+  const rbase = rm.urls[0].replace(/^http:\/\/[^/:]+/, 'http://127.0.0.1');
+  const page = await (await fetch(rbase)).text(), js = await (await fetch(rbase + 'app.js')).text();
+  const wrongToken = (await fetch(rbase.replace(/\/r\/[0-9a-f]+\//, '/r/0123/'))).status;
+  const waitState = async (pred) => { for (let i = 0; i < 60; i++) { const st = await (await fetch(rbase + 'state')).json(); if (pred(st)) return st; await new Promise((r) => setTimeout(r, 100)); } return (await (await fetch(rbase + 'state')).json()); };
+  const s0 = await waitState((st) => st.name);
+  // The event stream sends the state at once.
+  const ctl = new AbortController(), evRes = await fetch(rbase + 'events', { signal: ctl.signal }), rdr = evRes.body.getReader(); const firstEvent = new TextDecoder().decode((await rdr.read()).value); ctl.abort();
+  const post = (cmd) => fetch(rbase + 'cmd', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cmd }) }).then((r) => r.status);
+  const bad = await post('rm -rf');
+  const n1 = await post('next'); const s1 = await waitState((st) => st.name && st.name !== s0.name);
+  await w.evaluate(() => { qn.prefs.slideshow = { ...qn.prefs.slideshow, seconds: 30, transition: 'fade', transitionMs: 50, musicOn: false }; });
+  await post('start'); const s2 = await waitState((st) => st.running);
+  await post('pause'); const s3 = await waitState((st) => st.paused);
+  await post('stop'); const s4 = await waitState((st) => !st.running);
+  await w.evaluate(() => qn.exec('show.remote'));
+  const offStatus = await fetch(rbase + 'state').then((r) => r.status, () => 'closed');
+  check('desktop phone remote: page behind a token, live state, commands drive the app, off closes it', [rm.on, /Start slideshow/.test(page), /EventSource/.test(js), wrongToken, s0.name, /^data: \{/.test(firstEvent), bad, n1, s1.name, s1.index, /^data:image\/jpeg/.test(s1.thumb || ''), s2.running, s3.paused, s4.running, offStatus],
+    [true, true, true, 404, 'c.png', true, 400, 204, 'd.png', 2, true, true, true, false, 'closed'], JSON.stringify({ s0: { ...s0, thumb: undefined }, s1: { ...s1, thumb: undefined }, rm }));
+  await w.evaluate(async () => { const wait = (ms) => new Promise((r) => setTimeout(r, ms)); const jan = qn.prefs.recentFolders.find((r) => r.name === '01 Jan'); await qn.exec('file.recentFolders', jan.key); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(300); });
+
   // Frameless: a new window without a frame, the same picture in it, the title bar's window buttons shown.
   // The window that asks is replaced, so the call itself never returns.
   const next = app.waitForEvent('window');

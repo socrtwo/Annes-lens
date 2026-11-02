@@ -52,4 +52,5 @@ import './albums';
 import './browseWindow';
 import './catalog';
 import './libraryTools';
+import './slideshowMedia';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

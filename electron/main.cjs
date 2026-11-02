@@ -193,6 +193,15 @@ function registerIpc() {
     grantDir(dir);
     return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir, !!all) };
   });
+  // Phone Remote (slideshows): commands from the phone go to the page as 'remoteCommand' events.
+  let remote = null;
+  handle('remoteStart', async ({ port }) => {
+    if (!remote) remote = await require('./remote.cjs').startRemote((cmd) => { if (win && !win.isDestroyed()) win.webContents.send('ql:remoteCommand', { cmd }); }, Number(port) || 0);
+    return { urls: remote.urls, port: remote.port };
+  });
+  handle('remoteStop', async () => { if (remote) { remote.stop(); remote = null; } return { ok: true }; });
+  handle('remoteState', async (state) => { if (remote) remote.setState(state); return { ok: true }; });
+  app.on('before-quit', () => { if (remote) remote.stop(); });
   handle('cliJob', async () => { const j = cliJob; if (j && j.mode === 'view') cliJob = null; return j; });
   handle('listSubfolders', async ({ uri }) => ({ folders: listSubdirs(grantedDir(uri)) }));
   handle('parentFolder', async ({ uri }) => {

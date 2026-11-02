@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **550 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **552 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -23,7 +23,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
 - **View**: Zoom (12) · Navigate (9) · Window (16) · Inspect (12) · Display (10) · Compare (4) · Media (3) · Quick Access Bar and search (5)
-- **Slideshow**: Slideshow (11)
+- **Slideshow**: Slideshow (13)
 - **Tools**: Text and codes (4) · Documents and print (4) · Color and vector (2) · Organize (2) · Extend (2)
 - **AI**: Generate (10) · Edit (20) · Select (3) · Understand (12) · Provenance (2) · Providers (9)
 - **Developer**: Developer (7)
@@ -43,7 +43,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 108 |
 | All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 335 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 550 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 552 |
 
 ## File (82 of 82)
 
@@ -559,15 +559,17 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Search Commands | Quick Access Bar and search | Alt+q | `view.cmdSearch` | from the Anne's Office suite |
 | Show Quick Access Bar | Quick Access Bar and search |  | `view.qatShow` | not in tabs; from the Anne's Office suite |
 
-## Slideshow (11 of 13)
+## Slideshow (13 of 13)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
+| Background Music… | Slideshow |  | `show.music` | from FastStone Image Viewer, Picasa |
 | Captions | Slideshow |  | `show.captions` | from IrfanView, XnView Classic and XnView MP |
 | Export as HTML Slideshow… | Slideshow |  | `show.exportHtml` | from FastStone Image Viewer, IrfanView |
 | Kiosk Mode | Slideshow |  | `show.kiosk` | from new in Anne's Lens |
 | Loop | Slideshow |  | `show.loop` | from IrfanView |
 | Pause / Resume | Slideshow | Space | `show.pause` | from most picture viewers |
+| Phone Remote | Slideshow |  | `show.remote` | from the Anne's Office suite |
 | Random Order | Slideshow |  | `show.random` | from IrfanView |
 | Slideshow Settings… | Slideshow | w | `show.settings` | from IrfanView |
 | Start from Current | Slideshow | Shift+F5 | `show.fromCurrent` |  |
@@ -680,7 +682,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (7)
+## Planned, not yet built (5)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
@@ -688,4 +690,3 @@ These ids are in the plan but have no command yet; they belong to later mileston
 - **Browse** (2): `browse.map`, `browse.people`
 - **Create** (1): `create.panoramaStitch`
 - **RAW** (1): `raw.develop`
-- **Slideshow** (2): `show.music`, `show.remote`

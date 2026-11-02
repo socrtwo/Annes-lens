@@ -674,3 +674,10 @@ body.qn-frameless .ql-win-close:hover { background: #c42b1c; }
 .qn-sketch-palette { display: flex; flex-wrap: wrap; gap: 6px; }
 .qn-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(0,0,0,.25); cursor: pointer; }
 .qn-swatch.ql-sel { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Background Music list, Phone Remote QR */
+.qn-music-list { max-height: 220px; margin-bottom: 8px; }
+.qn-music-list .ql-cmdlist-row { justify-content: space-between; }
+.qn-remote-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qn-remote-qr svg { width: 220px; height: 220px; background: #fff; padding: 8px; border-radius: 8px; }
+.qn-remote-box code { font-size: 12.5px; word-break: break-all; }

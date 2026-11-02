@@ -107,6 +107,10 @@ interface DesktopBridge extends QuillNativePlugin {
   createSubfolder(opts: { dirUri: string; name: string }): Promise<{ uri: string; name: string }>;
   /** HTTP request for AI services (no cross-origin limits). Body and answer travel as base64. */
   request(opts: { url: string; method: string; headers: Record<string, string>; body?: string; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; data: string }>;
+  /** Phone Remote: the local-network server for slideshows, its state, and the phone's commands (addListener 'remoteCommand'). */
+  remoteStart(opts: { port?: number }): Promise<{ urls: string[]; port: number }>;
+  remoteStop(): Promise<{ ok: boolean }>;
+  remoteState(state: Record<string, unknown>): Promise<{ ok: boolean }>;
   /** Keeps a chosen folder readable after a restart (catalog, favorites, watch folders, backups). */
   rememberFolder(opts: { uri: string }): Promise<{ ok: boolean }>;
   /** The folder above one the app may list. */

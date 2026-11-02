@@ -2,15 +2,16 @@
  * The slideshow: timing, order (folder or random), looping, transitions (fade, wipe, slide, zoom,
  * pan and zoom), captions through the information overlay, kiosk mode, and a self-contained HTML
  * export. The show drives the folder of the active window; a snapshot of the outgoing picture is
- * animated over the viewer for transitions.
+ * animated over the viewer for transitions. `showHooks` lets Background Music (picture/music.ts) and
+ * the Phone Remote (commands/slideshowMedia.ts) follow the show.
  */
 import type { App } from '../app';
 import { viewState } from '../ui/overlays';
 import { h } from '../ui/dom';
 
 export type Transition = 'none' | 'fade' | 'wipe' | 'slide' | 'zoom' | 'panzoom' | 'random';
-export interface SlideshowSettings { seconds: number; transition: Transition; loop: boolean; random: boolean; captions: boolean; captionTemplate: string; kiosk: boolean; transitionMs: number }
-export const DEFAULT_SLIDESHOW: SlideshowSettings = { seconds: 4, transition: 'fade', loop: true, random: false, captions: false, captionTemplate: '{name}\n{exifdate}', kiosk: false, transitionMs: 700 };
+export interface SlideshowSettings { seconds: number; transition: Transition; loop: boolean; random: boolean; captions: boolean; captionTemplate: string; kiosk: boolean; transitionMs: number; musicOn: boolean; musicVolume: number; musicShuffle: boolean }
+export const DEFAULT_SLIDESHOW: SlideshowSettings = { seconds: 4, transition: 'fade', loop: true, random: false, captions: false, captionTemplate: '{name}\n{exifdate}', kiosk: false, transitionMs: 700, musicOn: false, musicVolume: 0.8, musicShuffle: false };
 
 export const show = { running: false, paused: false, kiosk: false, order: [] as number[], pos: 0, timer: 0 as any, app: null as App | null, savedOsd: false, savedTemplate: '', overlay: null as HTMLElement | null, onEnd: null as null | (() => void) };
 
@@ -23,6 +24,10 @@ export function makeOrder(n: number, start: number, random: boolean, rnd: () => 
   return idx;
 }
 export function pickTransition(t: Transition, rnd: () => number = Math.random): Exclude<Transition, 'random'> { if (t !== 'random') return t; const all: Exclude<Transition, 'random' | 'none'>[] = ['fade', 'wipe', 'slide', 'zoom', 'panzoom']; return all[Math.floor(rnd() * all.length)]; }
+
+/** Background music and the phone remote follow the show through these. */
+export const showHooks = { start: [] as ((app: App) => void)[], stop: [] as ((app: App) => void)[], pause: [] as ((app: App, paused: boolean) => void)[], slide: [] as ((app: App) => void)[] };
+const fire = <K extends keyof typeof showHooks>(k: K, ...a: Parameters<(typeof showHooks)[K][number]>) => { for (const f of showHooks[k] as ((...x: unknown[]) => void)[]) { try { f(...a); } catch (e) { console.warn(e); } } };
 
 function settings(app: App): SlideshowSettings { return { ...DEFAULT_SLIDESHOW, ...app.prefs.slideshow }; }
 
@@ -53,6 +58,7 @@ async function goTo(app: App, pos: number): Promise<void> {
   if (idx !== f.index) { transitionOut(app, pickTransition(s.transition), s.transitionMs); f.select(idx); await app.tab.show(); }
   app.viewer.draw();
   schedule(app);
+  fire('slide', app);
 }
 function schedule(app: App): void {
   clearTimeout(show.timer);
@@ -83,6 +89,7 @@ export function start(app: App, fromCurrent: boolean, kiosk = false): void {
   window.addEventListener('keydown', onKey, true);
   void import('../commands/view').then(({ fullScreen }) => fullScreen(app, true));
   void goTo(app, 0);
+  fire('start', app);
   app.refresh();
 }
 export function stop(app: App): void {
@@ -94,8 +101,9 @@ export function stop(app: App): void {
   document.body.classList.remove('qn-slideshow', 'qn-kiosk');
   void import('../commands/view').then(({ fullScreen }) => fullScreen(app, false));
   app.viewer.draw(); app.refresh(); show.onEnd?.();
+  fire('stop', app);
 }
-export function togglePause(app: App): boolean { if (!show.running) return false; show.paused = !show.paused; if (show.paused) clearTimeout(show.timer); else schedule(app); app.viewer.flash(show.paused ? 'Paused' : 'Resumed'); app.refresh(); return show.paused; }
+export function togglePause(app: App): boolean { if (!show.running) return false; show.paused = !show.paused; if (show.paused) clearTimeout(show.timer); else schedule(app); fire('pause', app, show.paused); app.viewer.flash(show.paused ? 'Paused' : 'Resumed'); app.refresh(); return show.paused; }
 export const next = (app: App) => goTo(app, show.pos + 1);
 export const previous = (app: App) => goTo(app, show.pos - 1);
 

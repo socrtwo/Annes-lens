@@ -37,7 +37,8 @@ if (!url) {
 }
 
 const exe = existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {};
-const browser = await chromium.launch(exe);
+// Audio may play without a click (in the app, a slideshow starts from a click or a key, which allows it).
+const browser = await chromium.launch({ ...exe, args: ['--autoplay-policy=no-user-gesture-required'] });
 const failures = [];
 const check = (name, got, want, note) => { if (JSON.stringify(got) !== JSON.stringify(want)) failures.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}${note ? ' [' + note + ']' : ''}`); };
 
@@ -623,6 +624,26 @@ try {
   });
   check('slideshow runs full screen with captions and advances', [sl.running, sl.full, sl.osd, sl.i0, sl.i1], [true, true, true, 0, 1]);
   check('slideshow pauses on Space and stops on Escape', [sl.paused, sl.i2, sl.stopped, sl.fullAfter, sl.osdAfter], [true, 1, true, false, false]);
+
+  // Background Music: two generated WAV tracks (a third file that is not audio is refused) play during a slideshow, pause with it and fade out when it stops.
+  const mu = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const wav = (secs, hz) => { const rate = 8000, n = rate * secs, b = new DataView(new ArrayBuffer(44 + n * 2)); const w = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+      w(0, 'RIFF'); b.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true); b.setUint32(24, rate, true); b.setUint32(28, rate * 2, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, 'data'); b.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) b.setInt16(44 + i * 2, Math.round(3000 * Math.sin(2 * Math.PI * hz * i / rate)), true); return b.buffer; };
+    const M = await window.__qnMusic(), SH = await window.__qnShow();
+    const list = await qn.exec('show.music', { clear: true, files: [new File([wav(3, 440)], 'tone-a.wav', { type: 'audio/wav' }), new File([wav(3, 660)], 'tone-b.wav', { type: 'audio/wav' }), new File(['x'], 'notes.txt', { type: 'text/plain' })], on: true, volume: 0.5, shuffle: false });
+    const names = list.map((t) => t.name);
+    await qn.exec('show.start'); await wait(700);
+    const playing = M.music.playing, track = M.music.track, t1 = M.music.audio?.currentTime || 0, vol = M.music.audio?.volume, err = M.music.error;
+    SH.togglePause(qn); await wait(300); const pausedPlaying = M.music.playing, tp = M.music.audio.currentTime; await wait(300); const tp2 = M.music.audio.currentTime;
+    SH.togglePause(qn); await wait(300); const resumed = M.music.playing;
+    SH.stop(qn); await wait(1600);
+    const stopped = !M.music.playing && !M.music.url;
+    await qn.exec('show.music', { on: false });
+    return { names, playing, track, t1: t1 > 0, vol, err, pausedPlaying, still: tp === tp2, resumed, stopped, remoteOff: window.__qnGetCommand('show.remote').isEnabled(qn) };
+  });
+  check('background music: audio files kept, plays with the show, pauses with it, fades out at the end', [mu.names, mu.playing, mu.track, mu.t1, mu.vol, mu.pausedPlaying, mu.still, mu.resumed, mu.stopped, mu.remoteOff], [['tone-a.wav', 'tone-b.wav'], true, 'tone-a.wav', true, 0.5, false, true, true, true, false], JSON.stringify(mu));
 
   // Tools: a QR code opened as a picture through its dialog, an encrypted package round trip, carving pictures out of junk, and Document Cleanup through its dialog.
   const tl = await p.evaluate(async () => {
