@@ -1588,6 +1588,47 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
   });
   check('customize menus: an edited copy of a built-in layout becomes the menu bar', cm2, { layoutName: 'IrfanView style (mine)', rowsHasRotate: true, pref: true, saved: ['IrfanView style (mine)'], lastItems: ['image.rotateRight', '|'], menuHasRotate: true }, JSON.stringify(cm2));
 
+  // The Browser window: Folder Tree (click and expand), Browser layout (F3), Include Subfolders and
+  // Show All Files on a File System Access tree.
+  const bw = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const png = async (color) => { const c = document.createElement('canvas'); c.width = 8; c.height = 8; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 8, 8); return new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/png'))).arrayBuffer()); };
+    const file = (name, bytes, type = 'image/png') => { const f = { kind: 'file', name, isSameEntry: async (o) => o === f, getFile: async () => new File([bytes], name, { type }) }; return f; };
+    const dir = (name, kids) => { const d = { kind: 'directory', name, isSameEntry: async (o) => o === d, entries: async function* () { for (const k of kids) yield [k.name, k]; } }; return d; };
+    const lib = dir('Library', [file('a.png', await png('#f00')), file('notes.txt', new TextEncoder().encode('hello'), 'text/plain'), dir('Kids', [file('b.png', await png('#0f0')), file('c.png', await png('#00f')), dir('Party', [file('d.png', await png('#ff0'))])])]);
+    const picker = window.showDirectoryPicker; window.showDirectoryPicker = async () => lib;
+    await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
+    for (let i = 0; i < 60 && qn.folder.name !== 'Library'; i++) await wait(50); await wait(250);
+    const rows = () => [...document.querySelectorAll('.qn-window-active .qn-tree-body .qn-tree-row, .qn-window .qn-tree-body .qn-tree-row')].map((r) => r.textContent.replace(/^[▸▾]/, '').replace(/^(folder_open|folder)/, '').trim());
+    const row = (name) => [...document.querySelectorAll('.qn-tree-body .qn-tree-row')].find((r) => r.textContent.endsWith(name));
+    const out = { start: [qn.folder.name, qn.folder.length] };
+    await qn.exec('browse.folderTree'); for (let i = 0; i < 40 && rows().length < 2; i++) await wait(50);
+    out.tree = rows(); out.treeShown = !!document.querySelector('.qn-window.qn-has-tree .qn-tree');
+    row('Kids').click(); for (let i = 0; i < 60 && qn.folder.name !== 'Kids'; i++) await wait(50); await wait(250);
+    out.kids = [qn.folder.name, qn.folder.length, document.querySelector('.qn-tree-row.ql-sel')?.textContent.endsWith('Kids')];
+    row('Kids').querySelector('.qn-tree-toggle').click(); for (let i = 0; i < 40 && !row('Party'); i++) await wait(50);
+    row('Party').click(); for (let i = 0; i < 60 && qn.folder.name !== 'Party'; i++) await wait(50); await wait(250);
+    out.party = [qn.folder.name, qn.folder.length, rows()];
+    await qn.exec('browse.browser'); await wait(250);
+    const win = document.querySelector('.qn-window'); out.browser = [win.classList.contains('qn-window-browser'), qn.tab.thumbs.open && qn.tab.thumbs.mode, getComputedStyle(win.querySelector('.qn-viewer')).display !== 'none', getComputedStyle(win.querySelector('.qn-tree')).display !== 'none'];
+    row('Library').click(); for (let i = 0; i < 60 && qn.folder.name !== 'Library'; i++) await wait(50); await wait(250);
+    await qn.exec('browse.recursive'); for (let i = 0; i < 60 && !/with subfolders/.test(qn.folder.name); i++) await wait(50); await wait(250);
+    out.recursive = [qn.folder.name, qn.folder.entries.map((e) => e.name)];
+    await qn.exec('browse.recursive'); await wait(300); out.flat = [qn.folder.name, qn.folder.length];
+    await qn.exec('browse.showAllFiles'); for (let i = 0; i < 60 && qn.folder.length < 2; i++) await wait(50); await wait(400);
+    out.all = [qn.folder.entries.map((e) => e.name), !!document.querySelector('.qn-thumb .qn-thumb-file')];
+    await qn.exec('browse.showAllFiles'); await wait(300); out.pictures = qn.folder.entries.map((e) => e.name);
+    return out;
+  });
+  check('folder tree: the opened folder and its subfolders; click opens, the branch expands', [bw.start, bw.treeShown, bw.tree, bw.kids, bw.party], [['Library', 1], true, ['Library', 'Kids'], ['Kids', 2, true], ['Party', 1, ['Library', 'Kids', 'Party']]], JSON.stringify(bw));
+  check('browser layout: tree, thumbnail grid and preview together', bw.browser, [true, 'grid', true, true]);
+  check('include subfolders lists the whole tree, depth first', [bw.recursive, bw.flat], [['Library (with subfolders)', ['a.png', 'b.png', 'c.png', 'd.png']], ['Library', 1]]);
+  check('show all files lists other files with an icon', [bw.all, bw.pictures], [[['a.png', 'notes.txt'], true], ['a.png']]);
+  await p.keyboard.press('F3'); await p.waitForTimeout(200);
+  check('F3 toggles the Browser off', await p.evaluate(() => [qn.prefs.browserLayout, document.querySelector('.qn-window').classList.contains('qn-window-browser')]), [false, false]);
+  await p.evaluate(async () => { if (qn.prefs.folderTree) await qn.exec('browse.folderTree'); });
+
   // View ▸ Language: the built-in Spanish table (ribbon, menu bar, tooltips' names), a table loaded
   // from a file, and one translated by the (mock) AI service in batches; back to English.
   const lang = await p.evaluate(async () => {
@@ -1647,6 +1688,13 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
     await qn.exec('browse.albums', 'Seaside and hills'); await wait(400);
     out.album = [qn.folder.name, qn.folder.entries.map((e) => e.name), qn.picture?.name];
     await qn.exec('browse.addToAlbum', { album: 'Seaside and hills' }); await wait(150); // the shown picture again: a duplicate
+    // Favorite Folders: the picked folder is added, listed in the tree, and opened from there.
+    window.showDirectoryPicker = async () => dir; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
+    for (let i = 0; i < 60 && qn.folder.name !== 'Trip 2024'; i++) await wait(50); await wait(200);
+    await qn.exec('browse.favorites', 'add'); await qn.exec('browse.favorites', 'add'); await wait(100);
+    await qn.exec('browse.folderTree'); await wait(400);
+    out.favRows = [...document.querySelectorAll('.qn-tree-favs .qn-tree-row')].map((r) => r.textContent.replace(/^folder_special/, ''));
+    await qn.exec('browse.folderTree');
     // Smart album: back in the folder, filter by name, save, clear, re-apply.
     window.showDirectoryPicker = async () => dir; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
     for (let i = 0; i < 60 && qn.folder.name !== 'Trip 2024'; i++) await wait(50); await wait(300);
@@ -1675,10 +1723,15 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
     await qn.exec('browse.albums', 'Seaside and hills'); for (let i = 0; i < 60 && !qn.picture; i++) await wait(50); await wait(300);
+    const albumState = { folder: qn.folder.name, names: qn.folder.entries.map((e) => e.name) };
+    await qn.exec('browse.favorites', 0); for (let i = 0; i < 60 && qn.folder.name !== 'Trip 2024'; i++) await wait(50); await wait(300);
+    const favOpened = [qn.folder.name, qn.folder.length];
+    await qn.exec('browse.albums', 'Seaside and hills'); for (let i = 0; i < 60 && qn.folder.name !== 'Album: Seaside and hills'; i++) await wait(50); await wait(300);
     const px = qn.picture ? [...qn.picture.frameCanvas().getContext('2d').getImageData(10, 60, 1, 1).data].slice(0, 3) : null;
-    return { folder: qn.folder.name, names: qn.folder.entries.map((e) => e.name), px };
+    return { folder: qn.folder.name, names: qn.folder.entries.map((e) => e.name), px, favOpened, albumState };
   });
-  check('albums survive a reload (handles kept in IndexedDB)', alb2, { folder: 'Album: Seaside and hills', names: ['a-landscape.png', 'b-beach.png'], px: [50, 140, 60] });
+  check('albums survive a reload (handles kept in IndexedDB)', { folder: alb2.folder, names: alb2.names, px: alb2.px }, { folder: 'Album: Seaside and hills', names: ['a-landscape.png', 'b-beach.png'], px: [50, 140, 60] });
+  check('favorite folders: added once, shown in the tree, open after a reload', [alb.favRows, alb2.favOpened], [['Trip 2024'], ['Trip 2024', 3]]);
 
   await pctx.close();
 

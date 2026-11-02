@@ -56,7 +56,7 @@ interface QuillNativePlugin {
   /** Creates (or replaces) a file in a picked folder. */
   createInFolder?(opts: { dirUri: string; name: string; mime: string; data: string }): Promise<{ uri: string; name: string }>;
   /** Lists the pictures in a picked folder. */
-  listFolder?(opts: { uri: string }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
+  listFolder?(opts: { uri: string; all?: boolean }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
   /** The folders inside a picked tree (or a folder in it), as folder URIs. */
   listSubfolders?(opts: { uri: string }): Promise<{ folders: FolderRef[] }>;
 }
@@ -67,9 +67,9 @@ interface DesktopBridge extends QuillNativePlugin {
   platform: string;
   openExternal(opts: { url: string }): Promise<void>;
   /** Native folder dialog; resolves the folder's picture files. */
-  openFolder(): Promise<{ canceled?: boolean; uri?: string; name?: string; entries?: FolderEntry[] }>;
+  openFolder(opts?: { all?: boolean }): Promise<{ canceled?: boolean; uri?: string; name?: string; entries?: FolderEntry[] }>;
   /** The picture files beside a file (or inside a folder URI), sorted by name. */
-  listFolder(opts: { uri: string }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
+  listFolder(opts: { uri: string; all?: boolean }): Promise<{ uri: string; name: string; entries: FolderEntry[] }>;
   /** Show the file in the system file manager. */
   revealInFolder(opts: { uri: string }): Promise<void>;
   /** Open the file with the program registered for its type. */
@@ -192,16 +192,19 @@ export async function openDocuments(accept: string, mimeTypes: string[], multipl
  * Opens a folder: the desktop dialog (entries by URI), the File System Access directory picker (entries
  * by handle), or a directory <input> (entries as File objects). Null when canceled or unavailable.
  */
+/** Show All Files: folder listings include files that are not pictures (set from the preference). */
+export const listing = { allFiles: false };
+
 export async function openFolderDialog(): Promise<{ name: string; uri: string | null; entries?: FolderEntry[]; files?: File[]; handles?: { name: string; handle: any }[]; dirHandle?: any } | null> {
   if (desktop) {
-    const r = await desktop.openFolder();
+    const r = await desktop.openFolder({ all: listing.allFiles });
     if (r.canceled || !r.entries) return null;
     return { name: r.name || 'Folder', uri: r.uri || null, entries: r.entries };
   }
   if (isNative() && Native.pickFolder && Native.listFolder) {
     const r = await Native.pickFolder({ title: 'Open Folder' });
     if (r.canceled || !r.uri) return null;
-    const listed = await Native.listFolder({ uri: r.uri });
+    const listed = await Native.listFolder({ uri: r.uri, all: listing.allFiles });
     return { name: listed.name || r.name || 'Folder', uri: listed.uri, entries: listed.entries };
   }
   const anyWin = window as any;
@@ -228,9 +231,10 @@ export async function openFolderDialog(): Promise<{ name: string; uri: string | 
 }
 
 /** The picture files beside `uri` (desktop), or in a picked Android folder; elsewhere null. */
-export async function listFolderOf(uri: string): Promise<{ uri: string; name: string; entries: FolderEntry[] } | null> {
-  if (desktop) { try { return await desktop.listFolder({ uri }); } catch { return null; } }
-  if (isNative() && Native.listFolder && /^content:/.test(uri)) { try { return await Native.listFolder({ uri }); } catch { return null; } }
+export async function listFolderOf(uri: string, opts: { all?: boolean } = {}): Promise<{ uri: string; name: string; entries: FolderEntry[] } | null> {
+  const all = opts.all ?? listing.allFiles;
+  if (desktop) { try { return await desktop.listFolder({ uri, all }); } catch { return null; } }
+  if (isNative() && Native.listFolder && /^content:/.test(uri)) { try { return await Native.listFolder({ uri, all }); } catch { return null; } }
   return null;
 }
 
@@ -424,7 +428,9 @@ export async function handleId(handle: any): Promise<string> {
   handles.set(id, handle);
   return id;
 }
-export const handleFor = (uri: string): any => (uri.startsWith('fsa:') ? handles.get(uri.slice(4)) : undefined);
+export const handleFor = (uri: string): any => (uri.startsWith('fsa:') ? handles.get(uri.slice(4)) : uri.startsWith(FSA_DIR) ? handles.get(uri.slice(FSA_DIR.length)) : undefined);
+/** The fsadir: address of a directory handle (registering it for this session). */
+export const dirUriFor = async (dir: any): Promise<string> => FSA_DIR + (await handleId(dir));
 
 export async function writeBack(uri: string, blob: Blob): Promise<boolean> {
   if (uri.startsWith('fsa:')) {
@@ -638,13 +644,13 @@ export async function parentFolderOf(uri: string): Promise<FolderRef | null> {
   return null;
 }
 /** The picture files directly in a folder, as entries for listFolderOf-style results or File System Access handles. */
-export async function listFolderFiles(uri: string): Promise<{ entries?: FolderEntry[]; handles?: { name: string; handle: any }[] } | null> {
+export async function listFolderFiles(uri: string, opts: { all?: boolean } = {}): Promise<{ entries?: FolderEntry[]; handles?: { name: string; handle: any }[] } | null> {
   if (uri.startsWith(FSA_DIR)) {
     const dir = fsaDir(uri); if (!dir) return null;
     const handles: { name: string; handle: any }[] = [];
     for await (const [name, h] of dir.entries()) if (h.kind === 'file') handles.push({ name, handle: h });
     return { handles };
   }
-  const r = await listFolderOf(uri);
+  const r = await listFolderOf(uri, opts);
   return r ? { entries: r.entries } : null;
 }

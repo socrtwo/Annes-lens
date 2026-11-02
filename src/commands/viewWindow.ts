@@ -6,7 +6,7 @@ import { def } from './registry';
 import type { App } from '../app';
 import { openDialog, toast } from '../ui/dialog';
 import { isDesktop, desktopBridge, canListSubfolders, listSubfolders, parentFolderOf, listFolderFiles, type FolderRef, type DisplayInfo } from '../platform/native';
-import { isPictureName } from '../picture/folder';
+import { isPictureName, type Entry } from '../picture/folder';
 import { TreeWalker, type FolderTree } from '../picture/folderNav';
 import { listingEntries, showFolder } from './file';
 import { fullScreen } from './view';
@@ -23,13 +23,28 @@ const walkers = new Map<string, TreeWalker>();
 const walkerFor = (top: string | null) => { const k = top ?? '(file system)'; let w = walkers.get(k); if (!w) { w = new TreeWalker(tree); walkers.set(k, w); } w.visited = 0; return w; };
 const topOf = (app: App): string | null => (app.folder.treeTop !== undefined ? app.folder.treeTop : isDesktop() ? null : app.folder.uri);
 
-async function open(app: App, f: FolderRef, top: string | null): Promise<boolean> {
-  const r = await listFolderFiles(f.uri); const entries = r ? listingEntries(r) : [];
-  if (!entries.length) return false;
-  await showFolder(app, f.name, f.uri, entries, top);
-  toast(`${f.name} · ${entries.length} picture${entries.length === 1 ? '' : 's'}`, { ms: 1500 });
+/** The files of a folder and, with Include Subfolders, of every folder below it (depth first, name order; at most `max`). */
+export async function folderEntries(uri: string, withSubfolders: boolean, max = 20000): Promise<Entry[]> {
+  const out: Entry[] = [];
+  const walk = async (u: string, depth: number) => {
+    const r = await listFolderFiles(u).catch(() => null);
+    if (r) out.push(...listingEntries(r));
+    if (!withSubfolders || depth >= 16 || out.length >= max) return;
+    for (const sub of (await listSubfolders(u).catch(() => null)) || []) { if (out.length >= max) break; await walk(sub.uri, depth + 1); }
+  };
+  await walk(uri, 0);
+  return out.slice(0, max);
+}
+/** Shows a folder in the current window (with its subfolders' pictures when Include Subfolders is on). */
+export async function openFolderRef(app: App, f: FolderRef, top: string | null, quiet = false): Promise<boolean> {
+  const sub = app.prefs.includeSubfolders && canListSubfolders(f.uri);
+  const entries = await folderEntries(f.uri, sub);
+  if (!entries.length) { if (!quiet) toast(`No ${app.prefs.showAllFiles ? 'files' : 'pictures'} in ${f.name}${sub ? ' or its subfolders' : ''}.`); return false; }
+  await showFolder(app, f.name + (sub ? ' (with subfolders)' : ''), f.uri, entries, top);
+  if (!quiet) toast(`${f.name} · ${entries.length} ${app.prefs.showAllFiles ? 'file' : 'picture'}${entries.length === 1 ? '' : 's'}`, { ms: 1500 });
   return true;
 }
+const open = (app: App, f: FolderRef, top: string | null) => openFolderRef(app, f, top);
 /** Shows the first folder with pictures inside `root` (for a picked folder that holds only folders). */
 export async function firstInside(app: App, root: FolderRef, top: string | null): Promise<boolean> {
   const r = await walkerFor(top).step(root, 1, root.uri);

@@ -5,7 +5,7 @@
  * Ctrl/Shift-click mark several for batch and file commands, arrows move, Delete deletes.
  */
 import type { App, PictureTab } from '../app';
-import type { Entry } from '../picture/folder';
+import { isPictureName, type Entry } from '../picture/folder';
 import { h, clear, icon } from './dom';
 import { decodePicture, sniff } from '../codecs/registry';
 
@@ -170,6 +170,8 @@ export class ThumbPanel {
     if (!item) return;
     const pic = item.querySelector('.qn-thumb-pic') as HTMLElement;
     if (pic.childElementCount) return;
+    // Show All Files: other files get an icon with their extension instead of a decode attempt.
+    if (!isPictureName(e.name)) { pic.append(icon('description', 'qn-thumb-file'), h('span', { class: 'qn-thumb-ext' }, (e.name.match(/\.([^.]+)$/)?.[1] || 'file').toUpperCase())); return; }
     let p = this.cache.get(e);
     if (!p) {
       p = new Promise((resolve) => { this.queue.push(async () => resolve(await this.make(e))); this.pump(); });

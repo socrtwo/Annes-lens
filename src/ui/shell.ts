@@ -85,6 +85,7 @@ export class Shell {
     tab.thumbs = new ThumbPanel(this.app, tab);
     tab.el = h('div', { class: 'qn-window' }, v.el, tab.thumbs.el);
     this.workspace.appendChild(tab.el);
+    if (this.app.prefs.browserLayout || this.app.prefs.folderTree) void import('../commands/browseWindow').then((m) => m.applyBrowseLayout(this.app, tab));
     v.onPointer = (info) => { this.pixelText = info ? `${info.x}, ${info.y}  RGB ${info.rgba[0]}, ${info.rgba[1]}, ${info.rgba[2]}${info.rgba[3] < 255 ? ` α ${info.rgba[3]}` : ''}  #${hex(info.rgba)}` : ''; this.updatePixel(); };
     requestAnimationFrame(() => v.layout());
   }

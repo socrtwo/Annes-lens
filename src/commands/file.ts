@@ -2,7 +2,7 @@
 import { def } from './registry';
 import type { App, PictureTab } from '../app';
 import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, type Entry } from '../picture/folder';
-import { canListSubfolders, type FolderEntry } from '../platform/native';
+import { canListSubfolders, listing, type FolderEntry } from '../platform/native';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
 import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
 import { openDialog, toast, confirmDialog, choiceDialog } from '../ui/dialog';
@@ -80,8 +80,8 @@ function addRecentFolder(app: App, name: string, uri: string | null): void {
 /** Entries for a folder listing: platform URIs, File System Access handles or File objects. */
 export function listingEntries(r: { entries?: FolderEntry[]; handles?: { name: string; handle: any }[]; files?: File[] }): Entry[] {
   if (r.entries) return r.entries.map(entryFromUri);
-  if (r.handles) return r.handles.filter((x) => isPictureName(x.name)).map((x) => entryFromHandle(x.name, x.handle));
-  if (r.files) return r.files.filter((f) => isPictureName(f.name)).map(entryFromFile);
+  if (r.handles) return r.handles.filter((x) => listing.allFiles || isPictureName(x.name)).map((x) => entryFromHandle(x.name, x.handle));
+  if (r.files) return r.files.filter((f) => listing.allFiles || isPictureName(f.name)).map(entryFromFile);
   return [];
 }
 /** Shows a listed folder in the current window, sorted as the preferences say. */

@@ -80,7 +80,7 @@ function grantedPath(uri, write = false) {
   if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a file address');
   const p = path.resolve(fileURLToPath(uri));
   if (grants.has(p)) return p;
-  if (!write && grantedDirs.has(path.dirname(p)) && isPictureName(p)) return p;
+  if (!write && grantedDirs.has(path.dirname(p)) && (isPictureName(p) || listedFiles.has(p))) return p;
   throw new Error('Anne\'s Lens has no permission for this file; open it again.');
 }
 const isPictureName = (p) => OPENABLE.includes(path.extname(p).slice(1).toLowerCase());
@@ -113,13 +113,15 @@ function grantedDir(uri) {
   if (!grantedDirs.has(dir)) throw new Error('Anne\'s Lens has no permission for this folder; open it first.');
   return dir;
 }
-function listDir(dir) {
+// Files other than pictures listed for Show All Files may be read (to show them as text or hex).
+const listedFiles = new Set();
+function listDir(dir, all = false) {
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
   const out = [];
   for (const name of fs.readdirSync(dir)) {
-    if (name.startsWith('.') || !isPictureName(name)) continue;
+    if (name.startsWith('.') || (!all && !isPictureName(name))) continue;
     const p = path.join(dir, name);
-    try { const st = fs.statSync(p); if (st.isFile()) out.push({ uri: pathToFileURL(p).href, name, size: st.size, mtime: st.mtimeMs }); } catch { /* */ }
+    try { const st = fs.statSync(p); if (st.isFile()) { out.push({ uri: pathToFileURL(p).href, name, size: st.size, mtime: st.mtimeMs }); if (all && !isPictureName(name)) listedFiles.add(path.resolve(p)); } } catch { /* */ }
   }
   out.sort((a, b) => collator.compare(a.name, b.name));
   return out;
@@ -166,21 +168,21 @@ function registerIpc() {
     if (r.filePaths.length > 1) return { files: r.filePaths.map(fileResult) };
     return fileResult(r.filePaths[0]);
   });
-  handle('openFolder', async () => {
+  handle('openFolder', async ({ all }) => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });
     if (r.canceled || !r.filePaths[0]) return { canceled: true };
     const dir = r.filePaths[0];
     grantDir(dir);
-    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir) };
+    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir, !!all) };
   });
-  handle('listFolder', async ({ uri }) => {
+  handle('listFolder', async ({ uri, all }) => {
     if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a file address');
     let p = path.resolve(fileURLToPath(uri));
     let dir = p;
     try { if (!fs.statSync(p).isDirectory()) dir = path.dirname(p); } catch { dir = path.dirname(p); }
     if (!grantedDirs.has(dir) && !grants.has(p)) throw new Error('Anne\'s Lens has no permission for this folder; open a picture in it first.');
     grantDir(dir);
-    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir) };
+    return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir, entries: listDir(dir, !!all) };
   });
   handle('cliJob', async () => { const j = cliJob; if (j && j.mode === 'view') cliJob = null; return j; });
   handle('listSubfolders', async ({ uri }) => ({ folders: listSubdirs(grantedDir(uri)) }));

@@ -75,3 +75,26 @@ body.ql-fullscreen .ql-app { padding: 0; }
 .qn-thumb-broken { font-size: 32px !important; opacity: .5; }
 .qn-thumb-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; color: var(--muted); }
 .qn-thumb.qn-current .qn-thumb-name { color: var(--text); }
+
+/* Folder Tree pane and the Browser layout (F3): tree | thumbnails over a preview */
+.qn-window.qn-has-tree { display: grid; grid-template-columns: minmax(150px, 260px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.qn-window.qn-has-tree > .qn-tree { grid-column: 1; grid-row: 1 / span 2; }
+.qn-window.qn-has-tree > .qn-viewer { grid-column: 2; grid-row: 1; min-height: 0; }
+.qn-window.qn-has-tree > .qn-thumbs { grid-column: 2; grid-row: 2; }
+.qn-window.qn-window-browser { grid-template-rows: minmax(0, 1fr) minmax(0, 40%); }
+.qn-window.qn-window-browser > .qn-thumbs { grid-row: 1; }
+.qn-window.qn-window-browser > .qn-viewer { grid-row: 2; display: block !important; border-top: 1px solid var(--border); }
+.qn-tree { display: flex; flex-direction: column; min-height: 0; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); font-size: 13px; }
+.qn-tree-head { display: flex; align-items: center; gap: 4px; padding: 6px 8px 2px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.qn-tree-head .material-symbols-outlined { font-size: 16px; }
+.qn-tree-row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; }
+.qn-tree-row:hover { background: var(--accent-soft); }
+.qn-tree-row.ql-sel { background: var(--accent-soft); font-weight: 600; }
+.qn-tree-row .material-symbols-outlined { font-size: 18px; color: #d9a537; }
+.qn-tree-row span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.qn-tree-toggle { width: 16px; flex: none; border: 0; background: none; color: inherit; cursor: pointer; padding: 0; font-size: 11px; }
+.qn-tree-empty { padding: 4px 10px; }
+.qn-thumb-file { font-size: 40px !important; opacity: .6; }
+.qn-thumb-pic:has(.qn-thumb-file) { flex-direction: column; }
+.qn-thumb-ext { font-size: 10px; font-weight: 700; color: var(--muted); }
+@media (max-width: 700px) { .qn-window.qn-has-tree { grid-template-columns: minmax(110px, 38%) minmax(0, 1fr); } }

@@ -24,6 +24,11 @@ export interface Prefs {
   tabOrder: string[];
   keymap: Record<string, string>;
   theme: 'system' | 'light' | 'dark' | 'black';
+  /** Browse: folder listings include non-picture files; folders include their subfolders' pictures; the Browser layout and the folder tree pane. */
+  showAllFiles: boolean;
+  includeSubfolders: boolean;
+  browserLayout: boolean;
+  folderTree: boolean;
   /** Interface language: 'en-US', a built-in table ('es') or one loaded or translated on this device. */
   language: string;
   ribbon: 'full' | 'tabs' | 'hidden';
@@ -159,7 +164,7 @@ export function defaultPrefs(): Prefs {
     author: '',
     qat: [...DEFAULT_QAT], qatPosition: 'top', qatLabels: false, qatHidden: false,
     customTabs: [], customMenus: [], hiddenTabs: [], tabOrder: [], keymap: {},
-    theme: 'system', language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
+    theme: 'system', showAllFiles: false, includeSubfolders: false, browserLayout: false, folderTree: false, language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
     recent: [], recentFolders: [], macros: [],
     confirmClose: true, highContrastUI: false, uiScale: 1, pinnedCommands: [], firstRun: true, touchMode: false,
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,

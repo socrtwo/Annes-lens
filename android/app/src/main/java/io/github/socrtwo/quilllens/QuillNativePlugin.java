@@ -430,6 +430,7 @@ public class QuillNativePlugin extends Plugin {
     @PluginMethod
     public void listFolder(PluginCall call) {
         final String uriString = call.getString("uri");
+        final boolean all = Boolean.TRUE.equals(call.getBoolean("all", Boolean.FALSE)); // Show All Files
         if (uriString == null || uriString.isEmpty()) {
             call.reject("listFolder requires 'uri'");
             return;
@@ -457,7 +458,7 @@ public class QuillNativePlugin extends Plugin {
                         if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime) || name == null || name.startsWith(".")) {
                             continue;
                         }
-                        if (!isPictureName(name) && !(mime != null && mime.startsWith("image/"))) {
+                        if (!all && !isPictureName(name) && !(mime != null && mime.startsWith("image/"))) {
                             continue;
                         }
                         JSObject e = new JSObject();

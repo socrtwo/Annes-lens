@@ -26,6 +26,7 @@ mkdirSync(join(lib, 'Photos/2023/02 Feb/empty'), { recursive: true });
 put('Photos/2024/c.png', [0, 0, 255]); put('Photos/2024/d.png', [0, 0, 255]);
 put('Photos/.cache/x.png', [9, 9, 9]);
 put('Scans/e.png', [255, 255, 0]);
+writeFileSync(join(lib, 'Photos/2024/notes.txt'), 'trip notes');
 const config = join(base, 'config');
 
 const app = await electron.launch({ executablePath: 'node_modules/electron/dist/electron', args: ['--no-sandbox', 'build/desktop-app', first], env: { ...process.env, XDG_CONFIG_HOME: config } });
@@ -44,6 +45,40 @@ try {
     steps.push(await where());
   }
   check('desktop next / previous folder: subfolders first, then siblings, then the parent\'s siblings', steps, ['01 Jan:1:a.png', 'raw:1:b.png', '2024:2:c.png', 'Scans:1:e.png', '2024:2:c.png', 'raw:1:b.png', '01 Jan:1:a.png']);
+
+  // Folder Tree from the top of the drive down to the open folder; Include Subfolders across real
+  // folders; Show All Files with a text file beside the pictures; a favorite folder.
+  const bw = await w.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const rows = () => [...document.querySelectorAll('.qn-tree-body .qn-tree-row')].map((r) => r.textContent.replace(/^[▸▾]?(folder_open|folder)/, '').trim());
+    const row = (name) => [...document.querySelectorAll('.qn-tree-body .qn-tree-row')].find((r) => r.textContent.endsWith(name));
+    await qn.exec('browse.folderTree'); for (let i = 0; i < 60 && !row('01 Jan'); i++) await wait(50); await wait(200);
+    const chain = rows(), out = { chain: ['library', 'Photos', '2023', '01 Jan'].map((n) => chain.indexOf(n)), sel: document.querySelector('.qn-tree-body .ql-sel')?.textContent.endsWith('01 Jan') };
+    row('Photos').click(); await wait(400); // no pictures directly in it: its branch opens instead
+    out.photos = [qn.folder.name, !!row('2024')];
+    await qn.exec('browse.recursive'); await wait(300);
+    row('Photos').click(); for (let i = 0; i < 60 && !/^Photos \(with subfolders\)/.test(qn.folder.name); i++) await wait(50); await wait(200);
+    out.recursive = [qn.folder.name, qn.folder.entries.map((e) => e.name)];
+    await qn.exec('browse.recursive'); await wait(300);
+    row('2024').click(); for (let i = 0; i < 60 && qn.folder.name !== '2024'; i++) await wait(50); await wait(200);
+    await qn.exec('browse.showAllFiles'); for (let i = 0; i < 60 && qn.folder.length < 3; i++) await wait(50); await wait(200);
+    out.all = qn.folder.entries.map((e) => e.name);
+    const txt = qn.folder.entries.find((e) => e.name === 'notes.txt'); out.readable = txt ? new TextDecoder().decode(await txt.read()) : null;
+    await qn.exec('browse.showAllFiles'); await wait(300);
+    await qn.exec('browse.favorites', 'add'); await wait(200);
+    out.fav = [...document.querySelectorAll('.qn-tree-favs .qn-tree-row')].map((r) => r.textContent.replace(/^folder_special/, ''));
+    row('2023').click(); for (let i = 0; i < 40 && !row('01 Jan'); i++) await wait(50); // 2023 has no pictures: it expands
+    row('01 Jan').click(); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(200);
+    await qn.exec('browse.favorites', 0); for (let i = 0; i < 60 && qn.folder.name !== '2024'; i++) await wait(50); await wait(200);
+    out.favOpen = [qn.folder.name, qn.folder.length];
+    row('2023').click(); for (let i = 0; i < 40 && !row('01 Jan'); i++) await wait(50); // 2023 has no pictures: it expands
+    row('01 Jan').click(); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(200);
+    await qn.exec('browse.folderTree'); await wait(100);
+    return out;
+  });
+  check('desktop folder tree: the chain down to the open folder, selected', [bw.chain.every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1])), bw.sel], [true, true], JSON.stringify(bw));
+  check('desktop include subfolders and show all files on real folders', [bw.photos, bw.recursive, bw.all, bw.readable], [['01 Jan (with subfolders)'.replace(' (with subfolders)', ''), true], ['Photos (with subfolders)', ['a.png', 'b.png', 'c.png', 'd.png']], ['c.png', 'd.png', 'notes.txt'], 'trip notes'], JSON.stringify(bw));
+  check('desktop favorite folder: added and opened', [bw.fav, bw.favOpen], [['2024'], ['2024', 2]]);
 
   // Two displays (faked in the main process): the window moves to the second and goes full screen; leaving restores it.
   await app.evaluate(({ screen }) => {

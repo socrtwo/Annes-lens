@@ -26,6 +26,8 @@ export class PictureTab {
   el!: HTMLElement;
   ui!: Viewer;
   thumbs!: ThumbPanel;
+  /** The folder tree pane (Folder Tree, Browser), made when first shown. */
+  tree: import('./ui/folderTree').FolderTree | null = null;
   /** Pictures marked in the thumbnail panel (for batch and file commands). */
   marked = new Set<Entry>();
   folder: Folder;
@@ -249,8 +251,11 @@ export class App {
     folder.select(index);
     this.activate(tab);
     await tab.show();
+    for (const f of this.folderHooks) { try { f(tab); } catch (e) { console.warn(e); } }
     return tab;
   }
+  /** Run after a window shows a new folder (the folder tree follows it). */
+  folderHooks: ((tab: PictureTab) => void)[] = [];
 
   addRecent(e: Entry): void {
     if (!e.uri) return;

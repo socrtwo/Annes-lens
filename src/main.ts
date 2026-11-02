@@ -7,7 +7,7 @@ import './ui/scrollcue.css';
 import './commands';
 import { App } from './app';
 import { Shell } from './ui/shell';
-import { launchFiles, onFilesOpened, onBackButton, isNative, isDesktop, isCapacitor, desktopBridge, type OpenedFile } from './platform/native';
+import { launchFiles, onFilesOpened, onBackButton, isNative, isDesktop, isCapacitor, desktopBridge, listing, type OpenedFile } from './platform/native';
 import { closeMenus, inDialog } from './ui/dialog';
 import { allCommands, getCommand } from './commands/registry';
 import { installScrollCues } from './ui/scrollcue';
@@ -24,6 +24,7 @@ installScrollCues({
 
 const app = new App(host);
 installCustomMenus(app.prefs.customMenus); // Customize Menus layouts
+listing.allFiles = app.prefs.showAllFiles; // Show All Files
 applyPreferred(app.prefs.language); // the interface language, before the ribbon is drawn
 app.ui = new Shell(app);
 app.rebuildKeyIndex();
