@@ -187,7 +187,7 @@ export class App {
   /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
   journal = new Journal();
 
-  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
+  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; }
 
   get tab(): PictureTab { return this.active; }
   /** The picture in the active window, or null. */
@@ -196,7 +196,7 @@ export class App {
   get folder(): Folder { return this.active.folder; }
 
   onRefresh(fn: (app: App) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; }
+  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; }
 
   rebuildKeyIndex(): void {
     this.keyIndex.clear(); this.keyCandidates.clear();

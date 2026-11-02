@@ -24,6 +24,7 @@ import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
+import { isDng } from '../raw/dng';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -68,7 +69,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'icns', label: 'Apple Icon', mime: 'image/icns', extensions: ['icns'], decoder: 'platform+own', save: false, notes: 'every size as a page; PNG elements by the platform, classic packed and 1-bit elements by the app' },
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
-  { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; development needs the RAW module' },
+  { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
   { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
   { id: 'zip', label: 'ZIP archive / comic book', mime: 'application/zip', extensions: ['zip', 'cbz', 'epub'], decoder: 'own', save: false, notes: 'opened as a folder of the pictures inside (stored and deflate entries)' },
 ];
@@ -124,6 +125,8 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
 export const decodeOptions = {
   /** Turn pictures upright by their EXIF Orientation tag when decoding (Options ▸ Auto-rotate by EXIF orientation). */
   autoRotate: true,
+  /** RAW files open as their embedded preview; when off, DNG files are developed (Use Embedded Preview by Default). */
+  rawPreferPreview: true,
 };
 
 /** Decodes bytes into a Picture. Throws with a readable message when nothing can be shown. */
@@ -236,8 +239,17 @@ async function decodeRawPreview(u8: Uint8Array, name: string) {
   const id = identifyRaw(u8, name) || { family: 'RAW', make: 'unknown camera' };
   const previews = findEmbeddedJpegs(u8);
   const info: Record<string, string> = { 'RAW family': `${id.family} (${id.make})`, previews: previews.length ? previews.map((p) => `${p.width}×${p.height}`).join(', ') : 'none' };
-  if (!previews.length) throw new Error(`${id.family} file from ${id.make}: no embedded JPEG preview, and RAW development needs the RAW module`);
   const warnings: string[] = [];
+  // DNG: developed here when there is no preview or previews are not preferred.
+  if ((!previews.length || !decodeOptions.rawPreferPreview) && isDng(u8)) {
+    try {
+      const { develop } = await import('../raw/develop');
+      const d = develop(u8, {});
+      const r = fromOwn({ pages: [{ width: d.raster.width, height: d.raster.height, frames: [{ raster: d.raster, delay: 0 }], loops: 0, bitDepth: 24, hasAlpha: false, notes: [`developed from the DNG's raw data (${d.raw.width}×${d.raw.height}, as shot ${d.temp} K); Develop RAW changes the settings`] }], info: { ...info, 'white balance': `${d.temp} K, tint ${d.tint}` }, warnings: [] }, 'dng develop');
+      return r;
+    } catch (e: any) { if (!previews.length) throw new Error(`DNG: ${e?.message || e}`); warnings.push(`Develop: ${e?.message || e}`); }
+  }
+  if (!previews.length) throw new Error(`${id.family} file from ${id.make}: no embedded JPEG preview, and developing ${id.family} files needs the RAW module (DNG files develop without it)`);
   for (const pv of previews) {
     try {
       const bytes = u8.subarray(pv.offset, pv.offset + pv.length);
@@ -245,6 +257,14 @@ async function decodeRawPreview(u8: Uint8Array, name: string) {
       r.pages[0].notes.unshift(`embedded ${pv.width}×${pv.height} JPEG preview of a ${id.family} file`);
       return { pages: r.pages, info: { ...info, ...r.info }, warnings: [...warnings, ...r.warnings], decoder: 'raw preview' };
     } catch (e: any) { warnings.push(`Preview ${pv.width}×${pv.height}: ${e?.message || e}`); }
+  }
+  if (isDng(u8) && decodeOptions.rawPreferPreview) {
+    // No usable preview: develop the DNG instead.
+    try {
+      const { develop } = await import('../raw/develop');
+      const d = develop(u8, {});
+      return fromOwn({ pages: [{ width: d.raster.width, height: d.raster.height, frames: [{ raster: d.raster, delay: 0 }], loops: 0, bitDepth: 24, hasAlpha: false, notes: [`developed from the DNG's raw data (${d.raw.width}×${d.raw.height}, as shot ${d.temp} K); its previews could not be decoded`] }], info, warnings }, 'dng develop');
+    } catch (e: any) { warnings.push(`Develop: ${e?.message || e}`); }
   }
   throw new Error(warnings[0] || 'The embedded previews could not be decoded');
 }

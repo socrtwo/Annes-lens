@@ -718,6 +718,34 @@ try {
   check('stitch panorama: pieces out of order joined through the dialog, matching the scene', [st.fields, st.r1.used, st.r1.skipped, st.r1.projection, st.name1, Math.abs(st.size1[0] - 1200) <= 2 && Math.abs(st.size1[1] - 360) <= 2, st.diff < 3], [['auto', 'smooth'], ['p1.png', 'p2.png', 'p3.png'], [], 'planar', 'p1-panorama.png', true, true], JSON.stringify(st));
   check('stitch panorama: flat scans', [st.r2.projection, st.r2.used.length, Math.abs(st.r2.width - 1200) <= 2, Math.abs(st.r2.height - 360) <= 2], ['flat', 3, true, true], JSON.stringify(st.r2));
 
+  // Develop RAW: a DNG without an embedded preview is developed when opened (Orientation 6 applied); the dialog's
+  // preview follows the settings, and developing for a warm light makes the picture bluer, as one Undo step.
+  const dngBytes = { a: [...readFileSync('tests/fixtures/raw/synth-lj92.dng')], b: [...readFileSync('tests/fixtures/raw/synth.dng')] };
+  const rw = await p.evaluate(async (bytes) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([new Uint8Array(bytes.a)], 'tiles.dng'), new File([new Uint8Array(bytes.b)], 'plain.dng')]); await wait(800);
+    const opened = [qn.picture.name, qn.picture.format.id, qn.picture.width, qn.picture.height, window.__qnGetCommand('raw.develop').isEnabled(qn)];
+    await qn.exec('view.next'); await wait(500);
+    const name2 = qn.picture.name, size2 = [qn.picture.width, qn.picture.height];
+    const mean = () => { const d = qn.picture.frameCanvas().getContext('2d').getImageData(0, 0, qn.picture.width, qn.picture.height).data; const m = [0, 0, 0]; for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) m[c] += d[i + c]; return m.map((v) => v / (d.length / 4)); };
+    const before = mean();
+    const run = qn.exec('raw.develop');
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => d.getAttribute('aria-label') === 'Develop RAW')); i++) await wait(50);
+    let img; for (let i = 0; i < 60 && !(img = dlg.querySelector('.ql-dialog-preview img')); i++) await wait(50);
+    const firstPreview = img?.src || '', note1 = dlg.querySelector('.ql-dialog-preview .ql-help')?.textContent || '';
+    const wb = dlg.querySelectorAll('select')[0]; wb.value = 'custom'; wb.dispatchEvent(new Event('change', { bubbles: true }));
+    const temp = [...dlg.querySelectorAll('input[type=range]')].find((x) => +x.max === 12000); temp.value = '3200'; temp.dispatchEvent(new Event('input', { bubbles: true })); temp.dispatchEvent(new Event('change', { bubbles: true }));
+    for (let i = 0; i < 60 && (dlg.querySelector('.ql-dialog-preview img')?.src || '') === firstPreview; i++) await wait(50);
+    const note2 = dlg.querySelector('.ql-dialog-preview .ql-help')?.textContent || '';
+    dlg.querySelector('.ql-primary').click();
+    const res = await run; await wait(300);
+    const after = mean();
+    return { opened, name2, size2, note1, note2, res: { ...res, multipliers: undefined }, undo: qn.tab.undoLabel, bluer: (after[2] - after[0]) - (before[2] - before[0]) };
+  }, dngBytes);
+  check('develop RAW: DNGs without a preview develop on open; the tiled one turned upright', [rw.opened, rw.name2, rw.size2], [['plain.dng', 'raw', 192, 128, true], 'tiles.dng', [128, 192]], JSON.stringify(rw));
+  check('develop RAW: the dialog previews the settings; a warm light makes it bluer, one Undo step', [/6[45]\d\d K/.test(rw.note1), /3[12]\d\d K/.test(rw.note2), rw.res.width, rw.res.height, rw.undo, rw.bluer > 20], [true, true, 128, 192, 'Develop RAW', true], JSON.stringify(rw));
+
   // Tools: a QR code opened as a picture through its dialog, an encrypted package round trip, carving pictures out of junk, and Document Cleanup through its dialog.
   const tl = await p.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

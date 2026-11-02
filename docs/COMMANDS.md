@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **554 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **555 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -21,7 +21,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Batch**: Batch (13)
 - **Create**: Create (17)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
-- **RAW** (contextual): RAW (3)
+- **RAW** (contextual): RAW (4)
 - **View**: Zoom (12) · Navigate (9) · Window (16) · Inspect (12) · Display (10) · Compare (4) · Media (3) · Quick Access Bar and search (5)
 - **Slideshow**: Slideshow (13)
 - **Tools**: Text and codes (4) · Documents and print (4) · Color and vector (2) · Organize (2) · Extend (2)
@@ -43,7 +43,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 110 |
 | All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 337 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 554 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 555 |
 
 ## File (82 of 82)
 
@@ -476,10 +476,11 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Previous Frame | Frames |  | `frames.previous` | from XnView Classic and XnView MP |
 | Reverse Frames | Frames |  | `frames.reverse` | from new in Anne's Lens |
 
-## RAW (3 of 4)
+## RAW (4 of 4)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
+| Develop RAW… | RAW |  | `raw.develop` | from XnView Classic and XnView MP, digiKam, Lightroom Classic (Library and Develop) |
 | Extract Embedded Preview | RAW |  | `raw.extractPreview` | from new in Anne's Lens |
 | Show Embedded Preview | RAW |  | `raw.preview` | from IrfanView, XnView Classic and XnView MP, FastStone Image Viewer |
 | Use Embedded Preview by Default | RAW |  | `raw.preferPreview` | from IrfanView, FastStone Image Viewer |
@@ -684,10 +685,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (3)
+## Planned, not yet built (2)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (1): `browse.people`
-- **RAW** (1): `raw.develop`

@@ -13,6 +13,9 @@ import type { Page, Frame } from '../picture/model';
 import { Folder, entryFromBytes } from '../picture/folder';
 import { decodePicture, encodeCanvas } from '../codecs/registry';
 import { findEmbeddedJpegs } from '../codecs/rawpreview';
+import { isDng } from '../raw/dng';
+import type { DevelopOptions } from '../raw/develop';
+import { editRaster } from '../picture/edit';
 import { writeZip } from '../picture/batch';
 import { openDocuments, saveAs } from '../platform/native';
 import { fmtSize } from '../ui/shell';
@@ -20,6 +23,7 @@ import { fmtSize } from '../ui/shell';
 const hasPages = (app: App) => !!app.picture && app.picture.pages.length > 1;
 const hasFrames = (app: App) => !!app.picture && app.picture.animated;
 const isRaw = (app: App) => !!app.picture && app.picture.format.id === 'raw';
+let lastDevelop: DevelopOptions = {};
 const base = (n: string) => n.replace(/\.[^.]+$/, '');
 
 /** Pure helpers on frame lists (tested). */
@@ -140,6 +144,53 @@ def([
     id: 'raw.extractPreview', icon: 'save_alt', noRecord: true, isEnabled: isRaw, tip: 'Saves the largest embedded JPEG exactly as the camera wrote it',
     run: async (app) => { const pic = app.picture!; const previews = findEmbeddedJpegs(pic.bytes); if (!previews.length) { toast('No embedded JPEG preview in this file.'); return; } const pv = previews.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a)); const bytes = pic.bytes.slice(pv.offset, pv.offset + pv.length); const saved = await saveAs(new Blob([bytes as BlobPart], { type: 'image/jpeg' }), `${base(pic.name)}.jpg`); if (saved) toast(`Saved ${saved.name} (${pv.width}×${pv.height}, ${fmtSize(bytes.length)})`); },
   },
-  { id: 'raw.preferPreview', icon: 'bolt', kind: 'toggle', noRecord: true, isActive: (app) => app.prefs.rawPreferPreview, tip: 'RAW files open as their embedded preview (fast culling); RAW development, when available, is a separate step', run: (app) => { app.prefs.rawPreferPreview = !app.prefs.rawPreferPreview; app.savePrefs(); toast(app.prefs.rawPreferPreview ? 'RAW files open as the embedded preview' : 'RAW files open as the embedded preview (development is not available in this build)'); } },
+  {
+    id: 'raw.develop', icon: 'tune', noRecord: true, isEnabled: (app) => isRaw(app) && isDng(app.picture!.bytes), tip: 'Develops a DNG file\'s sensor data: white balance, exposure, highlights, demosaic quality and output color space (other RAW families need the RAW module)',
+    run: async (app, arg?: DevelopOptions) => {
+      const pic = app.picture!;
+      const { develop, neutralToTemp } = await import('../raw/develop'), { readDng } = await import('../raw/dng');
+      let raw; try { raw = readDng(pic.bytes); } catch (e) { toast(`Develop RAW: ${(e as Error).message}.`, { ms: 5000 }); return; }
+      let o: DevelopOptions = arg || lastDevelop;
+      if (!arg) {
+        const shot = raw.asShotNeutral ? neutralToTemp(raw, raw.asShotNeutral) : null;
+        let timer: any = 0;
+        const opts = (v: Record<string, any>): DevelopOptions => ({ wb: v.wb, temp: +v.temp, tint: +v.tint, exposure: +v.exposure, highlights: v.highlights, demosaic: v.demosaic, space: v.space, crop: !!v.crop });
+        const preview = (v: Record<string, any>, ctl: { setPreview: (h: string) => void }) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            try {
+              const d = develop(raw!, { ...opts(v), demosaic: 'half' }), k = Math.min(1, 520 / Math.max(d.raster.width, d.raster.height));
+              const c = document.createElement('canvas'); c.width = d.raster.width; c.height = d.raster.height; c.getContext('2d')!.putImageData(new ImageData(d.raster.data, d.raster.width, d.raster.height), 0, 0);
+              const t = document.createElement('canvas'); t.width = Math.max(1, Math.round(c.width * k)); t.height = Math.max(1, Math.round(c.height * k)); t.getContext('2d')!.drawImage(c, 0, 0, t.width, t.height);
+              ctl.setPreview(`<img alt="Preview" src="${t.toDataURL('image/jpeg', 0.85)}" style="max-width:100%;max-height:42vh;display:block;margin:auto"><div class="ql-help">White balance ${d.temp} K, tint ${d.tint > 0 ? '+' : ''}${d.tint}</div>`);
+            } catch (e) { ctl.setPreview(`<div class="ql-help">${(e as Error).message}</div>`); }
+          }, 200);
+        };
+        const r = await openDialog({ title: 'Develop RAW', ok: 'Develop', wide: true, preview: true,
+          help: `${pic.name}: ${raw.width} × ${raw.height} ${raw.cfa ? 'Bayer sensor' : 'linear'} data${raw.make || raw.model ? ` from ${[raw.make, raw.model].filter(Boolean).join(' ')}` : ''}${shot ? `; as shot ${shot.temp} K` : ''}.`,
+          fields: [
+            { key: 'wb', label: 'White balance', type: 'select', value: o.wb || 'asShot', half: true, options: [{ value: 'asShot', label: 'As shot' }, { value: 'auto', label: 'Automatic (gray world)' }, { value: 'daylight', label: 'Daylight (5500 K)' }, { value: 'custom', label: 'Temperature and tint' }] },
+            { key: 'exposure', label: 'Exposure (EV)', type: 'range', min: -3, max: 3, step: 0.1, value: o.exposure ?? 0, half: true },
+            { key: 'temp', label: 'Temperature (K)', type: 'range', min: 2000, max: 12000, step: 50, value: o.temp ?? shot?.temp ?? 5500, half: true, visibleIf: (v) => v.wb === 'custom' },
+            { key: 'tint', label: 'Tint (green − / magenta +)', type: 'range', min: -100, max: 100, step: 1, value: o.tint ?? shot?.tint ?? 0, half: true, visibleIf: (v) => v.wb === 'custom' },
+            { key: 'highlights', label: 'Highlights', type: 'select', value: o.highlights || 'recover', half: true, options: [{ value: 'recover', label: 'Rebuild (blown areas white, soft roll-off)' }, { value: 'clip', label: 'Clip' }, { value: 'unclip', label: 'Keep all sensor data (darker)' }] },
+            { key: 'demosaic', label: 'Demosaic', type: 'select', value: o.demosaic || 'high', half: true, options: [{ value: 'high', label: 'High quality (gradient-corrected)' }, { value: 'bilinear', label: 'Bilinear' }, { value: 'half', label: 'Half size (fast)' }] },
+            { key: 'space', label: 'Color space', type: 'select', value: o.space || 'srgb', half: true, options: [{ value: 'srgb', label: 'sRGB' }, { value: 'p3', label: 'Display P3' }, { value: 'adobergb', label: 'Adobe RGB (1998) compatible' }, { value: 'prophoto', label: 'ProPhoto RGB' }] },
+            { key: 'crop', label: 'Default crop', type: 'checkbox', value: o.crop !== false, half: true },
+          ],
+          onOpen: (ctl) => preview(ctl.values(), ctl),
+          onChange: (v, ctl) => preview(v, ctl),
+        });
+        clearTimeout(timer);
+        if (!r) return;
+        o = lastDevelop = opts(r);
+      }
+      toast('Developing…', { ms: 1500 }); await new Promise((res) => setTimeout(res, 30));
+      const d = develop(raw, o);
+      editRaster(app, 'Develop RAW', () => d.raster, { patch: { icc: o.space && o.space !== 'srgb' ? d.icc : undefined } });
+      return { width: d.raster.width, height: d.raster.height, temp: d.temp, tint: d.tint, multipliers: d.multipliers };
+    },
+  },
+  { id: 'raw.preferPreview', icon: 'bolt', kind: 'toggle', noRecord: true, isActive: (app) => app.prefs.rawPreferPreview, tip: 'RAW files open as their embedded preview (fast culling); off: DNG files are developed when opened (other RAW families still show their preview)', run: (app) => { app.prefs.rawPreferPreview = !app.prefs.rawPreferPreview; app.savePrefs(); toast(app.prefs.rawPreferPreview ? 'RAW files open as the embedded preview.' : 'DNG files are developed when opened; other RAW files show their embedded preview.'); } },
 ]);
 function h2(f: Frame): string { return `<img src="${thumbOf(f, 240).toDataURL()}" style="max-height:30vh"> <div class="ql-help">${f.width} × ${f.height}, ${f.delay} ms</div>`; }

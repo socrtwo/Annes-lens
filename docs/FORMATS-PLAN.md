@@ -56,7 +56,7 @@ Fidelity tiers:
 
 | Family | Extensions | Open |
 |---|---|---|
-| DNG | .dng | Full (develop) and embedded preview |
+| DNG | .dng | Full (develop, own code: Bayer and linear data, uncompressed, packed or lossless JPEG) and embedded preview; a DNG without a usable preview develops on open |
 | Canon, Nikon, Sony, Fujifilm, Olympus/OM, Panasonic, Pentax, Leica, Hasselblad, Phase One, Sigma, Samsung, others | .cr2 .cr3 .crw .nef .nrw .arw .srf .sr2 .raf .orf .rw2 .pef .rwl .3fr .iiq .x3f .srw … | **Preview** (embedded JPEG) in the base app; **develop** through the optional RAW module |
 
 The base app reads every RAW file's TIFF-like structure and metadata and shows the embedded preview instantly, which is what culling needs. Full development (demosaicing, camera color matrices, highlight recovery) is an optional module because the mature open decoders are LGPL/CDDL-licensed; the module is a separate download, dynamically loaded, with its license shown (see [LEGAL.md](LEGAL.md)).

@@ -94,6 +94,8 @@ function scanJpeg(u8: Uint8Array, start: number): EmbeddedJpeg | null {
     if (p + 4 > u8.length) return null;
     const len = (u8[p + 2] << 8) | u8[p + 3];
     if (len < 2) return null;
+    // Lossless frames (SOF3, SOF7, SOF11, SOF15) hold sensor data (DNG tiles, CR2 slices), not previews.
+    if (marker === 0xc3 || marker === 0xc7 || marker === 0xcb || marker === 0xcf) return null;
     if ((marker >= 0xc0 && marker <= 0xcf) && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc && p + 9 <= u8.length) { height = (u8[p + 5] << 8) | u8[p + 6]; width = (u8[p + 7] << 8) | u8[p + 8]; }
     if (marker === 0xda) {
       // Entropy-coded data: skip to the next marker that is not RSTn or stuffed.
