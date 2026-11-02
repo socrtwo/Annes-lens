@@ -130,6 +130,8 @@ export interface Prefs {
   importRules: { name: string; subfolder: string; rename: string; skipDuplicates: boolean; deleteAfter: boolean }[];
   /** People roster for Link Person (name, dates, an external GEDCOM/FamilySearch id). */
   people: { name: string; born: string; died: string; externalId: string }[];
+  /** Browse ▸ People: off until turned on; how alike two faces must be to group them (cosine, SFace). */
+  faces: { enabled: boolean; threshold: number };
   /** An imported place-name table (CSV rows) for Look Up Place Names; searched before the built-in one. */
   importedPlaces: { city: string; state?: string; country: string; countryCode: string; lat: number; lon: number }[];
   /** Recognize Text: the languages and the page layout last used. */
@@ -181,7 +183,7 @@ export function defaultPrefs(): Prefs {
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, keepOriginal: false, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [], mapTiles: { basemap: 'osm', template: '' }, externalTools: [], scriptPlugins: [],
     quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
-    ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], importedPlaces: [], ocrLangs: ['eng'], ocrLayout: 'auto',
+    ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], faces: { enabled: false, threshold: 0.42 }, importedPlaces: [], ocrLangs: ['eng'], ocrLayout: 'auto',
     sort: 'natural', sortDescending: false,
   };
 }
@@ -248,6 +250,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   if (out.keywordHistory) out.keywordHistory = strings(out.keywordHistory).slice(0, 500);
   if (out.sidecarMode && !['embed', 'sidecar', 'both'].includes(out.sidecarMode)) delete out.sidecarMode;
   if (out.convolutions) out.convolutions = out.convolutions.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.kernel) && r.kernel.every((x: any) => typeof x === 'number')).slice(0, 40);
+  if (out.faces && (!isObj(out.faces) || typeof out.faces.enabled !== 'boolean' || !(out.faces.threshold >= 0.3 && out.faces.threshold <= 0.8))) delete out.faces;
   if (out.mapTiles && (!isObj(out.mapTiles) || !['osm', 'offline', 'custom'].includes(out.mapTiles.basemap) || typeof out.mapTiles.template !== 'string')) delete out.mapTiles;
   if (out.externalTools) out.externalTools = out.externalTools.filter((t: any) => isObj(t) && typeof t.id === 'string' && typeof t.name === 'string' && (t.kind === 'program' || t.kind === 'web')).slice(0, 40);
   if (out.scriptPlugins) out.scriptPlugins = out.scriptPlugins.filter((t: any) => isObj(t) && typeof t.id === 'string' && typeof t.name === 'string' && typeof t.code === 'string').slice(0, 60);

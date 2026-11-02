@@ -20,6 +20,11 @@ if (existsSync('dist')) {
   writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
+  // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
+  const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';
+  if (!existsSync(SFACE)) throw new Error(`${SFACE} is missing: run python3 scripts/gen-people-fixtures.py (it downloads the face models)`);
+  copyFileSync(SFACE, 'dist/ai-fixtures/face_recognition_sface_2021dec_int8.onnx');
+  copyFileSync('tests/fixtures/people/face_detection_yunet_2023mar.onnx', 'dist/ai-fixtures/face_detection_yunet_2023mar.onnx');
 }
 const AI_PORT = 4193;
 const mockAi = await startMockAi(AI_PORT, 'tests/fixtures/ai');
@@ -1622,10 +1627,44 @@ try {
   check('ai block started on the subject picture', ai.first, 'a-subject.png');
   check('ai ensemble master', [ai.ensemble.text, ai.ensemble.discussion], ['Combined: a red rectangle on a white background.', true]);
   check('ai history', [ai.history.includes('ai.generate:Mock'), ai.history.includes('ai.describe:Mock (master of 2)'), ai.history.some((h) => /^ai\.upscale:this device/.test(h))], [true, true, true]);
-  check('ai models cached', ai.models, ['clip-vit-b32', 'depth-anything-v2-small', 'lama', 'modnet', 'swin2sr-x2', 'swin2sr-x4-real']);
+  check('ai models cached', ai.models, ['clip-vit-b32', 'depth-anything-v2-small', 'lama', 'modnet', 'sface', 'swin2sr-x2', 'swin2sr-x4-real', 'yunet']);
   const sent = mockAi.requests;
   check('ai requests carried the picture and the key', [sent.find((r) => r.kind === 'chat')?.images, sent.find((r) => r.kind === 'chat')?.auth, sent.find((r) => r.kind === 'generate')?.prompt, sent.find((r) => r.kind === 'edit')?.hasMask, sent.filter((r) => r.kind === 'chat' && r.json).length > 0], [1, 'Bearer k', 'a bicycle', true, true]);
   if (ai.toasts.some((t) => /: the service|Could not|failed|stopped/i.test(t))) failures.push('ai toasts: ' + ai.toasts.join(' | '));
+
+  // People: the real YuNet and SFace models on five public-domain portraits (Obama, Biden, Harris, and two of Obama
+  // with Biden). Faces are found where OpenCV finds them, grouped into three people, named, opened as a folder.
+  const peopleRef = JSON.parse(readFileSync('tests/fixtures/people/opencv-reference.json', 'utf8')).faces;
+  const portraits = Object.fromEntries(['obama', 'biden', 'harris', 'both-2009', 'both-2012'].map((n) => [n, [...readFileSync(`tests/fixtures/people/${n}.jpg`)]]));
+  const pe = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', Object.entries(files).map(([n, b]) => new File([new Uint8Array(b)], `${n}.jpg`, { type: 'image/jpeg' }))); await wait(800);
+    const disabled = qn.prefs.faces.enabled;
+    await qn.exec('browse.people', { enable: true, forget: true });
+    const t0 = performance.now(); const rep = await qn.exec('browse.people', { scan: 'folder' }); const ms = Math.round(performance.now() - t0);
+    const again = await qn.exec('browse.people', { scan: 'folder' });
+    const groups = await qn.exec('browse.people', { list: true });
+    const obama = groups.findIndex((g) => g.files.includes('obama.jpg'));
+    await qn.exec('browse.people', { name: { group: obama, name: 'Barack Obama', born: '1961' } });
+    const named = await qn.exec('browse.people', { list: true });
+    const opened = await qn.exec('browse.people', { open: 0 }); await wait(300);
+    const folder = [qn.folder.name, qn.folder.entries.map((e) => e.name).sort()];
+    // The window: one card per person, the named one first.
+    const run = qn.exec('browse.people');
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => d.getAttribute('aria-label') === 'People')); i++) await wait(50);
+    const cards = [...dlg.querySelectorAll('.qn-person')].map((c) => [c.querySelector('b').textContent, c.querySelector('img') ? 'img' : 'none']);
+    dlg.querySelector('.ql-primary').click(); await run;
+    return { disabled, rep, ms, again: [again.pictures, again.skipped], faces: groups.flatMap((g) => g.files.map((f, i) => [f, g.boxes[i]])), groups: groups.map((g) => [g.files.slice().sort(), g.boxes, g.scores]), named: named.map((g) => [g.name, g.named, g.files.length]), opened, folder, cards };
+  }, portraits);
+  const sortedGroups = pe.groups.map((g) => g[0].join(',')).sort();
+  check('people: off until turned on; five portraits scanned, seven faces, nothing scanned twice', [pe.disabled, pe.rep.pictures, pe.rep.faces, pe.rep.failed, pe.again], [false, 5, 7, [], [0, 5]], JSON.stringify(pe));
+  check('people: grouped into Biden, Obama and Harris', sortedGroups, ['biden.jpg,both-2009.jpg,both-2012.jpg', 'both-2009.jpg,both-2012.jpg,obama.jpg', 'harris.jpg'], JSON.stringify(pe.groups));
+  // Each face found where OpenCV finds it (box corners within 4% of the picture's long side, 480 px).
+  let worst = 0; for (const [file, b] of pe.faces) { const best = Math.min(...peopleRef.filter((r) => r.file === file).map((r) => Math.max(...r.box.map((v, k) => Math.abs(v - b[k]))))); worst = Math.max(worst, best); }
+  check('people: boxes agree with OpenCV\'s FaceDetectorYN (within 4% of the long side)', [pe.faces.length, worst <= 19], [7, true], `worst ${worst} px`);
+  check('people: a named person comes first and opens as a folder', [pe.named[0], pe.opened, pe.folder, pe.cards.length, pe.cards[0]], [['Barack Obama', true, 3], 3, ['People: Barack Obama (3 pictures)', ['both-2009.jpg', 'both-2012.jpg', 'obama.jpg']], 3, ['Barack Obama', 'img']], JSON.stringify(pe));
 
   // Suite hand-offs: a JPEG with an embedded caption, alt text and title goes to Anne's Pen (DOCX),
   // Stage (PPTX) and Folio (PDF); in a browser each is saved (the Android app opens the suite app).

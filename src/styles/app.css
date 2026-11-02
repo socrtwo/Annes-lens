@@ -700,3 +700,14 @@ body.qn-frameless .ql-win-close:hover { background: #c42b1c; }
 .qn-map-credit { position: absolute; right: 0; bottom: 0; font: 11px system-ui, sans-serif; background: rgba(255,255,255,.8); color: #333; padding: 1px 5px; border-top-left-radius: 4px; }
 .qn-map-credit a { color: #0645ad; }
 .qn-map-status { font-size: 12.5px; color: var(--muted, #888); }
+
+/* Browse ▸ People */
+.qn-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; }
+.qn-person, .qn-face { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 6px; border-radius: 10px; background: var(--surface2, rgba(127,127,127,.08)); cursor: pointer; font-size: 12.5px; text-align: center; }
+.qn-person img, .qn-face img { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; }
+.qn-person.qn-named b { color: var(--accent, #2b5ea7); }
+.qn-person input, .qn-face input { position: absolute; top: 6px; left: 6px; }
+.qn-person:has(input:checked), .qn-face:has(input:checked) { outline: 2px solid var(--accent, #2b5ea7); }
+.qn-noface { width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; background: #888; color: #fff; font-size: 28px; }
+.qn-faces-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; max-height: 50vh; overflow: auto; }
+.qn-face span { word-break: break-all; }

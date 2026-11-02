@@ -68,6 +68,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | OpenStreetMap map tiles (online, Browse ▸ Map) | map data © OpenStreetMap contributors, ODbL; credited on the map; tile usage policy followed (identifying User-Agent on the desktop, no bulk downloading) |
 | Capacitor, Electron, electron-builder | MIT |
 | On-device models | each model's own license, shown before download; permissive only (see AI-PLAN.md) |
+| YuNet face detection, SFace face recognition (Browse ▸ People; OpenCV Zoo via huggingface.co/opencv) | MIT; Apache 2.0 |
 
 **Optional modules** (separate downloads, dynamically loaded, license shown first, never required): RAW development (LibRaw, LGPL-2.1 or CDDL-1.0), HEIC decoding where the platform lacks it (libheif LGPL-3.0 with an HEVC decoder; patent notice), RAR reading where a permissively licensed decoder is available. Their source and license texts are linked from Help ▸ About, and they can be replaced by the user, as the LGPL requires.
 
@@ -76,3 +77,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 ## Online services
 
 Anne's Lens works offline. Online services are called only when the user invokes the matching command: the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline outline or another tile server selectable), Open URL, and update checks (desktop and APK builds, opt-in). The phone remote (desktop) is a server on the local network only, reachable through a random address, and stops when turned off or when the app quits. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
+
+## Test pictures
+
+The People tests use five official White House portraits from Wikimedia Commons (Barack Obama, Joe Biden, Kamala Harris, and the 2009 and 2012 joint portraits of Obama and Biden). They are works of the United States federal government and in the public domain; `scripts/gen-people-fixtures.py` lists their sources. Face recognition runs only when the user turns People on, only on the device, and its data stays in the app's storage until Forget all faces.

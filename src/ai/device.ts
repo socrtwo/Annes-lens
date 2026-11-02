@@ -14,7 +14,7 @@ import { runtimeBase as resolveRuntime } from '../platform/runtimes';
 export const ORT_VERSION = '1.31.1';
 export const RUNTIME_CDN = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
 
-export type Task = 'matte' | 'depth' | 'inpaint' | 'upscale' | 'clip';
+export type Task = 'matte' | 'depth' | 'inpaint' | 'upscale' | 'clip' | 'face';
 export interface ModelSpec {
   id: string; title: string; task: Task; repo: string; license: string; licenseUrl: string;
   files: { quantized: string[]; fp32: string[] };
@@ -30,6 +30,8 @@ export const MODELS: ModelSpec[] = [
   { id: 'swin2sr-x2', title: 'Swin2SR ×2', task: 'upscale', scale: 2, repo: 'Xenova/swin2SR-classical-sr-x2-64', license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Xenova/swin2SR-classical-sr-x2-64', files: { quantized: ['onnx/model_quantized.onnx'], fp32: ['onnx/model.onnx'] }, sizes: { quantized: 21471413, fp32: 54428699 }, note: 'Upscale 2×.' },
   { id: 'swin2sr-x4-real', title: 'Swin2SR ×4 real-world', task: 'upscale', scale: 4, repo: 'Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr', license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr', files: { quantized: ['onnx/model_quantized.onnx'], fp32: ['onnx/model.onnx'] }, sizes: { quantized: 21438622, fp32: 52772645 }, note: 'Upscale 4×; Unblur and AI Noise Reduction (restored at the original size).' },
   { id: 'clip-vit-b32', title: 'CLIP ViT-B/32', task: 'clip', repo: 'Xenova/clip-vit-base-patch32', license: 'MIT', licenseUrl: 'https://huggingface.co/Xenova/clip-vit-base-patch32', files: { quantized: ['onnx/vision_model_quantized.onnx', 'onnx/text_model_quantized.onnx', 'vocab.json', 'merges.txt'], fp32: ['onnx/vision_model.onnx', 'onnx/text_model.onnx', 'vocab.json', 'merges.txt'] }, sizes: { quantized: 89117001 + 64504507 + 862328 + 524619, fp32: 351685709 + 254058553 + 862328 + 524619 }, note: 'Search by Content and Find Similar by Content (pictures and text in one space).' },
+  { id: 'yunet', title: 'YuNet face detection', task: 'face', repo: 'opencv/face_detection_yunet', license: 'MIT', licenseUrl: 'https://huggingface.co/opencv/face_detection_yunet/blob/main/LICENSE', files: { quantized: ['face_detection_yunet_2023mar.onnx'], fp32: ['face_detection_yunet_2023mar.onnx'] }, sizes: { quantized: 232589, fp32: 232589 }, note: 'Browse ▸ People: finds faces (OpenCV Zoo).' },
+  { id: 'sface', title: 'SFace face recognition', task: 'face', repo: 'opencv/face_recognition_sface', license: 'Apache-2.0', licenseUrl: 'https://huggingface.co/opencv/face_recognition_sface/blob/main/LICENSE', files: { quantized: ['face_recognition_sface_2021dec_int8.onnx'], fp32: ['face_recognition_sface_2021dec.onnx'] }, sizes: { quantized: 9896933, fp32: 38696353 }, note: 'Browse ▸ People: describes each face so the same person\'s faces can be grouped (OpenCV Zoo).' },
 ];
 export const modelById = (id: string): ModelSpec => { const m = MODELS.find((x) => x.id === id); if (!m) throw new Error(`Unknown model ${id}`); return m; };
 
@@ -122,6 +124,7 @@ async function loadOrt(base: string): Promise<any> {
     const abs = base ? new URL(base, typeof document !== 'undefined' ? document.baseURI : 'http://localhost/').href : await resolveRuntime('ort', RUNTIME_CDN);
     const ort: any = await import(/* @vite-ignore */ abs + 'ort.webgpu.bundle.min.mjs');
     ort.env.wasm.wasmPaths = abs;
+    ort.env.logLevel = 'error'; // models such as YuNet list initializers as inputs, which only draws warnings
     ort.env.wasm.numThreads = (globalThis as any).crossOriginIsolated ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1)) : 1;
     runtimeStatus.loaded = true;
     return ort;
@@ -145,8 +148,8 @@ export function ortBackend(base: string): Backend {
         const providers = (await gpuAvailable()) ? ['webgpu', 'wasm'] : ['wasm'];
         const buf = await bytes();
         // ORT may transfer the buffer it is given; each attempt gets its own copy.
-        try { s = await ort.InferenceSession.create(buf.slice(0), { executionProviders: providers }); runtimeStatus.provider = providers[0]; }
-        catch (e) { if (providers.length > 1) { s = await ort.InferenceSession.create(buf.slice(0), { executionProviders: ['wasm'] }); runtimeStatus.provider = 'wasm'; } else throw e; }
+        try { s = await ort.InferenceSession.create(buf.slice(0), { executionProviders: providers, logSeverityLevel: 3 }); runtimeStatus.provider = providers[0]; }
+        catch (e) { if (providers.length > 1) { s = await ort.InferenceSession.create(buf.slice(0), { executionProviders: ['wasm'], logSeverityLevel: 3 }); runtimeStatus.provider = 'wasm'; } else throw e; }
         sessions.set(key, s);
       }
       const fd: Record<string, any> = {};

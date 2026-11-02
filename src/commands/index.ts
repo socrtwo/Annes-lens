@@ -54,4 +54,5 @@ import './catalog';
 import './libraryTools';
 import './slideshowMedia';
 import './map';
+import './people';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';
