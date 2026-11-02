@@ -25,7 +25,7 @@ Fidelity tiers:
 | HEIC / HEIF | .heic .heif .hif | ISOBMFF `ftyp heic/heix/mif1` | Full where the platform decodes it; module otherwise | Platform only | live/motion parts, depth and gain maps shown; see *Licensing* |
 | JPEG XL | .jxl | `FF 0A` or ISOBMFF `JXL ` | Full | Yes | libjxl (BSD); lossless JPEG recompression and reconstruction |
 | JPEG 2000 | .jp2 .j2k .jpf .jpx | `00 00 00 0C 6A 50` / `FF 4F FF 51` | High | Yes | OpenJPEG (BSD) |
-| TIFF / BigTIFF | .tif .tiff | `II*\0` / `MM\0*` / BigTIFF | Full | Yes | multipage, tiles, LZW/Deflate/PackBits/JPEG/CCITT G3/G4/ZSTD, 1–32-bit and float, CMYK, Lab |
+| TIFF / BigTIFF | .tif .tiff | `II*\0` / `MM\0*` / BigTIFF | Full | Yes | multipage, tiles, LZW/Deflate/PackBits/JPEG/CCITT RLE, G3 (1D, 2D) and G4, chunky or planar, 1–32-bit integers (signed too) and 16/24/32/64-bit floats (shown as 8-bit: floats 0…1 as they are, other ranges stretched), CMYK through the embedded profile; ZSTD and Lab still to do |
 | BMP / DIB / RLE | .bmp .dib .rle | `BM` | Full | Yes | OS/2 variants, RLE4/8, bitfields, alpha |
 | ICO / CUR / ANI | .ico .cur .ani | reserved/type words, RIFF `ACON` | Full | Yes (ICO, CUR) | all sizes listed as pages |
 | Apple icons | .icns | `icns` | Full | Yes | |

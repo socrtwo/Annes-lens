@@ -226,6 +226,24 @@ try {
   check('cut png', damaged.out[1] && damaged.out[1].slice(0, 4), ['cut.png', 'png (tolerant)', 64, true]);
   check('cut png pixel', damaged.out[1] && damaged.out[1][4] && damaged.out[1][4][0] === 204 && damaged.out[1][4][1] === 102, true);
 
+  // A Group 4 fax page and a CMYK TIFF with its press profile open through the app (libtiff and LittleCMS made the references).
+  const tifMore = { fax: [...readFileSync('tests/fixtures/tiff/fax-g4.tif')], cmyk: [...readFileSync('tests/fixtures/tiff/cmyk-icc.tif')] };
+  const tm = await p.evaluate(async (b) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [new File([Uint8Array.from(b.fax)], 'fax-g4.tif'), new File([Uint8Array.from(b.cmyk)], 'cmyk-icc.tif')]);
+    for (let i = 0; i < 100 && qn.picture?.name !== 'cmyk-icc.tif'; i++) await wait(50);
+    const at = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3);
+    // Name order: the CMYK file first, then the fax page.
+    const cmyk = [qn.picture.name, qn.picture.width, qn.picture.height, /CMYK through the embedded profile/.test(qn.picture.current.notes.join(', ')), at(5, 5), at(60, 44)];
+    await qn.exec('view.next'); for (let i = 0; i < 100 && qn.picture?.name !== 'fax-g4.tif'; i++) await wait(50);
+    const fax = [qn.picture.name, qn.picture.width, qn.picture.height, /CCITT G4/.test(qn.picture.current.notes.join(', ')), at(720, 160), at(800, 200)];
+    return { cmyk, fax };
+  }, tifMore);
+  const near3 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
+  check('tiff: CMYK through its press profile (LittleCMS reference)', [tm.cmyk.slice(0, 4), near3(tm.cmyk[4], [238, 234, 234]), near3(tm.cmyk[5], [36, 38, 58])], [['cmyk-icc.tif', 64, 48, true], true, true], JSON.stringify(tm));
+  check('tiff: Group 4 fax page (a black block with white inside)', tm.fax, ['fax-g4.tif', 1000, 300, true, [0, 0, 0], [255, 255, 255]], JSON.stringify(tm));
+
   // JPEG-compressed TIFF (Pillow) decodes through the platform per strip; a CBZ opens as a folder of its pages.
   const tiffBytes = [...readFileSync('tests/fixtures/tiff/jpeg-strips.tif')];
   const tiffJpeg = await p.evaluate(async (bytes) => {

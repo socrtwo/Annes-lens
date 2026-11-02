@@ -1,11 +1,16 @@
 /**
  * Baseline TIFF reader: every IFD (page) with 1, 2, 4, 8 or 16 bits per sample, bilevel, grayscale,
  * palette, RGB and RGBA (associated or unassociated alpha), uncompressed, PackBits, LZW (with the
- * horizontal predictor) or Deflate, in strips or tiles, chunky planar configuration, both byte orders
- * and BigTIFF. Separated (CMYK) data is converted naively. Anything else is reported in the warnings and
+ * horizontal predictor) or Deflate, CCITT RLE, Group 3 (1D and 2D) and Group 4, in strips or tiles, chunky
+ * or planar, both byte orders and BigTIFF; 32-bit, signed and floating-point samples (with the
+ * floating-point predictor) shown as 8 bits; CMYK through its embedded profile (else simply). Anything else is reported in the warnings and
  * the page is skipped, so a file with one unreadable page still shows the others.
  */
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
+import { decodeCcitt } from './ccitt';
+import { parseIcc } from '../color/icc';
+import { colorFn } from '../color/transform';
+import { spaceProfile } from '../color/spaces';
 
 export function isTiff(u8: Uint8Array): boolean {
   if (u8.length < 8) return false;
@@ -106,50 +111,81 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
   const comp = g(259, 1), photo = g(262, bps[0] === 1 ? 0 : 1), spp = g(277, bps.length || 1), planar = g(284, 1), pred = g(317, 1);
   const extra = tags.get(338)?.values || [];
   const sampleFormat = g(339, 1);
-  const bits = bps[0];
-  if (planar !== 1) throw new Error('planar (separate) sample layout is not supported yet');
-  if (![1, 2, 3, 4, 8, 16].includes(bits)) throw new Error(`${bits}-bit samples are not supported yet`);
-  if (sampleFormat === 3) throw new Error('floating-point samples are not supported yet');
+  let bits = bps[0];
+  const ccitt = comp === 2 || comp === 3 || comp === 4;
+  if (ccitt && (bits !== 1 || spp !== 1)) throw new Error('CCITT compression with more than one bit per pixel');
+  if (![1, 2, 4, 8, 16, 24, 32, 64].includes(bits) || (bits === 64 && sampleFormat !== 3) || (bits === 24 && sampleFormat !== 3)) throw new Error(`${bits}-bit samples are not supported yet`);
+  if (sampleFormat === 3 && ![16, 24, 32, 64].includes(bits)) throw new Error(`${bits}-bit floating-point samples are not supported`);
+  if (planar === 2 && bits < 8 && spp > 1) throw new Error('planar (separate) samples under 8 bits are not supported');
+  if (photo === 5 && (tags.get(332)?.values[0] ?? 1) !== 1) throw new Error('separated data that is not CMYK (InkSet) is not supported');
   const compressionName: Record<number, string> = { 1: 'uncompressed', 2: 'CCITT RLE', 3: 'CCITT G3', 4: 'CCITT G4', 5: 'LZW', 6: 'old JPEG', 7: 'JPEG', 8: 'Deflate', 32773: 'PackBits', 32946: 'Deflate', 34712: 'JPEG 2000', 50000: 'ZSTD' };
   if (comp === 7 || comp === 6) return decodeJpegPage(u8, tags, w, h, spp, photo, extra, warnings, pageNo, g);
-  if (![1, 5, 8, 32773, 32946].includes(comp)) throw new Error(`${compressionName[comp] || 'compression ' + comp} is not supported yet`);
-  const rowBytes = Math.ceil((w * spp * bits) / 8);
-  const raw = new Uint8Array(rowBytes * h);
-  const tiled = tags.has(324);
-  if (tiled) {
-    const tw = g(322, w), th = g(323, h);
-    const offsets = tags.get(324)!.values, counts = tags.get(325)?.values || [];
-    const tilesAcross = Math.ceil(w / tw);
-    const tileRowBytes = Math.ceil((tw * spp * bits) / 8);
-    for (let t = 0; t < offsets.length; t++) {
-      const tx = (t % tilesAcross) * tw, ty = Math.floor(t / tilesAcross) * th;
-      if (ty >= h) break;
-      const dec = await inflateChunk(u8.subarray(offsets[t], offsets[t] + (counts[t] ?? 0)), comp, tileRowBytes * th);
-      undoPredictor(dec, pred, bits, spp, tw, th, tileRowBytes);
-      const xBytes = Math.floor((tx * spp * bits) / 8);
-      const copyBytes = Math.min(tileRowBytes, rowBytes - xBytes);
-      for (let y = 0; y < th && ty + y < h; y++) raw.set(dec.subarray(y * tileRowBytes, y * tileRowBytes + copyBytes), (ty + y) * rowBytes + xBytes);
+  if (![1, 2, 3, 4, 5, 8, 32773, 32946].includes(comp)) throw new Error(`${compressionName[comp] || 'compression ' + comp} is not supported yet`);
+  const t4 = g(292, 0), t6 = g(293, 0), lsbFirst = g(266, 1) === 2;
+  // One strip or tile of `pw` pixels × `rows` rows with `n` samples per pixel, decompressed and with predictors undone.
+  const piece = async (src: Uint8Array, pw: number, rows: number, n: number): Promise<Uint8Array> => {
+    const rb = Math.ceil((pw * n * bits) / 8);
+    if (ccitt) {
+      // The codes T.4 calls white and black are the bit values 0 and 1; PhotometricInterpretation says how they look (as in libtiff).
+      return decodeCcitt(src, pw, rows, { compression: comp as 2 | 3 | 4, t4Options: t4, t6Options: t6, lsbFirst });
     }
-  } else {
-    const rps = Math.min(g(278, h), h);
-    const offsets = tags.get(273)?.values || [], counts = tags.get(279)?.values || [];
-    if (!offsets.length) throw new Error('no strips');
-    let o = 0;
-    for (let s = 0; s < offsets.length && o < raw.length; s++) {
-      const rows = Math.min(rps, h - Math.floor(o / rowBytes));
-      const want = rows * rowBytes;
-      const cnt = counts[s] ?? (comp === 1 ? want : u8.length - offsets[s]);
-      if (offsets[s] + cnt > u8.length) warnings.push(`Page ${pageNo}: strip ${s + 1} is truncated`);
-      const dec = await inflateChunk(u8.subarray(offsets[s], Math.min(u8.length, offsets[s] + cnt)), comp, want);
-      undoPredictor(dec, pred, bits, spp, w, rows, rowBytes);
-      raw.set(dec.subarray(0, Math.min(want, raw.length - o)), o);
-      o += want;
+    const dec = await inflateChunk(src, comp, rb * rows);
+    if (pred === 3) return undoFloatPredictor(dec, bits / 8, n, pw, rows, le);
+    undoPredictor(dec, pred, bits, n, pw, rows, rb);
+    return dec;
+  };
+  // Reads every strip or tile of one plane (planar files) or of the whole page.
+  const readPlane = async (plane: number, n: number): Promise<Uint8Array> => {
+    const rowBytes = Math.ceil((w * n * bits) / 8), out = new Uint8Array(rowBytes * h);
+    if (tags.has(324)) {
+      const tw = g(322, w), th = g(323, h), across = Math.ceil(w / tw), per = across * Math.ceil(h / th);
+      const offsets = tags.get(324)!.values.slice(plane * per, (plane + 1) * per), counts = (tags.get(325)?.values || []).slice(plane * per, (plane + 1) * per);
+      const tileRowBytes = Math.ceil((tw * n * bits) / 8);
+      for (let t = 0; t < offsets.length; t++) {
+        const tx = (t % across) * tw, ty = Math.floor(t / across) * th;
+        if (ty >= h) break;
+        const dec = await piece(u8.subarray(offsets[t], offsets[t] + (counts[t] ?? 0)), tw, th, n);
+        const xBytes = Math.floor((tx * n * bits) / 8), copyBytes = Math.min(tileRowBytes, rowBytes - xBytes);
+        for (let y = 0; y < th && ty + y < h; y++) out.set(dec.subarray(y * tileRowBytes, y * tileRowBytes + copyBytes), (ty + y) * rowBytes + xBytes);
+      }
+    } else {
+      const rps = Math.min(g(278, h), h), per = Math.ceil(h / rps);
+      const all = tags.get(273)?.values || [], allCounts = tags.get(279)?.values || [];
+      const offsets = planar === 2 ? all.slice(plane * per, (plane + 1) * per) : all, counts = planar === 2 ? allCounts.slice(plane * per, (plane + 1) * per) : allCounts;
+      if (!offsets.length) throw new Error('no strips');
+      let o = 0;
+      for (let s = 0; s < offsets.length && o < out.length; s++) {
+        const rows = Math.min(rps, h - Math.floor(o / rowBytes)), want = rows * rowBytes;
+        const cnt = counts[s] ?? (comp === 1 ? want : u8.length - offsets[s]);
+        if (offsets[s] + cnt > u8.length) warnings.push(`Page ${pageNo}: strip ${s + 1} is truncated`);
+        const dec = await piece(u8.subarray(offsets[s], Math.min(u8.length, offsets[s] + cnt)), w, rows, n);
+        out.set(dec.subarray(0, Math.min(want, out.length - o)), o);
+        o += want;
+      }
     }
+    return out;
+  };
+  let raw: Uint8Array;
+  if (planar === 2 && spp > 1) {
+    // Separate planes, interleaved here into one chunky buffer.
+    const B = bits / 8, planes: Uint8Array[] = []; for (let p = 0; p < spp; p++) planes.push(await readPlane(p, 1));
+    raw = new Uint8Array(w * h * spp * B);
+    for (let i = 0; i < w * h; i++) for (let p = 0; p < spp; p++) for (let k = 0; k < B; k++) raw[(i * spp + p) * B + k] = planes[p][i * B + k];
+  } else raw = await readPlane(0, spp);
+  // Float, signed or 32-bit samples become 8-bit: 0…1 as is (floats), otherwise their range in this page.
+  let rangeNote = '';
+  if (sampleFormat === 3 || sampleFormat === 2 || bits === 32) {
+    const r = toEightBit(raw, bits, sampleFormat, pred === 3 ? true : le, w * h, spp, extra.length);
+    raw = r.data; rangeNote = r.note; bits = 8;
   }
+  const rowBytes = Math.ceil((w * spp * bits) / 8);
+  const tiled = tags.has(324);
   const map = tags.get(320)?.values;
   const out = makeRaster(w, h);
   const d = out.data;
   const hasAlpha = extra.includes(1) || extra.includes(2) || (photo === 2 && spp === 4 && !extra.length);
+  const icc = tags.get(34675)?.values;
+  const cmyk = photo === 5 && icc ? cmykConverter(Uint8Array.from(icc), warnings, pageNo) : null;
   const assocAlpha = extra.includes(1);
   const maxv = (1 << bits) - 1;
   const sample = (row: number, i: number): number => {
@@ -160,7 +196,7 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
     const byte = raw[row + (bitPos >> 3)];
     return (byte >> (8 - bits - (bitPos & 7))) & maxv;
   };
-  const scale = bits === 16 ? 255 : 255 / maxv;
+  const scale = bits === 16 ? 1 : 255 / maxv; // 16-bit samples come back as their high byte already
   for (let y = 0; y < h; y++) {
     const row = y * rowBytes;
     for (let x = 0; x < w; x++) {
@@ -175,7 +211,9 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
         if (assocAlpha && d[o + 3] && d[o + 3] < 255) { const a = 255 / d[o + 3]; d[o] = Math.min(255, d[o] * a); d[o + 1] = Math.min(255, d[o + 1] * a); d[o + 2] = Math.min(255, d[o + 2] * a); }
       } else if (photo === 5 && spp >= 4) {
         const c = sample(row, s0) * scale, m = sample(row, s0 + 1) * scale, yy = sample(row, s0 + 2) * scale, k = sample(row, s0 + 3) * scale;
-        d[o] = 255 - Math.min(255, c + k); d[o + 1] = 255 - Math.min(255, m + k); d[o + 2] = 255 - Math.min(255, yy + k); d[o + 3] = 255;
+        if (cmyk) cmyk(c, m, yy, k, d, o);
+        else { d[o] = 255 - Math.min(255, c + k); d[o + 1] = 255 - Math.min(255, m + k); d[o + 2] = 255 - Math.min(255, yy + k); }
+        d[o + 3] = hasAlpha && spp >= 5 ? sample(row, s0 + 4) * scale : 255;
       } else {
         let v = sample(row, s0) * scale;
         if (photo === 0) v = 255 - v;
@@ -187,8 +225,8 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
   const unit = g(296, 2);
   const xr = g(282, 0), yr = g(283, 0);
   const dpi: [number, number] | undefined = xr && yr ? (unit === 3 ? [Math.round(xr * 2.54), Math.round(yr * 2.54)] : [Math.round(xr), Math.round(yr)]) : undefined;
-  const notes = [compressionName[comp] || `compression ${comp}`, photo === 3 ? 'palette' : photo === 2 ? (spp >= 4 ? 'RGBA' : 'RGB') : photo === 5 ? 'CMYK' : bits === 1 ? 'bilevel' : 'grayscale', pred === 2 ? 'horizontal predictor' : '', tiled ? 'tiled' : 'strips'].filter(Boolean);
-  return { width: w, height: h, frames: [{ raster: out, delay: 0 }], loops: 0, bitDepth: bits * spp, paletteSize: photo === 3 && map ? map.length / 3 : undefined, hasAlpha, dpi, notes };
+  const notes = [compressionName[comp] || `compression ${comp}`, photo === 3 ? 'palette' : photo === 2 ? (spp >= 4 ? 'RGBA' : 'RGB') : photo === 5 ? (cmyk ? `CMYK through the embedded profile ${cmyk.profile}` : 'CMYK (no profile: converted simply)') : bits === 1 ? 'bilevel' : 'grayscale', pred === 2 ? 'horizontal predictor' : pred === 3 ? 'floating-point predictor' : '', planar === 2 ? 'planar' : '', rangeNote, tiled ? 'tiled' : 'strips'].filter(Boolean);
+  return { width: w, height: h, frames: [{ raster: out, delay: 0 }], loops: 0, bitDepth: (bps[0] || bits) * spp, paletteSize: photo === 3 && map ? map.length / 3 : undefined, hasAlpha, dpi, notes };
 }
 
 function undoPredictor(dec: Uint8Array, pred: number, bits: number, spp: number, w: number, rows: number, rowBytes: number): void {
@@ -312,4 +350,78 @@ export function lzwTiff(src: Uint8Array, want: number): Uint8Array {
     if (next + 1 >= 1 << width && width < 12) width++;
   }
   return out;
+}
+
+/** The floating-point predictor (TIFF predictor 3): bytes differenced across the row, then grouped by significance. Returns little-endian samples. */
+function undoFloatPredictor(dec: Uint8Array, B: number, spp: number, w: number, rows: number, _le: boolean): Uint8Array {
+  const wc = w * spp, rb = wc * B, out = new Uint8Array(rb * rows);
+  for (let y = 0; y < rows; y++) {
+    const row = dec.subarray(y * rb, (y + 1) * rb), t = Uint8Array.from(row);
+    for (let i = spp; i < rb; i++) t[i] = (t[i] + t[i - spp]) & 255;
+    for (let i = 0; i < wc; i++) for (let b = 0; b < B; b++) out[y * rb + i * B + b] = t[(B - b - 1) * wc + i];
+  }
+  return out;
+}
+const half = (v: number) => { const s = v >> 15 ? -1 : 1, e = (v >> 10) & 31, f = v & 1023; return e === 0 ? s * f * 2 ** -24 : e === 31 ? (f ? NaN : s * Infinity) : s * (1 + f / 1024) * 2 ** (e - 15); };
+/** Wide, signed or floating-point samples to 8 bits. Floats within 0…1 map directly; anything else is stretched from its lowest to highest value (alpha samples are scaled alone). */
+function toEightBit(raw: Uint8Array, bits: number, fmt: number, le: boolean, pixels: number, spp: number, extras: number): { data: Uint8Array; note: string } {
+  const B = bits / 8, n = pixels * spp, dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength), v = new Float64Array(n);
+  for (let i = 0; i < n && (i + 1) * B <= raw.length; i++) {
+    const o = i * B;
+    if (fmt === 3) v[i] = B === 2 ? half(dv.getUint16(o, le)) : B === 4 ? dv.getFloat32(o, le) : B === 8 ? dv.getFloat64(o, le) : (() => { const b0 = le ? raw[o + 2] : raw[o], b1 = raw[o + 1], b2 = le ? raw[o] : raw[o + 2]; const x = (b0 << 16) | (b1 << 8) | b2; const s = x >> 23 ? -1 : 1, e = (x >> 16) & 127, f = x & 0xffff; return e === 0 ? s * f * 2 ** -78 : s * (1 + f / 65536) * 2 ** (e - 63); })();
+    else if (fmt === 2) v[i] = B === 1 ? dv.getInt8(o) : B === 2 ? dv.getInt16(o, le) : dv.getInt32(o, le);
+    else v[i] = B === 1 ? raw[o] : B === 2 ? dv.getUint16(o, le) : dv.getUint32(o, le);
+  }
+  const colors = spp - extras;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < n; i++) if (i % spp < colors && Number.isFinite(v[i])) { if (v[i] < lo) lo = v[i]; if (v[i] > hi) hi = v[i]; }
+  if (!Number.isFinite(lo)) { lo = 0; hi = 1; }
+  const unit = fmt === 3 && lo >= 0 && hi <= 1;
+  const a = unit ? 0 : lo, k = unit ? 255 : hi > lo ? 255 / (hi - lo) : 0;
+  const out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = v[i];
+    if (i % spp >= colors) out[i] = fmt === 3 ? Math.round(Math.max(0, Math.min(1, x)) * 255) : Math.round(((x - (fmt === 2 ? -(2 ** (bits - 1)) : 0)) / (2 ** bits - 1)) * 255);
+    else out[i] = Number.isFinite(x) ? Math.round(Math.max(0, Math.min(255, (x - a) * k))) : x > 0 ? 255 : 0;
+  }
+  const kind = fmt === 3 ? `${bits}-bit floating point` : `${bits}-bit ${fmt === 2 ? 'signed' : 'unsigned'} integers`;
+  const fmtN = (x: number) => (Math.abs(x) >= 1e5 || (Math.abs(x) < 1e-3 && x !== 0) ? x.toExponential(3) : +x.toPrecision(5));
+  return { data: out, note: unit ? `${kind} (0…1)` : `${kind}, ${fmtN(lo)}…${fmtN(hi)} shown as black…white` };
+}
+
+/** CMYK → sRGB through an embedded CMYK profile (relative colorimetric), on a 17⁴ lattice with quadrilinear interpolation. */
+type CmykConv = ((c: number, m: number, y: number, k: number, d: Uint8ClampedArray, o: number) => void) & { profile: string };
+const cmykCache = new Map<string, CmykConv>(); // a folder of pictures usually shares one profile
+function cmykConverter(iccBytes: Uint8Array, warnings: string[], pageNo: number): CmykConv | null {
+  let hsh = 2166136261; for (let i = 0; i < iccBytes.length; i++) hsh = Math.imul(hsh ^ iccBytes[i], 16777619);
+  const key = `${iccBytes.length}:${hsh >>> 0}`, hit = cmykCache.get(key); if (hit) return hit;
+  const made = buildCmyk(iccBytes, warnings, pageNo);
+  if (made) { if (cmykCache.size >= 4) cmykCache.delete(cmykCache.keys().next().value!); cmykCache.set(key, made); }
+  return made;
+}
+function buildCmyk(iccBytes: Uint8Array, warnings: string[], pageNo: number): CmykConv | null {
+  let prof; try { prof = parseIcc(iccBytes); } catch (e) { warnings.push(`Page ${pageNo}: the embedded color profile could not be read (${(e as Error).message}); CMYK converted simply`); return null; }
+  if (prof.colorSpace !== 'CMYK') return null;
+  let fn: (v: number[]) => number[];
+  try { fn = colorFn(prof, spaceProfile('srgb'), { intent: 1 }); fn([0, 0, 0, 0]); } catch (e) { warnings.push(`Page ${pageNo}: the CMYK profile cannot be used (${(e as Error).message}); converted simply`); return null; }
+  const N = 17, lat = new Float32Array(N ** 4 * 3);
+  for (let c = 0; c < N; c++) for (let m = 0; m < N; m++) for (let y = 0; y < N; y++) for (let k = 0; k < N; k++) {
+    const r = fn([c / (N - 1), m / (N - 1), y / (N - 1), k / (N - 1)]), i = (((c * N + m) * N + y) * N + k) * 3;
+    lat[i] = r[0]; lat[i + 1] = r[1]; lat[i + 2] = r[2];
+  }
+  const s = (N - 1) / 255, S3 = 3, S2 = N * 3, S1 = N * N * 3, S0 = N * N * N * 3;
+  const conv = (c: number, m: number, y: number, k: number, d: Uint8ClampedArray, o: number) => {
+    const f = [c * s, m * s, y * s, k * s], i0 = f.map((x) => Math.min(N - 2, Math.max(0, Math.floor(x)))), t = f.map((x, j) => x - i0[j]);
+    const base = i0[0] * S0 + i0[1] * S1 + i0[2] * S2 + i0[3] * S3;
+    for (let ch = 0; ch < 3; ch++) {
+      let acc = 0;
+      for (let corner = 0; corner < 16; corner++) {
+        let wgt = 1, off = base + ch;
+        for (let j = 0; j < 4; j++) { const bit = (corner >> (3 - j)) & 1; wgt *= bit ? t[j] : 1 - t[j]; off += bit ? [S0, S1, S2, S3][j] : 0; }
+        if (wgt) acc += wgt * lat[off];
+      }
+      d[o + ch] = Math.round(Math.max(0, Math.min(1, acc)) * 255);
+    }
+  };
+  return Object.assign(conv, { profile: prof.description || 'CMYK' });
 }
