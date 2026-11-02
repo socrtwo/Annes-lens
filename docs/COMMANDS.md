@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **553 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **554 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -19,7 +19,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Browse**: Views (17) · Rate and label (8) · Find and compare (8) · Catalog (5)
 - **Metadata**: View and edit (12) · Date and place (5) · Privacy and integrity (5) · Records and genealogy (4)
 - **Batch**: Batch (13)
-- **Create**: Create (16)
+- **Create**: Create (17)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
 - **View**: Zoom (12) · Navigate (9) · Window (16) · Inspect (12) · Display (10) · Compare (4) · Media (3) · Quick Access Bar and search (5)
@@ -41,9 +41,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 94 |
 | Picasa style (`picasa`) | Picasa 3 | 115 |
 | Preview style (`preview`) | macOS Preview | 104 |
-| digiKam style (`digikam`) | digiKam albums and image editor | 109 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 336 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 553 |
+| digiKam style (`digikam`) | digiKam albums and image editor | 110 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 337 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 554 |
 
 ## File (82 of 82)
 
@@ -434,7 +434,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Undo Last Batch | Batch |  | `batch.undo` | from new in Anne's Lens |
 | Web and Email Sizes… | Batch |  | `batch.webPresets` | has options menu; from Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa |
 
-## Create (16 of 17)
+## Create (17 of 17)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -453,6 +453,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Multipage TIFF or PDF… | Create |  | `create.multipage` | from IrfanView |
 | Photo Book in Anne's Press | Create |  | `create.photoBook` | from the Anne's Office suite |
 | Slideshow Video… | Create |  | `create.movie` | from Picasa, Google Photos, Microsoft Photos |
+| Stitch Panorama… | Create |  | `create.panoramaStitch` | from Windows Live Photo Gallery, digiKam |
 | Web Gallery… | Create |  | `create.webGallery` | from XnView Classic and XnView MP, gThumb, digiKam, IrfanView |
 
 ## Pages and Frames (15 of 15)
@@ -683,11 +684,10 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (4)
+## Planned, not yet built (3)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (1): `browse.people`
-- **Create** (1): `create.panoramaStitch`
 - **RAW** (1): `raw.develop`

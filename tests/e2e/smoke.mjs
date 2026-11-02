@@ -689,6 +689,35 @@ try {
   check('map: offline outline draws land and sea without tiles; a marker opens its picture', [mp.offTiles, mp.saved, mp.land, mp.sea, mp.opened, mp.closed, mp.mapGone], [0, 'offline', [242, 239, 233], [170, 211, 223], 'm1-paris.png', true, true], JSON.stringify(mp));
   await p.unroute('https://tile.openstreetmap.org/**');
 
+  // Stitch Panorama: three overlapping pieces of a generated scene (the middle one dropped first), joined through the dialog
+  // (automatic projection) and again as flat scans; the result matches the scene.
+  const st = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const hash = (x, y, c) => { let h = (x * 374761393 + y * 668265263 + c * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+    const sm = (x, y, s, c) => { const gx = x / s, gy = y / s, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); return (hash(x0, y0, c) * (1 - u) + hash(x0 + 1, y0, c) * u) * (1 - v) + (hash(x0, y0 + 1, c) * (1 - u) + hash(x0 + 1, y0 + 1, c) * u) * v; };
+    const tex = (x, y, c) => 255 * (0.45 * sm(x, y, 40, c) + 0.3 * sm(x, y, 13, c + 3) + 0.25 * sm(x, y, 5, c + 7));
+    const H = 360;
+    const piece = async (x0, w, name) => { const c = document.createElement('canvas'); c.width = w; c.height = H; const g = c.getContext('2d'), id = g.createImageData(w, H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; id.data[i] = tex(x + x0 + 0.5, y + 0.5, 0); id.data[i + 1] = tex(x + x0 + 0.5, y + 0.5, 1); id.data[i + 2] = tex(x + x0 + 0.5, y + 0.5, 2); id.data[i + 3] = 255; }
+      g.putImageData(id, 0, 0); return new File([await new Promise((r) => c.toBlob(r, 'image/png'))], name, { type: 'image/png' }); };
+    qn.prefs.confirmClose = false;
+    await qn.exec('file.openDropped', [await piece(400, 520, 'p2.png'), await piece(0, 520, 'p1.png'), await piece(800, 400, 'p3.png')]); await wait(500);
+    const run = qn.exec('create.panoramaStitch');
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => d.getAttribute('aria-label') === 'Stitch Panorama')); i++) await wait(50);
+    const fields = [...dlg.querySelectorAll('select')].map((x) => x.value);
+    dlg.querySelector('.ql-primary').click();
+    const r1 = await run; await wait(300);
+    const name1 = qn.picture.name, size1 = [qn.picture.width, qn.picture.height];
+    const px = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3);
+    let diff = 0, n = 0; for (let y = 20; y < H - 20; y += 23) for (let x = 20; x < 1180; x += 23) { const a = px(x, y); for (let c = 0; c < 3; c++) { diff += Math.abs(a[c] - tex(x + 0.5, y + 0.5, c)); n++; } }
+    // Back to the pieces for the flat run.
+    await qn.exec('file.openDropped', [await piece(400, 520, 'p2.png'), await piece(0, 520, 'p1.png'), await piece(800, 400, 'p3.png')]); await wait(500);
+    const r2 = await qn.exec('create.panoramaStitch', { projection: 'flat', crop: true });
+    return { fields, r1, name1, size1, diff: diff / n, r2: { ...r2, focal: undefined } };
+  });
+  check('stitch panorama: pieces out of order joined through the dialog, matching the scene', [st.fields, st.r1.used, st.r1.skipped, st.r1.projection, st.name1, Math.abs(st.size1[0] - 1200) <= 2 && Math.abs(st.size1[1] - 360) <= 2, st.diff < 3], [['auto', 'smooth'], ['p1.png', 'p2.png', 'p3.png'], [], 'planar', 'p1-panorama.png', true, true], JSON.stringify(st));
+  check('stitch panorama: flat scans', [st.r2.projection, st.r2.used.length, Math.abs(st.r2.width - 1200) <= 2, Math.abs(st.r2.height - 360) <= 2], ['flat', 3, true, true], JSON.stringify(st.r2));
+
   // Tools: a QR code opened as a picture through its dialog, an encrypted package round trip, carving pictures out of junk, and Document Cleanup through its dialog.
   const tl = await p.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

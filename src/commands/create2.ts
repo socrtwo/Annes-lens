@@ -1,8 +1,8 @@
 /**
  * Create tab, part two: Exposure Merge (HDR by exposure fusion), Focus Stack, Web Gallery (a ZIP
  * with a static page, thumbnails and a lightbox), Calendar Page, Extract Embedded Pictures (from
- * .docx, .pptx, .xlsx, .odt, .epub and any ZIP; PDF and other files by carving) and Slideshow
- * Video (WebM through the browser's recorder, with crossfades and pan-and-zoom).
+ * .docx, .pptx, .xlsx, .odt, .epub and any ZIP; PDF and other files by carving), Slideshow
+ * Video (WebM through the browser's recorder, with crossfades and pan-and-zoom) and Stitch Panorama.
  */
 import { def } from './registry';
 import type { App } from '../app';
@@ -13,6 +13,7 @@ import { decodePicture, encodeCanvas } from '../codecs/registry';
 import { isZip, readZip, readZipEntry } from '../codecs/zip';
 import { carvePictures } from '../codecs/carve';
 import { exposureFusion, focusStack } from '../picture/merge';
+import { stitch, type Projection } from '../picture/stitch';
 import { rasterFrame } from '../picture/edit';
 import { resample } from '../picture/ops';
 import { writeZip } from '../picture/batch';
@@ -66,6 +67,33 @@ def([
       toast('Fusing…', { ms: 2000 }); await new Promise((res) => setTimeout(res, 30));
       const out = exposureFusion(sameSize(items), { contrast: +r.contrast / 100, saturation: +r.saturation / 100, exposedness: +r.exposedness / 100 });
       await openRaster(app, out, `${base(items[0].entry.name)}-fused.png`, 'Exposure merge');
+    },
+  },
+  {
+    id: 'create.panoramaStitch', icon: 'panorama', noRecord: true, isEnabled: many, tip: 'Joins overlapping pictures into one panorama: features matched, perspective or cylinder, exposure evened out, seams blended',
+    run: async (app, arg?: { projection?: Projection; blend?: 'smooth' | 'sharp'; evenExposure?: boolean; crop?: boolean; maxMp?: number }) => {
+      const entries = inputsOf(app);
+      const r = arg || await openDialog({ title: 'Stitch Panorama', ok: 'Stitch', help: `${entries.length} pictures that overlap by a quarter or more, in any order. Turn the camera about the lens; a tripod helps but is not needed.`, fields: [
+        { key: 'projection', label: 'Projection', type: 'select', value: 'auto', options: [{ value: 'auto', label: 'Automatic' }, { value: 'planar', label: 'Planar (straight lines stay straight; up to about 100°)' }, { value: 'cylindrical', label: 'Cylindrical (wide pans)' }, { value: 'flat', label: 'Flat (scanned pieces of a large page or map)' }] },
+        { key: 'blend', label: 'Seams', type: 'select', value: 'smooth', half: true, options: [{ value: 'smooth', label: 'Smooth blend' }, { value: 'sharp', label: 'Sharp (fewer ghosts of moving things)' }] },
+        { key: 'maxMp', label: 'Largest result (megapixels)', type: 'number', value: 40, min: 1, max: 200, half: true },
+        { key: 'evenExposure', label: 'Even out exposure', type: 'checkbox', value: true },
+        { key: 'crop', label: 'Crop to the filled rectangle', type: 'checkbox', value: true },
+      ] });
+      if (!r) return;
+      let items = await loadRasters(app, entries); if (items.length < 2) { toast('Fewer than two pictures could be loaded.'); return; }
+      // Same-shaped pictures of different sizes are brought to the first one's size (one camera's pixels).
+      const w0 = items[0].raster.width, h0 = items[0].raster.height;
+      items = items.map((it) => (it.raster.width !== w0 || it.raster.height !== h0) && Math.abs(it.raster.width / it.raster.height - w0 / h0) < 0.01 ? { ...it, raster: resample(it.raster, w0, h0) } : it);
+      await new Promise((res) => setTimeout(res, 30));
+      let res;
+      try {
+        res = stitch(items.map((i) => i.raster), { projection: r.projection || 'auto', blend: r.blend || 'smooth', evenExposure: r.evenExposure !== false, crop: r.crop !== false, maxPixels: (+r.maxMp || 40) * 1e6, focal35: items.map((i) => i.exif?.focal35), progress: (t) => toast(t, { ms: 1500 }) });
+      } catch (e) { toast(`Stitch Panorama: ${(e as Error).message}.`, { ms: 5000 }); return; }
+      await openRaster(app, res.raster, `${base(items[res.used[0]].entry.name)}-panorama.png`, 'Panorama');
+      const left = res.skipped.map((i) => items[i].entry.name);
+      toast(`Joined ${res.used.length} pictures (${res.projection}${res.focal ? `, focal length ≈ ${Math.round(res.focal)} px` : ''}), ${res.raster.width} × ${res.raster.height}${left.length ? `. Left out (no overlap found): ${left.join(', ')}` : ''}.`, { ms: left.length ? 7000 : 4000 });
+      return { used: res.used.map((i) => items[i].entry.name), skipped: left, projection: res.projection, width: res.raster.width, height: res.raster.height, focal: res.focal, cropped: res.cropped };
     },
   },
   {

@@ -15,6 +15,8 @@ export interface ExifData {
   lens?: string;
   exposure?: string;
   gps?: { lat: number; lon: number; alt?: number };
+  /** FocalLengthIn35mmFilm, in millimeters (Stitch Panorama's lens estimate). */
+  focal35?: number;
   /** Pixels per inch from XResolution/YResolution when the unit is inches or centimeters. */
   dpi?: [number, number];
   software?: string;
@@ -123,6 +125,7 @@ export function parseExifBlock(u8: Uint8Array): ExifData | null {
   const str = (m: Map<number, IfdEntry>, tag: number) => { const e = get(m, tag); return e ? textOf(e) : undefined; };
   out.make = str(t0, 0x10f); out.model = str(t0, 0x110); out.software = str(t0, 0x131); out.artist = str(t0, 0x13b); out.copyright = str(t0, 0x8298); out.description = str(t0, 0x10e);
   out.lens = str(tExif, 0xa434);
+  const f35 = get(tExif, 0xa405)?.values[0]; if (f35) out.focal35 = f35;
   out.dateTaken = str(tExif, 0x9003) || str(tExif, 0x9004) || str(t0, 0x132);
   const uc = get(tExif, 0x9286); if (uc) out.userComment = format('UserComment', uc) || undefined;
   const exp = get(tExif, 0x829a), fn = get(tExif, 0x829d), iso = get(tExif, 0x8827), fl = get(tExif, 0x920a);
