@@ -95,7 +95,8 @@ interface DesktopBridge extends QuillNativePlugin {
   /** Downloads a picture in the main process (no CORS). */
   fetchUrl(opts: { url: string }): Promise<{ name: string; mime: string; data: string }>;
   pickProgram(): Promise<{ canceled?: boolean; path?: string; name?: string }>;
-  openWithProgram(opts: { uri: string; program: string }): Promise<{ ok: boolean; error?: string }>;
+  /** `args` may hold {file}, {folder} and {name}; without it the program gets the file's path. */
+  openWithProgram(opts: { uri: string; program: string; args?: string[] }): Promise<{ ok: boolean; error?: string }>;
   /** Platform-bound file commands (desktop). */
   setWallpaper(opts: { data: string; which: 'home' | 'lock' | 'both' }): Promise<{ ok: boolean; how?: string }>;
   showProperties(opts: { uri: string }): Promise<{ path: string; size: number; mtime: number; ctime: number; mode: string; os: string; opened: boolean }>;
@@ -106,6 +107,8 @@ interface DesktopBridge extends QuillNativePlugin {
   createSubfolder(opts: { dirUri: string; name: string }): Promise<{ uri: string; name: string }>;
   /** HTTP request for AI services (no cross-origin limits). Body and answer travel as base64. */
   request(opts: { url: string; method: string; headers: Record<string, string>; body?: string; timeoutMs?: number }): Promise<{ status: number; headers: Record<string, string>; data: string }>;
+  /** Keeps a chosen folder readable after a restart (catalog, favorites, watch folders, backups). */
+  rememberFolder(opts: { uri: string }): Promise<{ ok: boolean }>;
   /** The folder above one the app may list. */
   parentFolder(opts: { uri: string }): Promise<FolderRef | null>;
   /** The displays, and moving the window onto one (full screen there when asked). */
@@ -653,4 +656,9 @@ export async function listFolderFiles(uri: string, opts: { all?: boolean } = {})
   }
   const r = await listFolderOf(uri, opts);
   return r ? { entries: r.entries } : null;
+}
+
+/** On the desktop, keeps a folder the user chose readable after a restart (elsewhere the platform keeps it). */
+export async function rememberFolder(uri: string | null | undefined): Promise<void> {
+  if (desktop && uri && uri.startsWith('file:')) { try { await desktop.rememberFolder({ uri }); } catch { /* not granted */ } }
 }

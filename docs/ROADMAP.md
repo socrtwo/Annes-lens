@@ -86,12 +86,13 @@
 
 ## M6 — Places, people, scans and records
 
-- [x] Geotagging from a GPX or KML track (capture-time matching with a camera-clock offset and time zone) and offline place-name lookup (Region Tags write MWG regions; Look Up Place Names writes city/state/country from a built-in gazetteer, importable CSV). Timeline done; Map, Albums and Smart Albums still to do.
+- [x] Geotagging from a GPX or KML track (capture-time matching with a camera-clock offset and time zone) and offline place-name lookup (Region Tags write MWG regions; Look Up Place Names writes city/state/country from a built-in gazetteer, importable CSV). Timeline, Albums and Smart Albums done; Map still to do.
 - People (on-device, opt-in).
 - Document Cleanup, Crop Page from Photo, deskew, descreen, dust and scratches, restore faded colors, Restore Old Photo wizard (non-AI steps).
 - [x] OCR on the device (Tesseract via tesseract.js: English plus German, German Fraktur, French, Dutch, Italian, Spanish, Polish, Swedish and Latin; word boxes and find on the picture; copy, caption, text file) with OCR to Anne's Pen; QR codes and barcodes (zxing-cpp: QR, Data Matrix, Aztec, PDF417, EAN/UPC, Code 128 and the other linear codes).
 - [x] Source citations, checksums, fixity reports and the content-credentials viewer; person links (Link Person ties a region to a person record with dates and a GEDCOM xref or FamilySearch id, stored on the region and in a reusable roster).
 - RAW develop module; HEIC and RAR modules where licensing allows.
+- [x] Back Up Library (the catalog's folders, or the open folder, with their .xmp sidecars into "Anne's Lens backup" in a folder or drive, files already there at the same size skipped, plus annes-lens-library.json with settings, albums, smart albums, favorites, catalog and watches), Plug-ins (the components and their versions; script plug-ins run in the Script Console's worker, each a command to enable, disable or remove), External Tools (programs on the desktop with {file} {folder} {name} arguments, web addresses from the picture's name, place, date or title everywhere; each a command). On the desktop, folders you choose for the catalog, favorites, watches and backups stay readable after a restart, and only programs picked in the system dialog can be started.
 
 ## M7 — AI
 

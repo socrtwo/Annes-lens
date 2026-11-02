@@ -90,9 +90,14 @@ export function def(c: CommandDef | CommandDef[]): void {
   }
 }
 
+/** Commands made from user data (External Tools "tool:…", script plug-ins "plugin:…"). */
+const sources: ((id: string) => Command | undefined)[] = [];
+export function addCommandSource(fn: (id: string) => Command | undefined): void { sources.push(fn); }
+
 export function getCommand(id: string): Command | undefined {
   const c = registry.get(id);
   if (c) return c;
+  for (const src of sources) { const d = src(id); if (d) return d; }
   if (id.startsWith('macro:')) {
     const name = id.slice(6);
     return { id, label: name, icon: 'smart_button', tab: 'Macros', group: 'Macros', noRecord: true, run: (app) => app.exec('dev.runMacro', name) };

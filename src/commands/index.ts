@@ -51,4 +51,5 @@ import './suite';
 import './albums';
 import './browseWindow';
 import './catalog';
+import './libraryTools';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

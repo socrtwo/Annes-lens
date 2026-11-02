@@ -6,7 +6,7 @@ import { def } from './registry';
 import type { App, PictureTab } from '../app';
 import { openDialog, toast, promptDialog } from '../ui/dialog';
 import { FolderTree } from '../ui/folderTree';
-import { listing, canListSubfolders, isDesktop } from '../platform/native';
+import { listing, canListSubfolders, isDesktop, rememberFolder } from '../platform/native';
 import { listFavorites, saveFavorites, favoriteOf, sameFavorite, favoriteRef } from '../picture/favorites';
 import { openFolderRef } from './viewWindow';
 
@@ -60,7 +60,7 @@ def([
         const f = app.folder; const fv = f.uri ? favoriteOf({ uri: f.uri, name: f.name.replace(/ \(with subfolders\)$/, '') }) : null;
         if (!fv) { toast('Open a folder (File ▸ Open Folder) to add it to the favorites.'); return; }
         for (const x of favs) if (await sameFavorite(x, fv)) { toast(`${fv.name} is already a favorite.`); return; }
-        favs.push(fv); await saveFavorites(favs); syncTrees(app); toast(`Added ${fv.name} to the favorite folders.`); return;
+        favs.push(fv); await saveFavorites(favs); await rememberFolder(fv.uri); syncTrees(app); toast(`Added ${fv.name} to the favorite folders.`); return;
       }
       if (!favs.length) { toast('No favorite folders yet: open a folder, then Favorite Folders ▸ Add the Open Folder.', { ms: 4000 }); return; }
       const r = await openDialog({ title: 'Favorite Folders', ok: 'Go', fields: [

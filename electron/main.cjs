@@ -66,7 +66,16 @@ const grantsFile = () => path.join(app.getPath('userData'), 'granted-files.json'
 let grants = new Set();
 /** Folders opened through a dialog or by opening a picture: every picture in them may be read. */
 const grantedDirs = new Set();
+// Folders the user chose to keep (catalog, favorites, watch folders, backup targets) stay readable
+// after a restart; programs picked through the dialog are the only ones External Tools may start.
+const foldersFile = () => path.join(app.getPath('userData'), 'remembered-folders.json');
+const programsFile = () => path.join(app.getPath('userData'), 'programs.json');
+let remembered = new Set(), programs = new Set();
+const readSet = (f) => { try { return new Set(JSON.parse(fs.readFileSync(f, 'utf8'))); } catch { return new Set(); } };
+const writeSet = (f, s) => { try { fs.writeFileSync(f, JSON.stringify([...s].slice(-500))); } catch { /* read-only profile */ } };
 function loadGrants() {
+  remembered = readSet(foldersFile()); programs = readSet(programsFile());
+  for (const d of remembered) grantedDirs.add(d);
   try { grants = new Set(JSON.parse(fs.readFileSync(grantsFile(), 'utf8'))); } catch { grants = new Set(); }
 }
 function grant(p) {
@@ -473,16 +482,24 @@ function registerIpc() {
     const filters = process.platform === 'win32' ? [{ name: 'Programs', extensions: ['exe', 'bat', 'cmd'] }, { name: 'All files', extensions: ['*'] }] : undefined;
     const r = await dialog.showOpenDialog(win, { title: 'Choose a program', properties: ['openFile'], filters });
     if (r.canceled || !r.filePaths[0]) return { canceled: true };
+    programs.add(path.resolve(r.filePaths[0])); writeSet(programsFile(), programs);
     return { path: r.filePaths[0], name: path.basename(r.filePaths[0]).replace(/\.(exe|app)$/i, '') };
   });
-  handle('openWithProgram', async ({ uri, program }) => {
+  handle('rememberFolder', async ({ uri }) => {
+    const dir = grantedDir(uri);
+    remembered.add(dir); writeSet(foldersFile(), remembered);
+    return { ok: true };
+  });
+  handle('openWithProgram', async ({ uri, program, args }) => {
     const p = grantedPath(uri);
     if (typeof program !== 'string' || !program) throw new Error('No program configured');
+    if (!programs.has(path.resolve(program))) throw new Error('Choose this program again with Add a Program (programs must be picked in the dialog)');
+    const argv = Array.isArray(args) && args.length ? args.map((a) => String(a).split('{file}').join(p).split('{folder}').join(path.dirname(p)).split('{name}').join(path.basename(p))) : [p];
     const { spawn } = require('node:child_process');
     try {
       let child;
-      if (process.platform === 'darwin' && /\.app$/i.test(program)) child = spawn('open', ['-a', program, p], { detached: true, stdio: 'ignore' });
-      else child = spawn(program, [p], { detached: true, stdio: 'ignore' });
+      if (process.platform === 'darwin' && /\.app$/i.test(program)) child = spawn('open', ['-a', program, '--args', ...argv], { detached: true, stdio: 'ignore' });
+      else child = spawn(program, argv, { detached: true, stdio: 'ignore' });
       child.on('error', () => undefined);
       child.unref();
       return { ok: true };

@@ -1802,6 +1802,43 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
   });
   check('catalog and its setting survive a reload', cat2, { view: ['Catalog (3 pictures)', true], picture: 'b.png' });
 
+  // Tools: a web External Tool (and one this picture cannot fill), a script plug-in run as a command
+  // (one Undo step; gone when disabled), the components with their versions, and Back Up Library of
+  // the catalog with the library JSON, twice (the second copies nothing).
+  const tools = await pa.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const N = await window.__qnNative(), out = {};
+    const opened = []; const ow = window.open; window.open = (u) => { opened.push(String(u)); return null; };
+    const t1 = await qn.exec('tools.external', { add: 'web', name: 'Search the name', url: 'https://example.org/search?q={name}' });
+    const t2 = await qn.exec('tools.external', { add: 'web', name: 'Map', url: 'https://osm.example/?{lat},{lon}' });
+    await qn.exec('tool:' + t1.id); await qn.exec('tool:' + t2.id); await wait(100);
+    window.open = ow;
+    out.tools = [opened, window.__qnGetCommand('tool:' + t1.id)?.label, qn.picture.name];
+    const px = () => [...qn.picture.frameCanvas().getContext('2d').getImageData(5, 5, 1, 1).data].slice(0, 3);
+    const p = await qn.exec('tools.plugins', { add: { name: 'Halve green', code: 'const p = await picture.pixels(); for (let i = 0; i < p.data.length; i += 4) p.data[i + 1] = p.data[i + 1] >> 1; await picture.setPixels(p, "Halve green"); print("done", p.width);' } });
+    const before = px(); await qn.exec('plugin:' + p.id); await wait(200);
+    out.plugin = [before, px(), qn.tab.undoLabel];
+    qn.tab.undo(); await qn.exec('tools.plugins', { toggle: p.id });
+    out.disabled = window.__qnGetCommand('plugin:' + p.id) === undefined;
+    const list = await qn.exec('tools.plugins', 'list');
+    out.comps = [list.comps.length, /ONNX Runtime Web 1\.31\.1/.test(list.comps[0]), /Tesseract 7\.0\.0/.test(list.comps[1]), /Español/.test(list.comps[3])];
+    // Back Up Library.
+    const root = await navigator.storage.getDirectory(), dest = await root.getDirectoryHandle('Backups', { create: true });
+    const destRef = { uri: 'fsadir:' + (await N.handleId(dest)), name: 'Backups' };
+    const r1 = await qn.exec('tools.backup', { dest: destRef, library: true }), r2 = await qn.exec('tools.backup', { dest: destRef, library: true });
+    out.backup = [r1.copied, r1.skipped, r2.copied, r2.skipped, r1.library];
+    const tree = []; const walk = async (d, pre) => { for await (const [n, hh] of d.entries()) { if (hh.kind === 'directory') await walk(hh, pre + n + '/'); else tree.push(pre + n); } };
+    await walk(dest, ''); out.tree = tree.sort();
+    const lib = JSON.parse(await (await (await (await dest.getDirectoryHandle("Anne's Lens backup")).getFileHandle('annes-lens-library.json')).getFile()).text());
+    out.lib = [lib.kind, lib.catalog.length, lib.catalog[0].items.length, Array.isArray(lib.albums), !!lib.prefs, lib.watches.length];
+    return out;
+  });
+  check('external tools: a web address filled from the picture; one needing a location refuses', tools.tools, [[`https://example.org/search?q=${tools.tools[2]}`], 'Search the name', tools.tools[2]], JSON.stringify(tools));
+  check('script plug-in runs as a command (one Undo step) and is gone when disabled', [tools.plugin[0][1] > 100, tools.plugin[1][1] === tools.plugin[0][1] >> 1, tools.plugin[2], tools.disabled], [true, true, 'Halve green', true], JSON.stringify(tools.plugin));
+  check('plug-ins lists the components with their versions', tools.comps, [4, true, true, true]);
+  check('back up library: pictures and sidecars of the catalog, the library JSON, nothing twice', [tools.backup, tools.tree, tools.lib], [[5, 0, 0, 5, true], ["Anne's Lens backup/Library 2/Kids/b.png", "Anne's Lens backup/Library 2/Kids/b.xmp", "Anne's Lens backup/Library 2/c.png", "Anne's Lens backup/Library 2/d.png", "Anne's Lens backup/Library 2/gone.xmp", "Anne's Lens backup/annes-lens-library.json"], ['library-backup', 1, 3, true, true, 2]], JSON.stringify(tools));
+
   await pctx.close();
 
   if (errs.length) failures.push(...errs);

@@ -110,6 +110,15 @@ try {
   const cat3 = await w.evaluate(async () => { const n = await qn.exec('browse.watchFolder', 'tick'); await qn.exec('browse.catalog', 'open'); await new Promise((r) => setTimeout(r, 300)); return { n, names: qn.folder.entries.map((e) => e.name).sort() }; });
   check('desktop sidecar read and catalog of a real tree', [cat.sidecar, cat.added, cat.view], [5, 4, ['Catalog (4 pictures)', ['a.png', 'b.png', 'c.png', 'd.png']]], JSON.stringify(cat));
   check('desktop watch folder: a new picture goes into the catalog', [cat2, cat3.n, cat3.names], [{ known: 0, folder: 'Photos' }, 1, ['a.png', 'b.png', 'c.png', 'd.png', 'f.png']], JSON.stringify(cat3));
+  // External Tools may only start programs picked in the system dialog; Back Up Library onto disk.
+  const tl = await w.evaluate(async (libUri) => {
+    const refused = await window.quillDesktop.openWithProgram({ uri: qn.folder.entries[0].uri, program: '/bin/echo' }).then(() => 'ran', (e) => String(e));
+    const rep = await qn.exec('tools.backup', { dest: { uri: libUri, name: 'library' }, library: true });
+    const again = await qn.exec('tools.backup', { dest: { uri: libUri, name: 'library' }, library: true });
+    return { refused, rep: [rep.copied, rep.library], again: [again.copied, again.skipped] };
+  }, cat.photosUri.replace(/\/Photos$/, ''));
+  const backed = (await import('node:fs')).readdirSync(join(lib, "Anne's Lens backup", 'Photos'), { recursive: true }).map(String).sort();
+  check('desktop: unpicked programs are refused; the catalog backs up onto disk once', [/Choose this program again/.test(tl.refused), tl.rep, tl.again, backed, existsSync(join(lib, "Anne's Lens backup", 'annes-lens-library.json'))], [true, [6, true], [0, 6], ['2023', '2023/01 Jan', '2023/01 Jan/a.png', '2023/02 Feb', '2023/02 Feb/empty', '2023/02 Feb/raw', '2023/02 Feb/raw/b.png', '2024', '2024/c.png', '2024/c.xmp', '2024/d.png', 'f.png'], true], JSON.stringify(tl));
   await w.evaluate(async () => { const wait = (ms) => new Promise((r) => setTimeout(r, ms)); await qn.exec('browse.catalog'); const jan = qn.prefs.recentFolders.find((r) => r.name === '01 Jan'); await qn.exec('file.recentFolders', jan.key); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(300); });
 
   // Two displays (faked in the main process): the window moves to the second and goes full screen; leaving restores it.
@@ -179,6 +188,12 @@ try {
   check('cli --convert keeps existing files unless --overwrite', [again.code, /e\.png -> e-s \(2\)\.png/.test(again.out), over.code, /e\.png -> e-s\.png/.test(over.out), readdirSync(join(base, 'small')).length], [0, true, 0, true, 4], again.out + over.out);
   const none = cliRun(['--convert=x/*.png', join(base, 'missing.png')], base);
   check('cli --convert with nothing to convert', [none.code, /no pictures to convert/.test(none.err)], [2, true], none.err);
+  // After a restart the catalog's folders are still readable (remembered), so the catalog view shows its pictures.
+  const re = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  const rw = await re.firstWindow(); await rw.waitForFunction(() => window.qn && window.__qnGetCommand, null, { timeout: 30000 });
+  const after = await rw.evaluate(async () => { await qn.exec('browse.catalog', 'open'); for (let i = 0; i < 60 && !qn.picture; i++) await new Promise((r) => setTimeout(r, 100)); return [qn.folder.name, qn.picture?.name || null, qn.picture?.width || 0]; });
+  await re.close().catch(() => undefined);
+  check('desktop catalog after a restart (remembered folders)', after, ['Catalog (5 pictures)', 'a.png', 4]);
   // --fullscreen at start-up.
   const fsApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, '--fullscreen', first], env: { ...process.env, XDG_CONFIG_HOME: config } });
   const fw = await fsApp.firstWindow();

@@ -9,7 +9,7 @@ import { openDialog, toast, confirmDialog } from '../ui/dialog';
 import { h } from '../ui/dom';
 import { listCatFolders, saveCatFolders, catFolderFor, scanFolder, removeCatFolder, catalogEntries, catalogStats, catItems, folderUri, type ScanReport } from '../picture/catalog';
 import { listWatches, saveWatches, dirRefFor, dirUri, primeWatch, watchTick, runWatches, copyInto, type Watch, type WatchAction } from '../picture/watch';
-import { pickFolder, writeIntoFolder, writeClipboardText } from '../platform/native';
+import { pickFolder, writeIntoFolder, writeClipboardText, rememberFolder } from '../platform/native';
 import { runBatch, type BatchJob } from './batch';
 import { showFolder } from './file';
 import { kvKeys, kvDel } from '../util/store';
@@ -98,7 +98,7 @@ def([
         const cur = app.folder, f = catFolderFor(cur.uri, baseName(cur.name), v.subfolders !== false);
         if (!f) { toast('This folder has no address the catalog can keep (dropped files): open it with File ▸ Open Folder.'); return; }
         if (folders.some((x) => (x.uri && x.uri === f.uri) || (x.handle && f.handle && x.name === f.name))) { toast(`${f.name} is already in the catalog; scan it again from the Folder Manager.`); return; }
-        folders.push(f); await saveCatFolders(folders);
+        folders.push(f); await saveCatFolders(folders); await rememberFolder(f.uri);
         const rep = await scanFolder(app, f, { progress });
         toast(`Cataloged ${scanText(f.name, rep)}.`, { ms: 4000 });
         if (app.prefs.useCatalog) await openCatalogView(app, true);
@@ -155,7 +155,7 @@ def([
       const dest = v.dest ? dirRefFor(v.dest.uri, v.dest.name) : undefined;
       if ((v.add === 'copy' || v.add === 'recipe') && !dest) { toast('Choose where the new pictures go.'); return; }
       const w: Watch = { id: `${Date.now().toString(36)}`, folder, action: v.add, dest: dest || undefined, recipe: v.recipe, known: [], created: Date.now() };
-      await primeWatch(w);
+      await primeWatch(w); await rememberFolder(folder.uri); await rememberFolder(dest?.uri);
       watches.push(w); await saveWatches(watches); startWatching(app);
       toast(`Watching ${folder.name}: ${w.known.length} picture${w.known.length === 1 ? '' : 's'} there now; new ones will be ${v.add === 'catalog' ? 'added to the catalog' : v.add === 'open' ? 'shown' : v.add === 'copy' ? `copied to ${dest!.name}` : `run through "${v.recipe}" into ${dest!.name}`}.`, { ms: 4500 });
       return w;
