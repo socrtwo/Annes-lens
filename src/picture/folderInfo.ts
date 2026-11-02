@@ -10,7 +10,7 @@ import { readExif } from '../meta/exif';
 import { sniff } from '../codecs/registry';
 import { bytesAndFormat } from './metadata';
 
-export interface EntryInfo { name: string; ext: string; size: number; date: Date | null; exifDate: boolean; camera: string; lens: string; width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' | ''; hasGps: boolean; rating: number; label: string; keywords: string[]; flag: string; favorite: boolean }
+export interface EntryInfo { name: string; ext: string; size: number; date: Date | null; exifDate: boolean; camera: string; lens: string; width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' | ''; hasGps: boolean; lat?: number; lon?: number; rating: number; label: string; keywords: string[]; flag: string; favorite: boolean }
 const cache = new WeakMap<Entry, EntryInfo>();
 export const infoOf = (e: Entry): EntryInfo | undefined => cache.get(e);
 export const parseExifDate = (s?: string): Date | null => { if (!s) return null; const m = s.match(/^(\d{4})[:-](\d{2})[:-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null; };
@@ -23,12 +23,12 @@ export async function entryInfo(app: App, e: Entry): Promise<EntryInfo> {
     if (bf) {
       info.size = info.size || bf.bytes.length;
       const exif = readExif(bf.bytes);
-      if (exif) { const d = parseExifDate(exif.dateTaken); if (d) { info.date = d; info.exifDate = true; } info.camera = [exif.make, exif.model].filter(Boolean).join(' '); info.lens = exif.lens || ''; info.hasGps = !!exif.gps; }
+      if (exif) { const d = parseExifDate(exif.dateTaken); if (d) { info.date = d; info.exifDate = true; } info.camera = [exif.make, exif.model].filter(Boolean).join(' '); info.lens = exif.lens || ''; info.hasGps = !!exif.gps; if (exif.gps) { info.lat = exif.gps.lat; info.lon = exif.gps.lon; } }
       const fmt = sniff(bf.bytes, e.name);
       if (fmt && ['jpeg', 'png', 'webp', 'gif', 'bmp', 'avif'].includes(fmt.id)) { try { const bmp = await createImageBitmap(new Blob([bf.bytes as BlobPart], { type: fmt.mime })); info.width = bmp.width; info.height = bmp.height; bmp.close(); } catch { /* none */ } }
       if (info.width && info.height) info.orientation = info.width > info.height ? 'landscape' : info.width < info.height ? 'portrait' : 'square';
       const m = await readMeta(app, e);
-      if (m) { const p = m.props; info.rating = p.rating || 0; info.label = (p.label || '').toLowerCase(); info.keywords = p.keywords || []; info.flag = p.flag || ''; info.favorite = !!p.favorite; if (p.lat !== undefined) info.hasGps = true; }
+      if (m) { const p = m.props; info.rating = p.rating || 0; info.label = (p.label || '').toLowerCase(); info.keywords = p.keywords || []; info.flag = p.flag || ''; info.favorite = !!p.favorite; if (p.lat !== undefined && p.lon !== undefined) { info.hasGps = true; info.lat = p.lat; info.lon = p.lon; } }
     }
   } catch { /* keep what we have */ }
   cache.set(e, info);

@@ -565,6 +565,10 @@ const CSP = [
 
 // Screen Capture: getDisplayMedia in the renderer is answered with the primary screen (or a window by name).
 function setupDisplayMedia() {
+  // Browse ▸ Map: OpenStreetMap's tile policy asks for an identifying User-Agent.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://tile.openstreetmap.org/*'] }, (details, cb) => {
+    cb({ requestHeaders: { ...details.requestHeaders, 'User-Agent': `AnnesLens/${app.getVersion()} (+https://github.com/socrtwo/annes-lens)` } });
+  });
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } }).then((sources) => {
       const want = String(request.frame && request.frame.url && new URL(request.frame.url).searchParams.get('capture') || '');

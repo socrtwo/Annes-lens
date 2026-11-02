@@ -27,7 +27,7 @@ put('Photos/2024/c.png', [0, 0, 255]); put('Photos/2024/d.png', [0, 0, 255]);
 put('Photos/.cache/x.png', [9, 9, 9]);
 put('Scans/e.png', [255, 255, 0]);
 writeFileSync(join(lib, 'Photos/2024/notes.txt'), 'trip notes');
-writeFileSync(join(lib, 'Photos/2024/c.xmp'), '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="5"/></rdf:RDF></x:xmpmeta>');
+writeFileSync(join(lib, 'Photos/2024/c.xmp'), '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:exif="http://ns.adobe.com/exif/1.0/" xmp:Rating="5" exif:GPSLatitude="45,30.0N" exif:GPSLongitude="73,34.2W"/></rdf:RDF></x:xmpmeta>');
 const config = join(base, 'config');
 
 const app = await electron.launch({ executablePath: 'node_modules/electron/dist/electron', args: ['--no-sandbox', 'build/desktop-app', first], env: { ...process.env, XDG_CONFIG_HOME: config } });
@@ -172,6 +172,21 @@ try {
   const offStatus = await fetch(rbase + 'state').then((r) => r.status, () => 'closed');
   check('desktop phone remote: page behind a token, live state, commands drive the app, off closes it', [rm.on, /Start slideshow/.test(page), /EventSource/.test(js), wrongToken, s0.name, /^data: \{/.test(firstEvent), bad, n1, s1.name, s1.index, /^data:image\/jpeg/.test(s1.thumb || ''), s2.running, s3.paused, s4.running, offStatus],
     [true, true, true, 404, 'c.png', true, 400, 204, 'd.png', 2, true, true, true, false, 'closed'], JSON.stringify({ s0: { ...s0, thumb: undefined }, s1: { ...s1, thumb: undefined }, rm }));
+  // Map on the desktop: the sidecar's location, and the offline outline loads under the app's security policy.
+  const dm = await w.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const MAP = await window.__qnMap();
+    const quiet = await qn.exec('browse.map', { source: 'folder', quiet: true });
+    qn.prefs.mapTiles = { basemap: 'offline', template: '' };
+    const run = qn.exec('browse.map', { source: 'folder' });
+    for (let i = 0; i < 60 && !MAP.mapState.view; i++) await wait(50);
+    const mv = MAP.mapState.view; for (let i = 0; i < 100 && !mv['rings']; i++) await wait(50); await wait(200); mv.paint();
+    const out = { quiet: quiet.points.map((p) => [p.name, +p.lat.toFixed(2), +p.lon.toFixed(2)]), outline: !!mv['rings'], pins: document.querySelectorAll('.qn-map-pin').length, tiles: document.querySelectorAll('.qn-map-tile').length };
+    [...document.querySelectorAll('.ql-dialog[aria-label="Map"] button')].find((b) => b.textContent.trim() === 'Close').click(); await run;
+    qn.prefs.mapTiles = { basemap: 'osm', template: '' };
+    return out;
+  });
+  check('desktop map: a sidecar location on a real file; the offline outline under the security policy', dm, { quiet: [['c.png', 45.5, -73.57]], outline: true, pins: 1, tiles: 0 });
   await w.evaluate(async () => { const wait = (ms) => new Promise((r) => setTimeout(r, ms)); const jan = qn.prefs.recentFolders.find((r) => r.name === '01 Jan'); await qn.exec('file.recentFolders', jan.key); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(300); });
 
   // Frameless: a new window without a frame, the same picture in it, the title bar's window buttons shown.

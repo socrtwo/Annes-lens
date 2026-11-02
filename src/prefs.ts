@@ -90,6 +90,8 @@ export interface Prefs {
   /** Open with External Editor: up to nine programs (desktop). */
   externalEditors: { name: string; path: string }[];
   /** External Tools: programs (desktop; args may hold {file} {folder} {name}) or web addresses ({name} {lat} {lon} {date} {title}); each is a command "tool:<id>". */
+  /** Browse ▸ Map: the basemap and, for 'custom', a tile address such as https://tiles.example/{z}/{x}/{y}.png. */
+  mapTiles: { basemap: 'osm' | 'offline' | 'custom'; template: string };
   externalTools: { id: string; name: string; kind: 'program' | 'web'; program?: string; args?: string; url?: string }[];
   /** Script plug-ins: JavaScript run in the Script Console's worker; each enabled one is a command "plugin:<id>". */
   scriptPlugins: { id: string; name: string; code: string; enabled: boolean; icon?: string; added: number }[];
@@ -177,7 +179,7 @@ export function defaultPrefs(): Prefs {
     alphaDisplay: 'checkerboard', alphaColor: '#ffffff', background: '', fullScreenBackground: '#000000', prefetch: 2, pixelInfo: true,
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, keepOriginal: false, tgaRle: true, printScale: 1,
-    print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [], externalTools: [], scriptPlugins: [],
+    print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [], mapTiles: { basemap: 'osm', template: '' }, externalTools: [], scriptPlugins: [],
     quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], importedPlaces: [], ocrLangs: ['eng'], ocrLayout: 'auto',
     sort: 'natural', sortDescending: false,
@@ -246,6 +248,7 @@ export function sanitizePrefs(raw: unknown): Partial<Prefs> {
   if (out.keywordHistory) out.keywordHistory = strings(out.keywordHistory).slice(0, 500);
   if (out.sidecarMode && !['embed', 'sidecar', 'both'].includes(out.sidecarMode)) delete out.sidecarMode;
   if (out.convolutions) out.convolutions = out.convolutions.filter((r: any) => isObj(r) && typeof r.name === 'string' && Array.isArray(r.kernel) && r.kernel.every((x: any) => typeof x === 'number')).slice(0, 40);
+  if (out.mapTiles && (!isObj(out.mapTiles) || !['osm', 'offline', 'custom'].includes(out.mapTiles.basemap) || typeof out.mapTiles.template !== 'string')) delete out.mapTiles;
   if (out.externalTools) out.externalTools = out.externalTools.filter((t: any) => isObj(t) && typeof t.id === 'string' && typeof t.name === 'string' && (t.kind === 'program' || t.kind === 'web')).slice(0, 40);
   if (out.scriptPlugins) out.scriptPlugins = out.scriptPlugins.filter((t: any) => isObj(t) && typeof t.id === 'string' && typeof t.name === 'string' && typeof t.code === 'string').slice(0, 60);
   if (out.externalEditors) out.externalEditors = out.externalEditors.filter((r: any) => isObj(r) && typeof r.path === 'string' && typeof r.name === 'string').slice(0, 9);

@@ -645,6 +645,50 @@ try {
   });
   check('background music: audio files kept, plays with the show, pauses with it, fades out at the end', [mu.names, mu.playing, mu.track, mu.t1, mu.vol, mu.pausedPlaying, mu.still, mu.resumed, mu.stopped, mu.remoteOff], [['tone-a.wav', 'tone-b.wav'], true, 'tone-a.wav', true, 0.5, false, true, true, true, false], JSON.stringify(mu));
 
+  // Map: three geotagged pictures (two in Paris, one in New York) and one without a location. Tiles come from a stand-in
+  // server; markers group and ungroup with zoom; a marker opens its picture; the offline outline draws land without tiles.
+  const tileReqs = [];
+  const tilePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await p.route('https://tile.openstreetmap.org/**', (route) => { tileReqs.push(new URL(route.request().url()).pathname); route.fulfill({ status: 200, contentType: 'image/png', body: tilePng }); });
+  const mp = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const MM = await window.__qnMeta(), MAP = await window.__qnMap();
+    const X = MM.parseXmp ? MM : null;
+    const mk = async (name, color, at) => {
+      const c = document.createElement('canvas'); c.width = 40; c.height = 30; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, 40, 30);
+      let u8 = new Uint8Array(await (await new Promise((r) => c.toBlob(r, 'image/png'))).arrayBuffer());
+      if (at) u8 = MM.setXmp(u8, 'png', new TextEncoder().encode(MM.updateXmp(null, { lat: at[0], lon: at[1] })));
+      return new File([u8], name, { type: 'image/png' });
+    };
+    await qn.exec('file.openDropped', [await mk('m1-paris.png', '#f00', [48.8566, 2.3522]), await mk('m2-paris.png', '#0f0', [48.8570, 2.3530]), await mk('m3-nyc.png', '#00f', [40.7128, -74.006]), await mk('m4-none.png', '#ff0', null)]); await wait(500);
+    const quiet = await qn.exec('browse.map', { source: 'folder', quiet: true });
+    qn.prefs.mapTiles = { basemap: 'osm', template: '' };
+    const run = qn.exec('browse.map', { source: 'folder' });
+    let dlg; for (let i = 0; i < 60 && !(dlg = [...document.querySelectorAll('.ql-dialog')].find((d) => d.getAttribute('aria-label') === 'Map')); i++) await wait(50);
+    await wait(400); const mv = MAP.mapState.view; mv.paint();
+    const pins = () => [...dlg.querySelectorAll('.qn-map-pin')].map((b) => b.textContent || '1').sort();
+    const fitPins = pins(), fitZ = mv.view.z, tiles = dlg.querySelectorAll('.qn-map-tile').length, credit = dlg.querySelector('.qn-map-credit').textContent, status = dlg.querySelector('.qn-map-status').textContent;
+    [...dlg.querySelectorAll('.qn-map-pin')].find((b) => b.textContent === '2').click(); mv.paint();
+    const zoomedZ = mv.view.z, zoomedPins = pins();
+    // Offline outline: no tiles, land drawn.
+    const sel = dlg.querySelector('select[name="basemap"], [data-key="basemap"] select') || [...dlg.querySelectorAll('select')][1];
+    sel.value = 'offline'; sel.dispatchEvent(new Event('change', { bubbles: true })); sel.dispatchEvent(new Event('input', { bubbles: true }));
+    mv.fit(); for (let i = 0; i < 100 && !mv['rings']; i++) await wait(50); mv.paint();
+    const offTiles = dlg.querySelectorAll('.qn-map-tile').length, cv = dlg.querySelector('.qn-map-base'), g = cv.getContext('2d');
+    // Central France is land; a point in the mid-Atlantic is sea.
+    const k = cv.width / mv.w, at = (lat, lon) => { const s = MAP.toScreen({ lat, lon }, mv.view, mv.w, mv.h); return [...g.getImageData(Math.round(s.x * k), Math.round(s.y * k), 1, 1).data].slice(0, 3); };
+    const land = at(46.5, 2.5), sea = at(44, -40), saved = qn.prefs.mapTiles.basemap;
+    mv.setBasemap('osm'); mv.fit(); mv.paint(); mv.zoomBy(18 - mv.view.z, ...Object.values(MAP.toScreen({ lat: 48.8566, lon: 2.3522 }, mv.view, mv.w, mv.h))); mv.paint();
+    const single = [...dlg.querySelectorAll('.qn-map-pin')].find((b) => b.getAttribute('aria-label') === 'm1-paris.png');
+    single.click(); await run; await wait(300);
+    qn.prefs.mapTiles = { basemap: 'osm', template: '' };
+    return { quiet: [quiet.total, quiet.points.map((x) => x.name)], fitPins, fitZ, tiles, credit, status, zoomedZ, zoomedPins, offTiles, land, sea, saved, opened: qn.picture.name, closed: !document.querySelector('.ql-dialog[aria-label="Map"]'), mapGone: MAP.mapState.view === null };
+  });
+  check('map: locations read from XMP; grouped at the fit, ungrouped when the group is clicked', [mp.quiet, mp.fitPins, mp.fitZ >= 2 && mp.fitZ <= 5, mp.tiles > 0, /OpenStreetMap/.test(mp.credit), /3 of 4 pictures have a location · 3 in view/.test(mp.status), mp.zoomedZ >= 15, mp.zoomedPins], [[4, ['m1-paris.png', 'm2-paris.png', 'm3-nyc.png']], ['1', '2'], true, true, true, true, true, ['1', '1']], JSON.stringify(mp));
+  check('map: tiles requested by zoom, x and y from the tile server', [tileReqs.length > 0, tileReqs.every((u) => /^\/\d+\/\d+\/\d+\.png$/.test(u)), tileReqs.some((u) => u.startsWith(`/${mp.fitZ}/`))], [true, true, true], tileReqs.slice(0, 5).join(' '));
+  check('map: offline outline draws land and sea without tiles; a marker opens its picture', [mp.offTiles, mp.saved, mp.land, mp.sea, mp.opened, mp.closed, mp.mapGone], [0, 'offline', [242, 239, 233], [170, 211, 223], 'm1-paris.png', true, true], JSON.stringify(mp));
+  await p.unroute('https://tile.openstreetmap.org/**');
+
   // Tools: a QR code opened as a picture through its dialog, an encrypted package round trip, carving pictures out of junk, and Document Cleanup through its dialog.
   const tl = await p.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

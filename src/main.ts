@@ -49,6 +49,7 @@ app.ui.tabsChanged();
 (window as any).__qnTools = () => Promise.all([import('./codecs/qr'), import('./codecs/carve'), import('./codecs/encrypt'), import('./commands/tools')]).then(([q, c, e, t]) => ({ ...q, ...c, ...e, ...t }));
 (window as any).__qnShow = () => import('./picture/slideshow');
 (window as any).__qnMusic = () => Promise.all([import('./picture/music'), import('./commands/slideshowMedia')]).then(([m, s]) => ({ ...m, ...s }));
+(window as any).__qnMap = () => Promise.all([import('./commands/map'), import('./geo/slippy')]).then(([m, s]) => ({ ...m, ...s }));
 (window as any).__qnOverlays = () => import('./ui/overlays');
 (window as any).__qnNative = () => import('./platform/native');
 (window as any).__qnAi = () => Promise.all([import('./ai'), import('./ai/hosted'), import('./ai/device'), import('./ai/transport'), import('./ai/ensemble'), import('./ai/history'), import('./commands/aiEdit'), import('./commands/aiGenerate')]).then(([a, h, d, t, e, hi, ae, ag]) => ({ ...a, hosted: h, device: d, transport: t, ensemble: e, history: hi, aiEdit: ae, aiGenerate: ag }));

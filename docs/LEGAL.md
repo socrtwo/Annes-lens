@@ -64,6 +64,8 @@ The final list will be generated from `package.json` and the WASM build manifest
 | tesseract.js and Tesseract | Apache 2.0 |
 | SQLite (WASM) | public domain |
 | Material Symbols | Apache 2.0 |
+| world-atlas (Natural Earth country outlines for the offline map) | ISC; Natural Earth data public domain |
+| OpenStreetMap map tiles (online, Browse ▸ Map) | map data © OpenStreetMap contributors, ODbL; credited on the map; tile usage policy followed (identifying User-Agent on the desktop, no bulk downloading) |
 | Capacitor, Electron, electron-builder | MIT |
 | On-device models | each model's own license, shown before download; permissive only (see AI-PLAN.md) |
 
@@ -73,4 +75,4 @@ The final list will be generated from `package.json` and the WASM build manifest
 
 ## Online services
 
-Anne's Lens works offline. Online services are called only when the user invokes the matching command: the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline basemap optional), Open URL, update checks (desktop and APK builds, opt-in), and the phone remote's signaling relay the user configures. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
+Anne's Lens works offline. Online services are called only when the user invokes the matching command: the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline outline or another tile server selectable), Open URL, and update checks (desktop and APK builds, opt-in). The phone remote (desktop) is a server on the local network only, reachable through a random address, and stops when turned off or when the app quits. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
