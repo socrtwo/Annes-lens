@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, existsSync, rmSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
+import { createServer } from 'node:http';
 
 if (!existsSync('build/desktop-app/package.json')) execFileSync('node', ['scripts/prepare-desktop.mjs'], { stdio: 'inherit' });
 const failures = [];
@@ -237,6 +238,44 @@ try {
   const fsOn = await fw.waitForFunction(() => window.qn?.picture?.name === 'a.png' && document.body.classList.contains('ql-fullscreen'), null, { timeout: 30000 }).then(() => true).catch(() => false);
   await fsApp.close().catch(() => undefined);
   check('cli --fullscreen opens the picture full screen', fsOn, true);
+  // People on real files: the face models are served from 127.0.0.1 (as from the model host), three portraits are
+  // scanned, a person is named, and the names go into the JPEG files as MWG face regions.
+  const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';
+  if (!existsSync(SFACE)) throw new Error(`${SFACE} is missing: run python3 scripts/gen-people-fixtures.py (it downloads the face models)`);
+  const faces = join(base, 'faces'); mkdirSync(faces, { recursive: true });
+  for (const n of ['obama', 'both-2009', 'harris']) writeFileSync(join(faces, `${n}.jpg`), readFileSync(`tests/fixtures/people/${n}.jpg`));
+  const models = { 'face_detection_yunet_2023mar.onnx': readFileSync('tests/fixtures/people/face_detection_yunet_2023mar.onnx'), 'face_recognition_sface_2021dec_int8.onnx': readFileSync(SFACE) };
+  const srv = createServer((req, res) => { const b = models[req.url.split('/').pop()]; res.writeHead(b ? 200 : 404, { 'access-control-allow-origin': '*', 'content-type': 'application/octet-stream' }); res.end(b); });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const mport = srv.address().port;
+  const pa = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, join(faces, 'obama.jpg')], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const pw = await pa.firstWindow(); await pw.waitForFunction(() => window.qn?.picture?.name === 'obama.jpg' && qn.folder.length === 3, null, { timeout: 30000 });
+    const ppl = await pw.evaluate(async (port) => {
+      const A = await window.__qnAi();
+      A.device.setModelUrlOverride((spec, path) => `http://127.0.0.1:${port}/${path}`);
+      for (const id of ['yunet', 'sface']) await A.device.ensureModel(A.device.modelById(id), 'quantized');
+      await qn.exec('browse.people', { enable: true, forget: true });
+      const rep = await qn.exec('browse.people', { scan: 'folder' });
+      const groups = await qn.exec('browse.people', { list: true });
+      const g = groups.findIndex((x) => x.files.includes('obama.jpg'));
+      await qn.exec('browse.people', { name: { group: g, name: 'Barack Obama', externalId: '@I1@' } });
+      return { rep: [rep.pictures, rep.faces, rep.failed], groups: groups.map((x) => x.files.slice().sort().join(',')).sort() };
+    }, mport);
+    // Writing into both-2009.jpg (not opened one by one) asks once for the folder: first "Don't Allow", then "Allow".
+    const answer = (n) => pa.evaluate(({ dialog }, n) => { globalThis.__asked = 0; dialog.showMessageBox = async (_w, o) => { globalThis.__asked++; globalThis.__msg = o.message; return { response: n }; }; }, n);
+    await answer(1);
+    const refused = await pw.evaluate(() => qn.exec('browse.people', { write: true }));
+    const asked1 = await pa.evaluate(() => [globalThis.__asked, globalThis.__msg]), untouched = !readFileSync(join(faces, 'both-2009.jpg')).toString('latin1').includes('Barack Obama');
+    await answer(0);
+    ppl.wrote = await pw.evaluate(() => qn.exec('browse.people', { write: true }));
+    await pw.evaluate(() => qn.exec('browse.people', { write: true }));
+    const asked2 = await pa.evaluate(() => globalThis.__asked);
+    check('desktop people: changing unopened pictures asks once per folder; refusing leaves them alone', [refused, asked1, untouched, asked2], [{ pictures: 1, unreachable: 0 }, [1, 'Allow Anne\'s Lens to change the pictures in “faces”?'], true, 1]);
+    const regionsIn = (n) => { const t = readFileSync(join(faces, n)).toString('latin1'); return [/mwg-rs:Regions/.test(t), /Barack Obama/.test(t)]; };
+    check('desktop people: scan, group, and write the names into the JPEG files', [ppl.rep, ppl.groups, ppl.wrote, regionsIn('obama.jpg'), regionsIn('both-2009.jpg'), regionsIn('harris.jpg')],
+      [[3, 4, []], ['both-2009.jpg', 'both-2009.jpg,obama.jpg', 'harris.jpg'], { pictures: 2, unreachable: 0 }, [true, true], [true, true], [false, false]], JSON.stringify(ppl));
+  } finally { await pa.close().catch(() => undefined); srv.close(); }
 } finally {
   rmSync(base, { recursive: true, force: true });
 }

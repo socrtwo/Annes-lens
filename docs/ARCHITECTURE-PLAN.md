@@ -83,6 +83,8 @@ scripts/
 | Linux (incl. Raspberry Pi OS) | full file system; Trash (freedesktop) | built-ins | SANE scanning, screen capture where the compositor allows |
 | Web | File System Access API where available, otherwise open/download | built-ins (WASM) | installable PWA, offline |
 
+**Desktop file permissions.** The Electron main process decides what the page may touch. A picture opened through a dialog, the command line or the OS grants that file (read and write) and its folder (list and read pictures, create new files). Folders reached by Next/Previous Folder or kept by the catalog, favorites and watches are readable. Changing an existing picture or `.xmp` sidecar that was not opened one by one (metadata on marked pictures, People's names) needs the folder to be writable: a folder chosen in the folder dialog is; any other asks once in a native dialog, which the page cannot answer for the user, and the answer lasts until the app closes.
+
 ## Builds and CI
 
 The same workflows as the sister apps: `android.yml` type-checks, tests and builds the web app and an APK on every push; `release.yml` builds Android (APK, AAB), iOS (unsigned .ipa), Windows (x64/ARM installer and portable), macOS (universal), Linux (AppImage and .deb for x64, arm64, armv7l) and the web, and publishes them from a `v*` tag, a manual run, or a `[release]` commit. `scripts/termux-build.sh` builds the APK on the phone, as in Anne's Folio.

@@ -85,6 +85,27 @@ function grant(p) {
   try { fs.writeFileSync(grantsFile(), JSON.stringify(list)); } catch { /* read-only profile */ }
 }
 function grantDir(dir) { grantedDirs.add(path.resolve(dir)); }
+// Folders whose existing pictures (and .xmp sidecars) may be changed: folders the user picked in the
+// folder dialog, and folders the user allowed when asked (both until the app closes; remembered
+// folders are not writable by themselves, since the renderer can ask to remember any granted folder). Opening one
+// picture grants only that file; changing its neighbors (metadata on marked pictures, People's names)
+// asks once per folder in a native dialog, which the renderer cannot answer for the user.
+const writableDirs = new Set();
+const asking = new Map();
+async function writableFile(uri) {
+  try { return grantedPath(uri, true); } catch (e) {
+    if (typeof uri !== 'string' || !uri.startsWith('file:')) throw e;
+    const p = path.resolve(fileURLToPath(uri)), dir = path.dirname(p);
+    if (!grantedDirs.has(dir) || !(isPictureName(p) || /\.xmp$/i.test(p)) || !fs.existsSync(p)) throw e;
+    if (!writableDirs.has(dir)) {
+      if (!asking.has(dir)) asking.set(dir, dialog.showMessageBox(win, { type: 'question', buttons: ['Allow', 'Don\'t Allow'], defaultId: 0, cancelId: 1, noLink: true, title: 'Change pictures in this folder?',
+        message: `Allow Anne's Lens to change the pictures in “${path.basename(dir) || dir}”?`, detail: `${dir}\n\nNeeded to write into pictures you did not open one by one (names, keywords, ratings or other metadata). The permission lasts until Anne's Lens closes.` }).then((r) => r.response === 0).finally(() => asking.delete(dir)));
+      if (!(await asking.get(dir) ?? writableDirs.has(dir))) throw new Error('Changing the pictures in this folder was not allowed.');
+      writableDirs.add(dir);
+    }
+    return p;
+  }
+}
 function grantedPath(uri, write = false) {
   if (typeof uri !== 'string' || !uri.startsWith('file:')) throw new Error('Not a file address');
   const p = path.resolve(fileURLToPath(uri));
@@ -256,7 +277,7 @@ function registerIpc() {
     return { uri: pathToFileURL(r.filePath).href, name: path.basename(r.filePath) };
   });
   handle('writeUri', async ({ uri, data }) => {
-    const p = grantedPath(uri, true);
+    const p = await writableFile(uri);
     const tmp = p + '.ql-saving';
     fs.writeFileSync(tmp, Buffer.from(String(data || ''), 'base64'));
     fs.renameSync(tmp, p);
@@ -327,7 +348,7 @@ function registerIpc() {
     const r = await dialog.showOpenDialog(win, { title: String(title || 'Choose a folder'), properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths[0]) return { canceled: true };
     const dir = r.filePaths[0];
-    grantDir(dir);
+    grantDir(dir); writableDirs.add(path.resolve(dir));
     return { uri: pathToFileURL(dir).href, name: path.basename(dir) || dir };
   });
   const transfer = (move) => async ({ uri, dirUri, name }) => {
