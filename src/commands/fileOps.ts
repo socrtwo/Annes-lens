@@ -12,6 +12,9 @@ import { fmtSize } from '../ui/shell';
 
 /** The folder address an entry can be restored into: the folder's own, or (desktop) the file's parent. */
 export function dirUriOf(entry: Entry | null, folder: Folder): string | null {
+  // Entries listed from another folder (Include Subfolders, the catalog) know their own.
+  const own = (entry as { dirUri?: string } | null)?.dirUri;
+  if (own) return own;
   if (folder.uri) return folder.uri;
   const u = entry?.uri;
   if (u && u.startsWith('file:')) return u.replace(/\/[^/]*$/, '') || null;

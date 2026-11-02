@@ -28,7 +28,7 @@ export async function folderEntries(uri: string, withSubfolders: boolean, max = 
   const out: Entry[] = [];
   const walk = async (u: string, depth: number) => {
     const r = await listFolderFiles(u).catch(() => null);
-    if (r) out.push(...listingEntries(r));
+    if (r) for (const e of listingEntries(r)) { e.dirUri = u; out.push(e); }
     if (!withSubfolders || depth >= 16 || out.length >= max) return;
     for (const sub of (await listSubfolders(u).catch(() => null)) || []) { if (out.length >= max) break; await walk(sub.uri, depth + 1); }
   };

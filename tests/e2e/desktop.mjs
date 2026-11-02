@@ -27,6 +27,7 @@ put('Photos/2024/c.png', [0, 0, 255]); put('Photos/2024/d.png', [0, 0, 255]);
 put('Photos/.cache/x.png', [9, 9, 9]);
 put('Scans/e.png', [255, 255, 0]);
 writeFileSync(join(lib, 'Photos/2024/notes.txt'), 'trip notes');
+writeFileSync(join(lib, 'Photos/2024/c.xmp'), '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="5"/></rdf:RDF></x:xmpmeta>');
 const config = join(base, 'config');
 
 const app = await electron.launch({ executablePath: 'node_modules/electron/dist/electron', args: ['--no-sandbox', 'build/desktop-app', first], env: { ...process.env, XDG_CONFIG_HOME: config } });
@@ -77,8 +78,39 @@ try {
     return out;
   });
   check('desktop folder tree: the chain down to the open folder, selected', [bw.chain.every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1])), bw.sel], [true, true], JSON.stringify(bw));
-  check('desktop include subfolders and show all files on real folders', [bw.photos, bw.recursive, bw.all, bw.readable], [['01 Jan (with subfolders)'.replace(' (with subfolders)', ''), true], ['Photos (with subfolders)', ['a.png', 'b.png', 'c.png', 'd.png']], ['c.png', 'd.png', 'notes.txt'], 'trip notes'], JSON.stringify(bw));
+  check('desktop include subfolders and show all files on real folders', [bw.photos, bw.recursive, bw.all, bw.readable], [['01 Jan (with subfolders)'.replace(' (with subfolders)', ''), true], ['Photos (with subfolders)', ['a.png', 'b.png', 'c.png', 'd.png']], ['c.png', 'c.xmp', 'd.png', 'notes.txt'], 'trip notes'], JSON.stringify(bw));
   check('desktop favorite folder: added and opened', [bw.fav, bw.favOpen], [['2024'], ['2024', 2]]);
+
+  // A sidecar beside a picture is read (the listing includes .xmp files); the catalog holds a real
+  // tree; a watched folder's new picture goes into the catalog.
+  const cat = await w.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const M = await window.__qnMeta();
+    const out = {};
+    await qn.exec('browse.favorites', 0); for (let i = 0; i < 60 && qn.folder.name !== '2024'; i++) await wait(50); await wait(200);
+    out.sidecar = (await M.readMeta(qn, qn.folder.entries.find((e) => e.name === 'c.png'))).props.rating;
+    const photosUri = qn.folder.uri.replace(/\/2024$/, '');
+    const { openFolderRef } = { openFolderRef: null };
+    qn.folder.uri = photosUri; qn.folder.name = 'Photos';
+    const rep = await qn.exec('browse.folderManager', { add: true, subfolders: true });
+    out.added = rep.added;
+    await qn.exec('browse.catalog'); for (let i = 0; i < 60 && !/^Catalog/.test(qn.folder.name); i++) await wait(50); await wait(300);
+    out.view = [qn.folder.name, qn.folder.entries.map((e) => e.name).sort()];
+    out.photosUri = photosUri;
+    return out;
+  });
+  // Watch Photos (it holds no pictures directly yet): f.png appears, the tick adds it to the catalog.
+  const cat2 = await w.evaluate(async (photosUri) => {
+    // Photos holds no pictures directly, so it cannot be opened as a folder: point the open folder at it.
+    qn.folder.uri = photosUri; qn.folder.name = 'Photos';
+    const w1 = await qn.exec('browse.watchFolder', { add: 'catalog' });
+    return { known: w1.known.length, folder: w1.folder.name };
+  }, cat.photosUri);
+  writeFileSync(join(lib, 'Photos/f.png'), png(9, 9, 9));
+  const cat3 = await w.evaluate(async () => { const n = await qn.exec('browse.watchFolder', 'tick'); await qn.exec('browse.catalog', 'open'); await new Promise((r) => setTimeout(r, 300)); return { n, names: qn.folder.entries.map((e) => e.name).sort() }; });
+  check('desktop sidecar read and catalog of a real tree', [cat.sidecar, cat.added, cat.view], [5, 4, ['Catalog (4 pictures)', ['a.png', 'b.png', 'c.png', 'd.png']]], JSON.stringify(cat));
+  check('desktop watch folder: a new picture goes into the catalog', [cat2, cat3.n, cat3.names], [{ known: 0, folder: 'Photos' }, 1, ['a.png', 'b.png', 'c.png', 'd.png', 'f.png']], JSON.stringify(cat3));
+  await w.evaluate(async () => { const wait = (ms) => new Promise((r) => setTimeout(r, ms)); await qn.exec('browse.catalog'); const jan = qn.prefs.recentFolders.find((r) => r.name === '01 Jan'); await qn.exec('file.recentFolders', jan.key); for (let i = 0; i < 60 && qn.folder.name !== '01 Jan'; i++) await wait(50); await wait(300); });
 
   // Two displays (faked in the main process): the window moves to the second and goes full screen; leaving restores it.
   await app.evaluate(({ screen }) => {

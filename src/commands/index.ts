@@ -50,4 +50,5 @@ import './language';
 import './suite';
 import './albums';
 import './browseWindow';
+import './catalog';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';

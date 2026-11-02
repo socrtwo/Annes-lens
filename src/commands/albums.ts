@@ -115,10 +115,15 @@ def([
     },
   },
   {
-    id: 'browse.smartAlbum', icon: 'auto_awesome_mosaic', noRecord: true, isEnabled: hasFolder, tip: 'Saved filters that update themselves: save the Filter Bar\'s filter, or apply a saved one to the open folder',
+    id: 'browse.smartAlbum', icon: 'auto_awesome_mosaic', noRecord: true, isEnabled: (app) => hasFolder(app) || app.prefs.useCatalog, tip: 'Saved filters that update themselves: save the Filter Bar\'s filter, or apply a saved one to the open folder',
     run: async (app, arg?: string | { save: string }) => {
       const smart = await listSmart();
-      if (typeof arg === 'string') { const s = smart.find((x) => x.id === arg || x.name === arg); if (!s) { toast(`No smart album named ${arg}.`); return; } await ensureInfo(app); applyFilter(app, specFromStore(s.spec), `Smart album: ${s.name}`); return; }
+      if (typeof arg === 'string') {
+        const s = smart.find((x) => x.id === arg || x.name === arg); if (!s) { toast(`No smart album named ${arg}.`); return; }
+        // With the catalog, a smart album searches every cataloged picture.
+        if (app.prefs.useCatalog) { const { openCatalogView } = await import('./catalog'); if (!(await openCatalogView(app, true))) return; }
+        await ensureInfo(app); applyFilter(app, specFromStore(s.spec), `Smart album: ${s.name}`); return;
+      }
       const cur = currentFilter();
       if (arg && 'save' in arg) { if (!cur) { toast('Set a filter first (Filter Bar).'); return; } smart.push({ id: newId(), name: arg.save, spec: specToStore(cur) }); await saveSmart(smart); toast(`Saved the smart album "${arg.save}".`); return; }
       const r = await openDialog({ title: 'Smart Albums', ok: 'Go', fields: [

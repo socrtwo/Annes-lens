@@ -12,7 +12,7 @@ import { extractMeta } from '../meta/metaWrite';
 import { readExif } from '../meta/exif';
 import { parseXmp, updateXmp, type XmpProps } from '../meta/xmp';
 import { setXmp, canEmbed, decodeText } from '../meta/metaEdit';
-import { listFolderOf, readUri, writeBack, writeIntoFolder, saveAs } from '../platform/native';
+import { listFolderOf, readUri, writeBack, writeIntoFolder, saveAs, listFolderFiles, handleId } from '../platform/native';
 import { dirUriOf } from '../commands/fileOps';
 import { toast } from '../ui/dialog';
 
@@ -31,8 +31,9 @@ const listings = new Map<string, { at: number; entries: { uri: string; name: str
 async function folderListing(dirUri: string): Promise<{ uri: string; name: string }[]> {
   const c = listings.get(dirUri);
   if (c && Date.now() - c.at < 5000) return c.entries;
-  const l = await listFolderOf(dirUri);
-  const entries = l ? l.entries : [];
+  // Every file, not only pictures: sidecars are .xmp files (desktop and Android listings filter by type otherwise).
+  const l = await listFolderFiles(dirUri, { all: true }).catch(() => null);
+  const entries = l?.entries ? l.entries : l?.handles ? await Promise.all(l.handles.map(async (x) => ({ uri: 'fsa:' + (await handleId(x.handle)), name: x.name }))) : [];
   listings.set(dirUri, { at: Date.now(), entries });
   return entries;
 }

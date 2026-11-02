@@ -26,6 +26,8 @@ export interface Prefs {
   theme: 'system' | 'light' | 'dark' | 'black';
   /** Browse: folder listings include non-picture files; folders include their subfolders' pictures; the Browser layout and the folder tree pane. */
   showAllFiles: boolean;
+  /** Use Catalog: the catalog view, smart albums over the whole catalog, watch folders running. */
+  useCatalog: boolean;
   includeSubfolders: boolean;
   browserLayout: boolean;
   folderTree: boolean;
@@ -164,7 +166,7 @@ export function defaultPrefs(): Prefs {
     author: '',
     qat: [...DEFAULT_QAT], qatPosition: 'top', qatLabels: false, qatHidden: false,
     customTabs: [], customMenus: [], hiddenTabs: [], tabOrder: [], keymap: {},
-    theme: 'system', showAllFiles: false, includeSubfolders: false, browserLayout: false, folderTree: false, language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
+    theme: 'system', showAllFiles: false, useCatalog: false, includeSubfolders: false, browserLayout: false, folderTree: false, language: 'en-US', ribbon: 'full', menuStyle: 'both', menuLayout: 'irfanview', statusBar: true,
     recent: [], recentFolders: [], macros: [],
     confirmClose: true, highContrastUI: false, uiScale: 1, pinnedCommands: [], firstRun: true, touchMode: false,
     zoomMode: 'fit-large', zoomLock: false, keepPosition: false, wrap: true, autoRotateExif: true, smoothZoom: true,

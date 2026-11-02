@@ -1733,6 +1733,75 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
   check('albums survive a reload (handles kept in IndexedDB)', { folder: alb2.folder, names: alb2.names, px: alb2.px }, { folder: 'Album: Seaside and hills', names: ['a-landscape.png', 'b-beach.png'], px: [50, 140, 60] });
   check('favorite folders: added once, shown in the tree, open after a reload', [alb.favRows, alb2.favOpened], [['Trip 2024'], ['Trip 2024', 3]]);
 
+  // The catalog: a folder with a subfolder (a sidecar gives one picture 4 stars) is cataloged; the
+  // catalog view shows both with stored facts and thumbnails; a smart album searches the whole
+  // catalog; a new picture is picked up by a rescan; maintenance drops a deleted one and lists
+  // orphaned sidecars; a watch adds a new picture to the catalog, another copies one into a folder;
+  // after a reload the catalog and the watches are still there.
+  const cat = await pa.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const N = await window.__qnNative();
+    const root = await navigator.storage.getDirectory(), lib = await root.getDirectoryHandle('Library 2', { create: true }), kids = await lib.getDirectoryHandle('Kids', { create: true }), outDir = await root.getDirectoryHandle('Out', { create: true });
+    const put = async (dir, name, data) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(data); await w.close(); };
+    const png = async (color) => { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 40, 30); return await new Promise((r) => c.toBlob(r, 'image/png')); };
+    await put(lib, 'a.png', await png('#c00')); await put(kids, 'b.png', await png('#0c0'));
+    await put(kids, 'b.xmp', '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="4"/></rdf:RDF></x:xmpmeta>');
+    await put(lib, 'gone.xmp', '<x:xmpmeta xmlns:x="adobe:ns:meta/"/>');
+    const picker = window.showDirectoryPicker; window.showDirectoryPicker = async () => lib; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
+    for (let i = 0; i < 60 && qn.folder.name !== 'Library 2'; i++) await wait(50); await wait(200);
+    const out = {};
+    const added = await qn.exec('browse.folderManager', { add: true, subfolders: true });
+    out.added = [added.added, added.orphans];
+    await qn.exec('browse.catalog'); for (let i = 0; i < 60 && !/^Catalog/.test(qn.folder.name); i++) await wait(50); await wait(400);
+    out.view = [qn.prefs.useCatalog, qn.folder.name, qn.folder.entries.map((e) => e.name).sort(), qn.folder.entries.every((e) => !!e.catalogKey)];
+    for (let i = 0; i < 40 && document.querySelectorAll('.qn-thumbs .qn-thumb-pic canvas').length < 2; i++) await wait(50);
+    out.thumbs = document.querySelectorAll('.qn-thumbs .qn-thumb-pic canvas').length;
+    // A smart album over the whole catalog: rating 4 or more.
+    const run = qn.exec('browse.filter'); let d; for (let i = 0; i < 60 && !(d = document.querySelector('.ql-dialog .ql-primary')); i++) await wait(50);
+    const sel = document.querySelector('.ql-dialog [id^="f_minRating_"]'); sel.value = '4'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    d.click(); await run; await wait(200);
+    await qn.exec('browse.smartAlbum', { save: 'Four stars' }); qn.tab.thumbs.filter = null; qn.tab.thumbs.refilter();
+    window.showDirectoryPicker = async () => lib; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker; await wait(300);
+    await qn.exec('browse.smartAlbum', 'Four stars'); await wait(400);
+    out.smart = [qn.folder.name.startsWith('Catalog'), qn.tab.thumbs.filterLabel, qn.folder.entries.filter((e) => qn.tab.thumbs.filter?.(e)).map((e) => e.name)];
+    qn.tab.thumbs.filter = null; qn.tab.thumbs.refilter();
+    // A new picture, a rescan; then a deleted one and maintenance.
+    await put(lib, 'c.png', await png('#00c'));
+    const rescan = await qn.exec('browse.folderManager', { rescan: 'all' }); out.rescan = rescan;
+    await lib.removeEntry('a.png');
+    const mrun = qn.exec('browse.maintenance', { reread: false, thumbs: false }); let md; for (let i = 0; i < 100 && !(md = [...document.querySelectorAll('.ql-dialog')].find((x) => /Orphaned|orphaned/.test(x.textContent))); i++) await wait(100);
+    out.maint = md ? md.querySelector('pre').textContent : null; [...md.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Close').click(); await mrun;
+    // Watches: one into the catalog, one copying into Out.
+    window.showDirectoryPicker = async () => lib; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
+    for (let i = 0; i < 60 && qn.folder.name !== 'Library 2'; i++) await wait(50); await wait(200);
+    const w1 = await qn.exec('browse.watchFolder', { add: 'catalog' });
+    const w2 = await qn.exec('browse.watchFolder', { add: 'copy', dest: { uri: 'fsadir:' + (await N.handleId(outDir)), name: 'Out' } });
+    out.watchKnown = [w1.known.length, w2.known.length];
+    await put(lib, 'd.png', await png('#cc0'));
+    out.tick = await qn.exec('browse.watchFolder', 'tick');
+    out.copied = []; for await (const [n] of outDir.entries()) out.copied.push(n);
+    out.tick2 = await qn.exec('browse.watchFolder', 'tick');
+    await qn.exec('browse.catalog', 'open'); await wait(300);
+    out.afterWatch = qn.folder.entries.map((e) => e.name).sort();
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    return out;
+  });
+  check('catalog: a folder with its subfolder cataloged, orphaned sidecar seen', cat.added, [2, ['gone.xmp']], JSON.stringify(cat));
+  check('catalog view: every picture, stored facts and thumbnails', [cat.view, cat.thumbs >= 2], [[true, 'Catalog (2 pictures)', ['a.png', 'b.png'], true], true]);
+  check('smart album over the whole catalog (a rating from a sidecar)', cat.smart, [true, 'Smart album: Four stars', ['b.png']]);
+  check('rescan picks up a new picture; maintenance drops a deleted one and lists orphaned sidecars', [cat.rescan.length, /1 added/.test(cat.rescan[0]), /1 removed/.test(cat.maint || ''), /Library 2\/gone\.xmp/.test(cat.maint || '')], [1, true, true, true], cat.maint);
+  check('watch folders: a new picture goes into the catalog and is copied; nothing twice', [cat.watchKnown, cat.tick, cat.copied, cat.tick2, cat.afterWatch], [[1, 1], 2, ['d.png'], 0, ['b.png', 'c.png', 'd.png']]);
+  await pa.reload(); await pa.waitForFunction(() => window.qn && window.__qnGetCommand, null, { timeout: 30000 }); await pa.waitForTimeout(500);
+  const cat2 = await pa.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    await qn.exec('browse.catalog', 'open'); for (let i = 0; i < 60 && !/^Catalog/.test(qn.folder.name); i++) await wait(50); await wait(300);
+    const out = { view: [qn.folder.name, qn.prefs.useCatalog], picture: qn.picture?.name };
+    return out;
+  });
+  check('catalog and its setting survive a reload', cat2, { view: ['Catalog (3 pictures)', true], picture: 'b.png' });
+
   await pctx.close();
 
   if (errs.length) failures.push(...errs);

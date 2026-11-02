@@ -199,6 +199,9 @@ export class ThumbPanel {
     try {
       const cur = this.tab.picture;
       if (cur && cur.entry === e) return scaled(cur.frameCanvas(), s);
+      // A cataloged picture: its stored thumbnail, without reading the file.
+      const ck = (e as { catalogKey?: string }).catalogKey;
+      if (ck) { const { catThumb } = await import('../picture/catalog'); const url = await catThumb(ck); if (url) { const img = new Image(); img.src = url; await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d')!.drawImage(img, 0, 0); return scaled(c, s); } }
       const buf = await e.read();
       const u8 = new Uint8Array(buf);
       const fmt = sniff(u8, e.name);

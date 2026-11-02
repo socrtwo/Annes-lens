@@ -94,6 +94,7 @@ async function start() {
   if (isDesktop()) { try { const st = await desktopBridge()!.getPortableMode(); (window as any).__qlPortable = st.on; } catch { /* */ } }
   // On the desktop a launch file can arrive just after this point; skip the tour when a picture is open by then.
   void applyCliView(app);
+  void import('./commands/catalog').then((m) => m.startWatching(app)); // Watch Folder (nothing runs without watches)
   if (app.prefs.firstRun && !openedAny) setTimeout(() => { if (!app.picture) app.ui.tour(); }, 600);
   app.focus();
 }

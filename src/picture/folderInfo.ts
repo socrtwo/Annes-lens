@@ -35,6 +35,8 @@ export async function entryInfo(app: App, e: Entry): Promise<EntryInfo> {
   return info;
 }
 export const forgetInfo = (e: Entry): void => { cache.delete(e); };
+/** Primes the cache (the catalog knows these facts without reading the file). */
+export const setInfo = (e: Entry, info: EntryInfo): void => { cache.set(e, info); };
 
 /** Reads every entry's info, reporting progress. */
 export async function collectInfo(app: App, entries: Entry[], progress?: (i: number, n: number) => void): Promise<Map<Entry, EntryInfo>> {

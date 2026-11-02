@@ -12,6 +12,8 @@ export interface Entry {
   uri: string | null;
   size?: number;
   mtime?: number;
+  /** The folder the entry was listed from, when that is not the open folder (Include Subfolders, the catalog). */
+  dirUri?: string;
   read(): Promise<ArrayBuffer>;
 }
 
