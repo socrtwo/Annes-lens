@@ -667,3 +667,10 @@ body.qn-frameless .ql-win-close:hover { background: #c42b1c; }
 .qn-console-result { color: #8fd18f; }
 .qn-console-error { color: #ff8a80; }
 .qn-console-info { color: #8aa4c8; }
+
+/* Search by Sketch */
+.qn-sketch-box { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.qn-sketch { width: 100%; max-width: 480px; aspect-ratio: 4 / 3; background: repeating-conic-gradient(#e8e8e8 0 25%, #fff 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line, #999); border-radius: 6px; touch-action: none; cursor: crosshair; }
+.qn-sketch-palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.qn-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(0,0,0,.25); cursor: pointer; }
+.qn-swatch.ql-sel { outline: 3px solid var(--accent); outline-offset: 2px; }

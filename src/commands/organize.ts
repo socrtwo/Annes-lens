@@ -116,3 +116,7 @@ def([
     run: (app) => { if (cull.running) stopCull(app); else startCull(app); },
   },
 ]);
+
+/** For smart albums: the filter in use, applying a saved one, and reading the folder's details first. */
+export const currentFilter = (): FilterSpec | null => state.spec;
+export { applyFilter, ensureInfo };

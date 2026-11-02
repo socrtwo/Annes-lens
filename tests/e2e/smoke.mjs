@@ -1621,6 +1621,67 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
   const langReqs = mockAi.requests.filter((r) => /STRINGS:|user interfaces/.test(r.text + r.system));
   check('language: AI translation in batches applies and switches', [lang.ai, langReqs.length >= 7, lang.back], [{ pref: 'fr', label: '[de] Open…', tab: '[de] Home', menu: '[de] File' }, true, ['Open…', 'File', 'File']], `${langReqs.length} requests`);
 
+  // Albums with real File System Access handles (the origin-private file system stands in for a
+  // picked folder): Add to Album, open it, a smart album from the Filter Bar, Search by Sketch, and
+  // the album still opening after a page reload (handles kept in IndexedDB).
+  // Its own persistent profile: headless Chromium's default (incognito-like) context crashes when a
+  // file handle is stored in IndexedDB, which normal browser profiles do routinely.
+  const { mkdtempSync: mkdtempA } = await import('node:fs'); const { tmpdir: tmpA } = await import('node:os');
+  const pctx = await chromium.launchPersistentContext(mkdtempA(`${tmpA()}/qn-albums-`), exe);
+  const pa = await pctx.newPage();
+  await pa.addInitScript(() => { if (!localStorage.getItem('quilllens.prefs.v1')) localStorage.setItem('quilllens.prefs.v1', JSON.stringify({ firstRun: false })); });
+  await pa.goto(url); await pa.waitForFunction(() => window.qn && window.__qnGetCommand, null, { timeout: 30000 }); await pa.waitForTimeout(400);
+  const alb = await pa.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const root = await navigator.storage.getDirectory(); const dir = await root.getDirectoryHandle('Trip 2024', { create: true });
+    const paint = async (name, top, bottom) => { const c = document.createElement('canvas'); c.width = 96; c.height = 72; const x = c.getContext('2d'); x.fillStyle = top; x.fillRect(0, 0, 96, 36); x.fillStyle = bottom; x.fillRect(0, 36, 96, 36); const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(await new Promise((r) => c.toBlob(r, 'image/png'))); await w.close(); };
+    await paint('a-landscape.png', '#4682dc', '#328c3c'); await paint('b-beach.png', '#4682dc', '#dcc88c'); await paint('c-night.png', '#0f0f1e', '#0f0f1e');
+    const picker = window.showDirectoryPicker; window.showDirectoryPicker = async () => dir;
+    await qn.exec('file.openFolder'); for (let i = 0; i < 60 && qn.folder.name !== 'Trip 2024'; i++) await wait(50); await wait(300);
+    window.showDirectoryPicker = picker;
+    const out = { folder: [qn.folder.name, qn.folder.length] };
+    const t = qn.tab; t.marked.clear(); for (const e of qn.folder.entries.filter((e) => /landscape|beach/.test(e.name))) t.marked.add(e);
+    await qn.exec('browse.addToAlbum', { album: '', name: 'Seaside and hills' }); await wait(150);
+    t.marked.clear();
+    await qn.exec('browse.albums', 'Seaside and hills'); await wait(400);
+    out.album = [qn.folder.name, qn.folder.entries.map((e) => e.name), qn.picture?.name];
+    await qn.exec('browse.addToAlbum', { album: 'Seaside and hills' }); await wait(150); // the shown picture again: a duplicate
+    // Smart album: back in the folder, filter by name, save, clear, re-apply.
+    window.showDirectoryPicker = async () => dir; await qn.exec('file.openFolder'); window.showDirectoryPicker = picker;
+    for (let i = 0; i < 60 && qn.folder.name !== 'Trip 2024'; i++) await wait(50); await wait(300);
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    const run = qn.exec('browse.filter'); let d; for (let i = 0; i < 60 && !(d = document.querySelector('.ql-dialog .ql-primary')); i++) await wait(50);
+    const txt = document.querySelector('.ql-dialog [id^="f_text_"]'); txt.value = 'beach'; txt.dispatchEvent(new Event('input', { bubbles: true }));
+    d.click(); await run; await wait(200);
+    await qn.exec('browse.smartAlbum', { save: 'Beaches' }); await wait(100);
+    qn.tab.thumbs.filter = null; qn.tab.thumbs.refilter();
+    await qn.exec('browse.smartAlbum', 'Beaches'); await wait(200);
+    out.smart = [qn.tab.thumbs.filterLabel, qn.folder.entries.filter((e) => qn.tab.thumbs.filter?.(e)).map((e) => e.name)];
+    qn.tab.thumbs.filter = null; qn.tab.thumbs.refilter();
+    // Search by Sketch: blue on top, green below.
+    const sk = document.createElement('canvas'); sk.width = 240; sk.height = 180; const sx = sk.getContext('2d'); sx.fillStyle = '#3c7dd7'; sx.fillRect(0, 0, 240, 60); sx.fillStyle = '#2d913a'; sx.fillRect(0, 120, 240, 60);
+    const raster = { width: 240, height: 180, data: sx.getImageData(0, 0, 240, 180).data };
+    const top = await qn.exec('browse.searchSketch', raster); await wait(200);
+    out.sketch = { order: top.map((x) => x.entry.name), label: qn.tab.thumbs.filterLabel, shown: qn.picture?.name };
+    qn.tab.thumbs.filter = null; qn.tab.thumbs.refilter();
+    return out;
+  });
+  check('albums: add the marked pictures, open the album as a folder', [alb.folder, alb.album], [['Trip 2024', 3], ['Album: Seaside and hills', ['a-landscape.png', 'b-beach.png'], 'a-landscape.png']], JSON.stringify(alb));
+  check('smart album: a saved Filter Bar filter re-applied', alb.smart, ['Smart album: Beaches', ['b-beach.png']]);
+  check('search by sketch: blue over green finds the landscape first, the night picture last', [alb.sketch.order, alb.sketch.label, alb.sketch.shown], [['a-landscape.png', 'b-beach.png', 'c-night.png'], 'Sketch: 3 closest', 'a-landscape.png']);
+  await pa.reload(); await pa.waitForFunction(() => window.qn && window.__qnGetCommand, null, { timeout: 30000 }); await pa.waitForTimeout(500);
+  const alb2 = await pa.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    await qn.exec('browse.albums', 'Seaside and hills'); for (let i = 0; i < 60 && !qn.picture; i++) await wait(50); await wait(300);
+    const px = qn.picture ? [...qn.picture.frameCanvas().getContext('2d').getImageData(10, 60, 1, 1).data].slice(0, 3) : null;
+    return { folder: qn.folder.name, names: qn.folder.entries.map((e) => e.name), px };
+  });
+  check('albums survive a reload (handles kept in IndexedDB)', alb2, { folder: 'Album: Seaside and hills', names: ['a-landscape.png', 'b-beach.png'], px: [50, 140, 60] });
+
+  await pctx.close();
+
   if (errs.length) failures.push(...errs);
 } finally {
   await browser.close();

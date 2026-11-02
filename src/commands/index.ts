@@ -48,4 +48,5 @@ import './viewWindow';
 import './devConsole';
 import './language';
 import './suite';
+import './albums';
 export { def, getCommand, allCommands, commandCount, searchCommands } from './registry';
