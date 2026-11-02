@@ -1009,7 +1009,8 @@ public class QuillNativePlugin extends Plugin {
 
     /** Sibling apps that may receive a document; any other package is refused. */
     private static final java.util.Set<String> SIBLING_APPS = new java.util.HashSet<>(java.util.Arrays.asList(
-        "io.github.socrtwo.quillpen", "io.github.socrtwo.quillpost", "io.github.socrtwo.quilllens"));
+        "io.github.socrtwo.quillpen", "io.github.socrtwo.quillpost", "io.github.socrtwo.quillgrid", "io.github.socrtwo.quillstage",
+        "io.github.socrtwo.quillloom", "io.github.socrtwo.quillpress", "io.github.socrtwo.quillfolio", "io.github.socrtwo.quilllens"));
 
     @PluginMethod
     public void openInApp(PluginCall call) {

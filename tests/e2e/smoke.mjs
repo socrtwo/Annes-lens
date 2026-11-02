@@ -1527,15 +1527,17 @@ try {
     qn.tab.marked.clear(); for (const e of qn.folder.entries) qn.tab.marked.add(e);
     await qn.exec('file.export.stage', { titles: true }); await wait(200);
     await qn.exec('file.export.folio', { paper: 'letter', captions: true }); await wait(200);
+    await qn.exec('file.export.press', { size: 'letter', perPage: 1, captions: true }); await wait(200);
+    await qn.exec('create.photoBook', { size: 'square8', perPage: 1, captions: true, title: 'Family Book', facing: true }); await wait(200);
     qn.tab.marked.clear();
     window.showSaveFilePicker = picker;
     const b64 = async (rec) => { const u8 = new Uint8Array(await new Blob(rec.parts).arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
     return { folder: qn.folder.name || 'Pictures', names: saved.map((r) => r.name), files: await Promise.all(saved.map(b64)), toast: seen.find((t) => /works in the Android app/.test(t)) || null };
   });
-  check('suite hand-offs save a DOCX, a PPTX and a PDF in the browser', [hand.names, !!hand.toast], [['h1-barn.docx', `${hand.folder}.pptx`, `${hand.folder}.pdf`], true], JSON.stringify(hand.names));
+  check('suite hand-offs save a DOCX, a PPTX, a PDF and two IDML files in the browser', [hand.names, !!hand.toast], [['h1-barn.docx', `${hand.folder}.pptx`, `${hand.folder}.pdf`, `${hand.folder}.idml`, 'Family Book (photo book).idml'], true], JSON.stringify(hand.names));
   {
     const { execFileSync } = await import('node:child_process');
-    const { writeFileSync, mkdtempSync } = await import('node:fs');
+    const { writeFileSync, mkdtempSync, readFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const dir = mkdtempSync(`${tmpdir()}/qn-suite-`);
     ['h.docx', 'h.pptx', 'h.pdf'].forEach((n, i) => hand.files[i] && writeFileSync(`${dir}/${n}`, Buffer.from(hand.files[i], 'base64')));
@@ -1550,6 +1552,14 @@ print(json.dumps({'caption': [q.text for q in d.paragraphs if q.style.name == 'C
       check('Stage deck: one slide per picture, caption as title, alt text kept', r.slides, [['Grandma & the barn, 1952', ['A red barn']], [null, ['']]]);
     }
     let info = ''; try { info = execFileSync('pdfinfo', [`${dir}/h.pdf`], { encoding: 'utf8' }); } catch { info = ''; }
+    ['h-press.idml', 'h-book.idml'].forEach((n, i) => hand.files[3 + i] && writeFileSync(`${dir}/${n}`, Buffer.from(hand.files[3 + i], 'base64')));
+    let hasScribus = false; try { execFileSync('which', ['scribus', 'xvfb-run']); hasScribus = true; } catch { /* not installed */ }
+    if (hasScribus) {
+      const sc = (n) => { try { execFileSync('xvfb-run', ['-a', 'scribus', '-g', '-ns', '-py', 'tests/e2e/scribus-check.py', `${dir}/${n}`], { timeout: 120000, stdio: 'ignore' }); return JSON.parse(readFileSync(`${dir}/${n}.json`, 'utf8')); } catch (e) { return { error: String(e).slice(0, 200) }; } };
+      const press = sc('h-press.idml'), book = sc('h-book.idml');
+      check('Press IDML opens in Scribus: a letter page per picture, both pictures loaded, the caption', [press.pages, press.size, press.images?.map((x) => x[1]), press.texts], [2, [216, 279], [true, true], [[1, 'Grandma & the barn, 1952']]], JSON.stringify(press));
+      check('Photo book IDML opens in Scribus: title page, then the pictures, 8 × 8 in', [book.pages, book.size, book.images?.map((x) => x[0]), book.texts[0]], [3, [203, 203], [2, 3], [1, 'Family Book']], JSON.stringify(book));
+    }
     if (info) check('Folio PDF: a letter page per picture (landscape for the wide one)', [+(info.match(/^Pages:\s+(\d+)/m) || [])[1], /792 x 612/.test(info)], [2, true], info);
   }
 

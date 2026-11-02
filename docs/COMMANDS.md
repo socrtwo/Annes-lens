@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **532 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **534 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -11,7 +11,7 @@ This file is generated from the source by `npm run catalog`; a unit test fails w
 The ribbon mirrors the plan: one tab per plan tab and one group per plan group, in the plan's order, plus the Home tab. Groups that have no built command yet are not shown.
 
 - **Home**: Clipboard (4) · Navigate (5) · Rotate (5) · Quick fix (6) · Organize (7) · View (5) · Share (4)
-- **File**: Open (16) · Save (9) · Export (8) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (12)
+- **File**: Open (16) · Save (9) · Export (9) · Files (11) · Acquire (7) · Print (6) · Share (6) · Close and options (12)
 - **Edit**: Undo (3) · Clipboard (9) · Select (10) · Crop (5) · Add (5) · Paint and markup (5) · Find (2)
 - **Image**: Information (4) · Rotate and flip (12) · Lossless JPEG (3) · Size (6) · Color depth and palette (12) · Color management (3)
 - **Adjust**: Automatic (6) · Tone (14) · Color (11) · Detail and retouch (9) · Presets and history (7)
@@ -19,7 +19,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Browse**: Views (8) · Rate and label (8) · Find and compare (7) · Catalog (1)
 - **Metadata**: View and edit (12) · Date and place (5) · Privacy and integrity (5) · Records and genealogy (4)
 - **Batch**: Batch (13)
-- **Create**: Create (15)
+- **Create**: Create (16)
 - **Pages and Frames** (contextual): Pages (7) · Frames (8)
 - **RAW** (contextual): RAW (3)
 - **View**: Zoom (12) · Navigate (9) · Window (16) · Inspect (12) · Display (10) · Compare (4) · Media (3) · Quick Access Bar and search (5)
@@ -43,9 +43,9 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 102 |
 | All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 321 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 532 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 534 |
 
-## File (81 of 82)
+## File (82 of 82)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -82,6 +82,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Export Palette… | Export |  | `file.export.palette` | from IrfanView |
 | Insert into Anne's Pen | Export |  | `file.export.pen` | from the Anne's Office suite |
 | Send to Anne's Folio | Export |  | `file.export.folio` | from the Anne's Office suite |
+| Send to Anne's Press | Export |  | `file.export.press` | from the Anne's Office suite |
 | Send to Anne's Stage | Export |  | `file.export.stage` | from the Anne's Office suite |
 | Change File Date/Time… | Files |  | `file.setFileTime` | from FastStone Image Viewer, XnView Classic and XnView MP |
 | Copy as File (for pasting in file managers) | Files |  | `file.copyAsFile` | not in tabs; from XnView Classic and XnView MP |
@@ -419,7 +420,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Undo Last Batch | Batch |  | `batch.undo` | from new in Anne's Lens |
 | Web and Email Sizes… | Batch |  | `batch.webPresets` | has options menu; from Windows Photo Viewer and Windows Picture and Fax Viewer, Picasa |
 
-## Create (15 of 17)
+## Create (16 of 17)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -436,6 +437,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Image Strip… | Create |  | `create.imageStrip` | from XnView Classic and XnView MP, FastStone Image Viewer |
 | Join Side by Side… | Create |  | `create.panoramaJoin` | from IrfanView, FastStone Image Viewer |
 | Multipage TIFF or PDF… | Create |  | `create.multipage` | from IrfanView |
+| Photo Book in Anne's Press | Create |  | `create.photoBook` | from the Anne's Office suite |
 | Slideshow Video… | Create |  | `create.movie` | from Picasa, Google Photos, Microsoft Photos |
 | Web Gallery… | Create |  | `create.webGallery` | from XnView Classic and XnView MP, gThumb, digiKam, IrfanView |
 
@@ -662,14 +664,13 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 
-## Planned, not yet built (25)
+## Planned, not yet built (23)
 
 These ids are in the plan but have no command yet; they belong to later milestones ([ROADMAP.md](ROADMAP.md)). Nothing below is a placeholder in the app.
 
-- **File** (1): `file.export.press`
 - **Effects** (1): `fx.plugins8bf`
 - **Browse** (15): `browse.browser`, `browse.folderTree`, `browse.favorites`, `browse.recursive`, `browse.showAllFiles`, `browse.map`, `browse.people`, `browse.albums`, `browse.smartAlbum`, `browse.addToAlbum`, `browse.searchSketch`, `browse.catalog`, `browse.watchFolder`, `browse.folderManager`, `browse.maintenance`
-- **Create** (2): `create.panoramaStitch`, `create.photoBook`
+- **Create** (1): `create.panoramaStitch`
 - **RAW** (1): `raw.develop`
 - **Slideshow** (2): `show.music`, `show.remote`
 - **Tools** (3): `tools.backup`, `tools.plugins`, `tools.external`

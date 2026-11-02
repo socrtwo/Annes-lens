@@ -34,7 +34,7 @@
 - [x] Export as PDF (paper, orientation, margins, fit / fill / actual size at a DPI, captions); New Folder (desktop, Android and the browser's picked folders).
 - [x] Language…: the ribbon, the menus, the command names and their tooltips from string tables ([TRANSLATING.md](TRANSLATING.md)); Spanish built in; tables loaded from a file, exported for translators, or translated by the configured AI service in batches and kept on the device. Dialogs and messages are still English only.
 - [x] Send to Anne's Folio (a PDF, a page per picture, captions), Send to Anne's Stage (a 16:9 PPTX, one picture per slide, captions as titles, alt text on the pictures), Insert into Anne's Pen (a DOCX with each picture, its alt text and title, and a numbered caption); on Android the file opens in the suite app, elsewhere it is saved. Customize Menus: edit any classic layout (a built-in one is copied) or build your own; custom layouts appear in every layout list and the menu map.
-- [ ] Send to Anne's Press and Photo Book in Anne's Press (waiting for Anne's Press to define what it opens).
+- [x] Send to Anne's Press and Photo Book in Anne's Press: IDML (opened by InDesign, Affinity Publisher and Scribus) with the pictures embedded, captions in a Caption paragraph style, alt text on the frames; one, two or four pictures a page; the book has a title page and facing-page spreads in square, landscape or portrait sizes. Checked by opening the files in Scribus 1.6.
 - [ ] Tagged prerelease 0.2.0 for every platform.
 
 ## M3 — Edit, thumbnails and batch (in progress)

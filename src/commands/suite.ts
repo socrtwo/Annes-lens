@@ -1,7 +1,8 @@
 /**
  * File ▸ Export: Send to Anne's Folio (a PDF), Send to Anne's Stage (a deck: one picture per slide,
  * captions as titles), Insert into Anne's Pen (a document: the pictures with their captions and
- * alt text). On Android the file opens straight in the suite app; elsewhere (or when the app is
+ * alt text), Send to Anne's Press (an IDML layout); Create ▸ Photo Book in Anne's Press (an IDML
+ * book: title page, facing pages, 1, 2 or 4 pictures a page). On Android the file opens straight in the suite app; elsewhere (or when the app is
  * not installed) it is saved for opening there or in any PDF, presentation or word processor.
  */
 import { def } from './registry';
@@ -14,11 +15,12 @@ import { readMeta } from '../picture/metadata';
 import { inputsOf } from './batch';
 import { buildDocx, buildPptx, type DocPicture } from '../suite/ooxml';
 import { makePdf, PAPER_PT, type PdfPage } from '../codecs/pdfwrite';
+import { buildIdml, gridPages, BOOK_SIZES, type IdmlImage } from '../suite/idml';
 import { openInQuillApp, saveAs, type QuillApp } from '../platform/native';
 
 const has = (app: App) => !!app.picture;
 const base = (n: string) => n.replace(/\.[^.]+$/, '');
-const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+const IDML = 'application/vnd.adobe.indesign-idml-package', DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
 /** The pictures to send: the marked ones, else the current one (or the whole folder when `folder`). */
 function targets(app: App, folder = false): Entry[] {
@@ -59,7 +61,32 @@ async function deliver(target: QuillApp, data: Uint8Array, name: string, mime: s
 
 async function confirmMany(n: number): Promise<boolean> { return n <= 60 || confirmDialog('Many Pictures', `Send ${n} pictures? Mark the ones you want in the thumbnails to send fewer.`, 'Send'); }
 
+const idmlItems = async (app: App, es: Entry[]) => { const out: { image: IdmlImage; caption?: string }[] = []; for (const e of es) { const d = await docPicture(app, e); out.push({ image: { data: d.data, mime: d.mime, width: d.width, height: d.height, name: d.name, alt: d.alt, ppi: d.dpi }, caption: d.caption }); } return out; };
+const sizeOptions = (keys: string[]) => keys.map((k) => ({ value: k, label: BOOK_SIZES[k].label }));
+
 def([
+  {
+    id: 'file.export.press', icon: 'auto_stories', noRecord: true, isEnabled: has, tip: 'The marked pictures (or the folder) as an IDML layout for Anne\'s Press (also opens in InDesign, Affinity Publisher and Scribus): pictures embedded, captions in a Caption style, alt text kept',
+    run: async (app, arg?: { size?: string; perPage?: 1 | 2 | 4; captions?: boolean }) => {
+      const es = targets(app, true); if (!es.length || !(await confirmMany(es.length))) return;
+      let v = arg;
+      if (!v) { const r = await openDialog({ title: 'Send to Anne\'s Press', ok: 'Send', fields: [{ key: 'i', type: 'info', label: `${es.length} picture${es.length === 1 ? '' : 's'}.` }, { key: 'size', label: 'Page size', type: 'select', options: sizeOptions(['letter', 'a4', 'land11', 'a4land', 'square8']), value: 'letter' }, { key: 'perPage', label: 'Pictures per page', type: 'select', options: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }], value: 1 }, { key: 'captions', label: 'Captions under the pictures', type: 'checkbox', value: true }] }); if (!r) return; v = { size: String(r.size), perPage: +r.perPage as 1 | 2 | 4, captions: !!r.captions }; }
+      const sz = BOOK_SIZES[v.size || 'letter'] || BOOK_SIZES.letter, name = base(es.length === 1 ? es[0].name : app.folder.name || 'Pictures');
+      const pages = gridPages(await idmlItems(app, es), { width: sz.w, height: sz.h, perPage: v.perPage || 1, captions: v.captions !== false });
+      await deliver('Anne\'s Press', buildIdml({ width: sz.w, height: sz.h, title: name, pages }), `${name}.idml`, IDML, 'layout program (InDesign, Affinity Publisher, Scribus)');
+    },
+  },
+  {
+    id: 'create.photoBook', icon: 'menu_book', noRecord: true, isEnabled: has, tip: 'A photo book as an IDML layout for Anne\'s Press: title page, facing pages, one, two or four pictures a page with captions',
+    run: async (app, arg?: { size?: string; perPage?: 1 | 2 | 4; captions?: boolean; title?: string; subtitle?: string; facing?: boolean }) => {
+      const es = targets(app, true); if (!es.length || !(await confirmMany(es.length))) return;
+      let v = arg;
+      if (!v) { const r = await openDialog({ title: 'Photo Book in Anne\'s Press', ok: 'Make Book', fields: [{ key: 'i', type: 'info', label: `${es.length} picture${es.length === 1 ? '' : 's'}, in the folder's order (mark pictures to choose).` }, { key: 'title', label: 'Title', type: 'text', value: app.folder.name || 'Photo Book' }, { key: 'subtitle', label: 'Subtitle', type: 'text', value: '' }, { key: 'size', label: 'Book size', type: 'select', options: sizeOptions(['square8', 'square12', 'land11', 'land10', 'letter', 'a4', 'a4land']), value: 'square8' }, { key: 'perPage', label: 'Pictures per page', type: 'select', options: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }], value: 1 }, { key: 'facing', label: 'Facing pages (spreads)', type: 'checkbox', value: true }, { key: 'captions', label: 'Captions', type: 'checkbox', value: true }] }); if (!r) return; v = { size: String(r.size), perPage: +r.perPage as 1 | 2 | 4, captions: !!r.captions, title: String(r.title || ''), subtitle: String(r.subtitle || ''), facing: !!r.facing }; }
+      const sz = BOOK_SIZES[v.size || 'square8'] || BOOK_SIZES.square8, title = (v.title || app.folder.name || 'Photo Book').trim();
+      const pages = gridPages(await idmlItems(app, es), { width: sz.w, height: sz.h, margin: 45, perPage: v.perPage || 1, captions: v.captions !== false, coverTitle: title, coverSubtitle: v.subtitle || undefined });
+      await deliver('Anne\'s Press', buildIdml({ width: sz.w, height: sz.h, margin: 45, facing: v.facing !== false, title, pages }), `${title.replace(/[\\/:*?"<>|]/g, '_')} (photo book).idml`, IDML, 'layout program (InDesign, Affinity Publisher, Scribus)');
+    },
+  },
   {
     id: 'file.export.folio', icon: 'picture_as_pdf', noRecord: true, isEnabled: has, tip: 'A PDF of the marked pictures (or this one) with their captions, opened in Anne\'s Folio',
     run: async (app, arg?: { paper?: string; captions?: boolean }) => {
