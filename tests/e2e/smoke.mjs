@@ -362,6 +362,21 @@ try {
     check(`archive ${n} as folder`, Array.isArray(r) && [r[0], r[1], r[2], r[3] && r[3][0] > 150 && r[3][1] < 80], [n, ['page 1.png', 'page 2.jpg', 'page 10.png', 'photo with a long name.png'], 'page 1.png', true], JSON.stringify(r));
   }
   check('archive: an encrypted 7z says so', /encrypted/.test(String(ar['pics-aes.7z'])), true, JSON.stringify(ar['pics-aes.7z']));
+  // OpenEXR: a PIZ file and premultiplied RGBA open through the app (references from the OpenEXR library).
+  const exrFiles = Object.fromEntries(['half-piz.exr', 'rgba-piz.exr'].map((n) => [n, readFileSync(`tests/fixtures/exr/${n}`).toString('base64')]));
+  const ex = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await qn.exec('file.openDropped', Object.entries(files).map(([n, b64]) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)));
+    const at = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data];
+    const out = {};
+    for (const n of ['half-piz.exr', 'rgba-piz.exr']) {
+      for (let i = 0; i < 100 && qn.picture?.name !== n; i++) { if (qn.picture?.name !== n) await qn.exec('view.next'); await wait(100); }
+      out[n] = [qn.picture.format.id, qn.picture.width, qn.picture.height, at(5, 5), at(60, 10), at(10, 35)];
+    }
+    return out;
+  }, exrFiles);
+  const near1 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+  check('exr: PIZ half and premultiplied RGBA match the OpenEXR library', [ex['half-piz.exr'].slice(0, 3), near1(ex['half-piz.exr'][3], [157, 123, 235, 255]), near1(ex['half-piz.exr'][4], [255, 156, 181, 255]), ex['rgba-piz.exr'][0], Math.abs(ex['rgba-piz.exr'][5][3] - 44) <= 1], [['exr', 70, 50], true, true, 'exr', true], JSON.stringify(ex));
 
   // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
   const editOps = await p.evaluate(async () => {

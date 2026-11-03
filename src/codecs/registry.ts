@@ -23,6 +23,7 @@ import { decodePsd, isPsd } from './psd';
 import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
+import { decodeExr, isExr } from './exr';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
 import { isPdf } from './pdf';
@@ -69,6 +70,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'psd', label: 'Photoshop', mime: 'image/vnd.adobe.photoshop', extensions: ['psd', 'psb'], decoder: 'own', save: false, notes: 'the merged composite; bitmap, grayscale, indexed, RGB, CMYK, Lab; 8/16/32 bits; layer names listed' },
   { id: 'icns', label: 'Apple Icon', mime: 'image/icns', extensions: ['icns'], decoder: 'platform+own', save: false, notes: 'every size as a page; PNG elements by the platform, classic packed and 1-bit elements by the app' },
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
+  { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A; half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
@@ -91,6 +93,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isQoi(u8)) return formatById('qoi')!;
   if (isIcns(u8)) return formatById('icns')!;
   if (isDds(u8)) return formatById('dds')!;
+  if (isExr(u8)) return formatById('exr')!;
   if (isHdr(u8)) return formatById('hdr')!;
   if (isPnm(u8)) return formatById('pnm')!;
   if (isDcx(u8)) return formatById('pcx')!;
@@ -152,6 +155,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'wbmp') decoded = fromOwn(decodeWbmp(u8), 'wbmp');
   else if (fmt.id === 'psd') decoded = fromOwn(decodePsd(u8), 'psd');
   else if (fmt.id === 'dds') decoded = fromOwn(decodeDds(u8), 'dds');
+  else if (fmt.id === 'exr') decoded = fromOwn(decodeExr(u8), 'exr');
   else if (fmt.id === 'hdr') decoded = fromOwn(decodeHdr(u8), 'hdr');
   else if (fmt.id === 'icns') decoded = await decodeIcnsFile(u8);
   else if (fmt.id === 'raw') decoded = await decodeRawPreview(u8, entry.name);
