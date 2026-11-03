@@ -1,10 +1,10 @@
 /**
- * RAR archives (RAR 1.5–4.x headers with the 2.9 coder, and RAR 5.0): the file list (names, sizes,
+ * RAR archives (RAR 1.5–4.x headers with the 1.5, 2.0 and 2.9 coders, and RAR 5.0): the file list (names, sizes,
  * times, folders, links), stored and compressed files, solid archives (a file is unpacked after the ones
  * before it in the same stream; reading in order keeps that cheap) and CRC-32 checks. Encrypted archives
- * and files, multi-volume archives and the RAR 1.5/2.0 coders are refused with a message.
+ * and files and multi-volume archives are refused with a message.
  */
-import { Unpack3, Unpack5, RarError, crc32 } from './rarunpack';
+import { Unpack3, Unpack5, UnpackOld, RarError, crc32 } from './rarunpack';
 
 export interface RarEntry {
   name: string; size: number; packed: number; mtime: number; dir: boolean; link: boolean;
@@ -46,7 +46,7 @@ function plainName(b: Uint8Array): string {
 export class Rar {
   entries: RarEntry[] = []; warnings: string[] = []; format: 4 | 5 = 4;
   solid = false; volume = false; headersEncrypted = false;
-  private u3: Unpack3 | null = null; private u5: Unpack5 | null = null; private next = -1; // index of the next file in the current solid stream
+  private u3: Unpack3 | null = null; private u5: Unpack5 | null = null; private uOld: UnpackOld | null = null; private next = -1; // index of the next file in the current solid stream
   /** Files unpacked while replaying a solid stream, kept (up to 64 MB) so reading out of order stays cheap. */
   private cache = new Map<number, Uint8Array>(); private cached = 0;
 
@@ -62,7 +62,9 @@ export class Rar {
       if (size < 7 || p + size > u.length) { this.warnings.push('The archive ends early'); break; }
       let add = flags & 0x8000 ? dv.getUint32(p + 7, true) : 0;
       if ((type === 0x74 || type === 0x7a) && flags & 0x100 && size >= 36) add += dv.getUint32(p + 32, true) * 4294967296;
-      if (type !== 0x72 && (crc32(u.subarray(p + 2, p + size)) & 0xffff) !== crc) this.warnings.push('A damaged header was found');
+      // RAR 1.5–2.0 wrote a wrong CRC for headers carrying a comment (the main header's, or a file's).
+      const oldComment = (type === 0x73 && flags & 2) || (type === 0x74 && flags & 8);
+      if (type !== 0x72 && !oldComment && (crc32(u.subarray(p + 2, p + size)) & 0xffff) !== crc) this.warnings.push('A damaged header was found');
       if (type === 0x73) {
         this.volume = !!(flags & 1); this.solid = !!(flags & 8);
         if (flags & 0x80) { this.headersEncrypted = true; break; }
@@ -81,6 +83,12 @@ export class Rar {
         this.entries.push({ name, size: unp, packed, mtime: dosTime(time), dir, link: host === 3 && unixType === 0xa000, method: method - 0x30, version: ver, solid: !!(flags & 0x10), encrypted: !!(flags & 4), split: !!(flags & 3), dict: 0x10000 << ((flags >>> 5) & 7), crc: fcrc, offset: p + size, index: this.entries.length });
       } else if (type === 0x7b) break;
       p += size + add;
+    }
+    // Below version 2.0 the per-file solid flag is never read: in a solid archive every file after the first
+    // compressed one continues the stream.
+    if (this.solid) {
+      let seen = false;
+      for (const e of this.entries) if (e.version < 20 && !e.dir && !e.link && e.method !== 0 && e.packed > 0) { e.solid = seen; seen = true; }
     }
   }
 
@@ -131,10 +139,11 @@ export class Rar {
     const hit = this.cache.get(e.index); if (hit) return hit;
     const packed = this.u8.subarray(e.offset, e.offset + e.packed);
     let out: Uint8Array;
-    if (e.method === 0) out = packed.slice(0, e.size);
+    if (e.method === 0 || (e.packed === 0 && e.size === 0)) out = packed.slice(0, e.size);
     else if (this.format === 4) {
-      if (e.version !== 29 && e.version !== 36) throw new RarError(`${e.name} was packed by RAR ${e.version < 20 ? '1.5' : '2.x'}, whose compression Anne's Lens does not unpack yet`);
-      out = this.solidRun(e, () => (this.u3 ??= new Unpack3()), (u, x, s) => (u as Unpack3).unpack(this.u8.subarray(x.offset, x.offset + x.packed), x.size, x.dict, s));
+      if (e.version === 15 || e.version === 20 || e.version === 26) out = this.solidRun(e, () => (this.uOld ??= new UnpackOld()), (u, x, s) => (u as UnpackOld).unpack(this.u8.subarray(x.offset, x.offset + x.packed), x.size, x.dict, s, x.version));
+      else if (e.version === 29 || e.version === 36) out = this.solidRun(e, () => (this.u3 ??= new Unpack3()), (u, x, s) => (u as Unpack3).unpack(this.u8.subarray(x.offset, x.offset + x.packed), x.size, x.dict, s));
+      else throw new RarError(`${e.name} was packed by a RAR version (${e.version}) whose compression Anne's Lens does not know`);
     } else {
       if (e.version !== 0) throw new RarError(`${e.name} uses a newer RAR compression (version ${e.version}) than Anne's Lens unpacks`);
       out = this.solidRun(e, () => (this.u5 ??= new Unpack5()), (u, x, s) => (u as Unpack5).unpack(this.u8.subarray(x.offset, x.offset + x.packed), x.size, x.dict, s));
@@ -144,13 +153,13 @@ export class Rar {
   }
 
   /** Unpacks `e`, first replaying the files before it in its solid stream unless the decoder is already there. */
-  private solidRun(e: RarEntry, make: () => Unpack3 | Unpack5, run: (u: Unpack3 | Unpack5, x: RarEntry, solid: boolean) => Uint8Array): Uint8Array {
+  private solidRun(e: RarEntry, make: () => Unpack3 | Unpack5 | UnpackOld, run: (u: Unpack3 | Unpack5 | UnpackOld, x: RarEntry, solid: boolean) => Uint8Array): Uint8Array {
     const compressed = (x: RarEntry) => !x.dir && !x.link && x.method !== 0 && x.packed > 0;
     if (!e.solid) { const u = make(); this.next = e.index + 1; return run(u, e, false); }
     let first = e.index;
     while (first > 0 && !(compressed(this.entries[first]) && !this.entries[first].solid)) first--;
     const from = this.next >= first && this.next <= e.index ? this.next : first;
-    if (from === first && this.next !== first) { this.u3 = null; this.u5 = null; }
+    if (from === first && this.next !== first) { this.u3 = null; this.u5 = null; this.uOld = null; }
     const u = make();
     let out: Uint8Array = new Uint8Array(0);
     for (let i = from; i <= e.index; i++) {

@@ -1,7 +1,8 @@
 import { Ppmd7, RangeRar } from './ppmd';
 
 /**
- * RAR decompression of the app's own: the RAR 2.9 (RAR 3.x/4.x archives) and RAR 5.0 LZ coders with their
+ * RAR decompression of the app's own: the RAR 1.5 and 2.0 coders (multimedia blocks included), the RAR 2.9
+ * (RAR 3.x/4.x archives) and RAR 5.0 LZ coders with their
  * standard filters (x86 E8/E8E9, Itanium, delta, RGB and audio for 2.9; E8, E8E9, ARM and delta for 5.0),
  * solid streams (the window, tables and recent distances carry over from file to file) and RAR's
  * circular window with filtered blocks written in order. Written for Anne's Lens; it contains no RARLAB
@@ -450,6 +451,321 @@ function audio(src: Uint8Array, channels: number): Uint8Array {
     }
   }
   return dst;
+}
+
+// RAR 1.5 and 2.0 ------------------------------------------------------------------------------------
+// RAR 1.5: adaptive symbol rankings with fixed prefix codes; RAR 2.0: Huffman LZ, and multimedia blocks
+// that predict audio samples. Both stop after the file's size and carry state into the next solid file.
+const DEC_L1 = [0x8000, 0xa000, 0xc000, 0xd000, 0xe000, 0xea00, 0xee00, 0xf000, 0xf200, 0xf200, 0xffff], POS_L1 = [0, 0, 0, 2, 3, 5, 7, 11, 16, 20, 24, 32, 32];
+const DEC_L2 = [0xa000, 0xc000, 0xd000, 0xe000, 0xea00, 0xee00, 0xf000, 0xf200, 0xf240, 0xffff], POS_L2 = [0, 0, 0, 0, 5, 7, 9, 13, 18, 22, 26, 34, 36];
+const DEC_HF0 = [0x8000, 0xc000, 0xe000, 0xf200, 0xf200, 0xf200, 0xf200, 0xf200, 0xffff], POS_HF0 = [0, 0, 0, 0, 0, 8, 16, 24, 33, 33, 33, 33, 33];
+const DEC_HF1 = [0x2000, 0xc000, 0xe000, 0xf000, 0xf200, 0xf200, 0xf7e0, 0xffff], POS_HF1 = [0, 0, 0, 0, 0, 0, 4, 44, 60, 76, 80, 80, 127];
+const DEC_HF2 = [0x1000, 0x2400, 0x8000, 0xc000, 0xfa00, 0xffff, 0xffff, 0xffff], POS_HF2 = [0, 0, 0, 0, 0, 0, 2, 7, 53, 117, 233, 0, 0];
+const DEC_HF3 = [0x800, 0x2400, 0xee00, 0xfe80, 0xffff, 0xffff, 0xffff], POS_HF3 = [0, 0, 0, 0, 0, 0, 0, 2, 16, 218, 251, 0, 0];
+const DEC_HF4 = [0xff00, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff], POS_HF4 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0];
+const SHORT_LEN1 = [1, 3, 4, 4, 5, 6, 7, 8, 8, 4, 4, 5, 6, 6, 4, 0], SHORT_XOR1 = [0, 0xa0, 0xd0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff, 0xc0, 0x80, 0x90, 0x98, 0x9c, 0xb0];
+const SHORT_LEN2 = [2, 3, 3, 3, 4, 4, 5, 6, 6, 4, 4, 5, 6, 6, 4, 0], SHORT_XOR2 = [0, 0x40, 0x60, 0xa0, 0xd0, 0xe0, 0xf0, 0xf8, 0xfc, 0xc0, 0x80, 0x90, 0x98, 0x9c, 0xb0];
+const NC2 = 298, DC2 = 48, RC2 = 28, BC2 = 19, MC2 = 257;
+const DDECODE2 = [0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 24576, 32768, 49152, 65536, 98304, 131072, 196608, 262144, 327680, 393216, 458752, 524288, 589824, 655360, 720896, 786432, 851968, 917504, 983040];
+const DBITS2 = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16];
+interface Audio { k: number[]; d: number[]; lastDelta: number; lastChar: number; dif: number[]; count: number }
+const newAudio = (): Audio => ({ k: [0, 0, 0, 0, 0], d: [0, 0, 0, 0], lastDelta: 0, lastChar: 0, dif: new Array(11).fill(0), count: 0 });
+
+export class UnpackOld extends Unpacker {
+  private inp = new Bits(new Uint8Array(0)); private left = 0; // bytes still to produce, minus one (RAR's DestUnpSize)
+  // 1.5
+  private chSet = new Uint16Array(256); private chSetA = new Uint16Array(256); private chSetB = new Uint16Array(256); private chSetC = new Uint16Array(256);
+  private nToPl = new Uint8Array(256); private nToPlB = new Uint8Array(256); private nToPlC = new Uint8Array(256);
+  private avrPlc = 0; private avrPlcB = 0; private avrLn1 = 0; private avrLn2 = 0; private avrLn3 = 0; private numHuf = 0; private buf60 = 0; private maxDist3 = 0; private nhfb = 0; private nlzb = 0;
+  private flagsCnt = 0; private flagBuf = 0; private stMode = 0; private lCount = 0; private lastDist = 0; private oldDistPtr = 0;
+  // 2.0
+  private tablesRead = false; private audio = false; private channels = 1; private curChannel = 0; private channelDelta = 0;
+  private aud: Audio[] = [newAudio(), newAudio(), newAudio(), newAudio()]; private oldTable = new Uint8Array(MC2 * 4);
+  private ld!: Huff; private dd!: Huff; private rd!: Huff; private md: Huff[] = [];
+
+  unpack(packed: Uint8Array, size: number, dict: number, solid: boolean, version: number): Uint8Array {
+    this.window(dict, solid);
+    this.out = new Uint8Array(size); this.outPos = 0; this.written = 0;
+    this.inp = new Bits(packed);
+    if (!solid) { this.oldDist = [0, 0, 0, 0]; this.oldDistPtr = 0; this.lastDist = 0; this.lastLength = 0; this.unpPtr = this.wrPtr = 0; this.win.fill(0); }
+    this.left = size - 1;
+    if (version < 20) this.unpack15(solid); else this.unpack20(solid);
+    this.writeOld();
+    return this.out;
+  }
+  private writeOld(): void { this.writeArea(this.wrPtr, this.unpPtr & this.mask); this.wrPtr = this.unpPtr & this.mask; }
+  private copy15(distance: number, length: number): void {
+    this.left -= length;
+    if (distance === 0 || distance > this.win.length) { for (let i = 0; i < length; i++) { this.win[this.unpPtr] = 0; this.unpPtr = (this.unpPtr + 1) & this.mask; } }
+    else this.copyString(length, distance);
+  }
+  private decodeNum(num: number, start: number, dec: number[], pos: number[]): number {
+    num &= 0xfff0; let i = 0;
+    for (; dec[i] <= num; i++) start++;
+    this.inp.add(start);
+    return ((num - (i ? dec[i - 1] : 0)) >>> (16 - start)) + pos[start];
+  }
+
+  // RAR 1.5 ------------------------------------------------------------
+  private unpack15(solid: boolean): void {
+    if (!solid) {
+      this.avrPlcB = this.avrLn1 = this.avrLn2 = this.avrLn3 = this.numHuf = this.buf60 = 0;
+      this.avrPlc = 0x3500; this.maxDist3 = 0x2001; this.nhfb = this.nlzb = 0x80;
+      for (let i = 0; i < 256; i++) { this.chSet[i] = this.chSetB[i] = i << 8; this.chSetA[i] = i; this.chSetC[i] = ((~i + 1) & 0xff) << 8; }
+      this.nToPl.fill(0); this.nToPlB.fill(0); this.nToPlC.fill(0);
+      this.corrHuff(this.chSetB, this.nToPlB);
+    }
+    this.flagsCnt = 0; this.flagBuf = 0; this.stMode = 0; this.lCount = 0;
+    if (this.left >= 0) { this.getFlagsBuf(); this.flagsCnt = 8; }
+    while (this.left >= 0) {
+      this.unpPtr &= this.mask;
+      if (this.inp.over) break;
+      if (((this.wrPtr - this.unpPtr) & this.mask) < 270 && this.wrPtr !== this.unpPtr) this.writeOld();
+      if (this.stMode) { this.huffDecode(); continue; }
+      if (--this.flagsCnt < 0) { this.getFlagsBuf(); this.flagsCnt = 7; }
+      if (this.flagBuf & 0x80) {
+        this.flagBuf = (this.flagBuf << 1) & 0xff;
+        if (this.nlzb > this.nhfb) this.longLZ(); else this.huffDecode();
+      } else {
+        this.flagBuf = (this.flagBuf << 1) & 0xff;
+        if (--this.flagsCnt < 0) { this.getFlagsBuf(); this.flagsCnt = 7; }
+        if (this.flagBuf & 0x80) { this.flagBuf = (this.flagBuf << 1) & 0xff; if (this.nlzb > this.nhfb) this.huffDecode(); else this.longLZ(); }
+        else { this.flagBuf = (this.flagBuf << 1) & 0xff; this.shortLZ(); }
+      }
+    }
+  }
+  private corrHuff(set: Uint16Array, toPlace: Uint8Array): void {
+    let k = 0;
+    for (let i = 7; i >= 0; i--) for (let j = 0; j < 32; j++, k++) set[k] = (set[k] & ~0xff) | i;
+    toPlace.fill(0);
+    for (let i = 6; i >= 0; i--) toPlace[i] = (7 - i) * 32;
+  }
+  private getFlagsBuf(): void {
+    const place = this.decodeNum(this.inp.get16(), 5, DEC_HF2, POS_HF2);
+    if (place >= 256) return;
+    let flags: number, newPlace: number;
+    for (;;) {
+      flags = this.chSetC[place]; this.flagBuf = flags >>> 8;
+      newPlace = this.nToPlC[flags & 0xff]++; flags++;
+      if (flags & 0xff) break;
+      this.corrHuff(this.chSetC, this.nToPlC);
+    }
+    this.chSetC[place] = this.chSetC[newPlace]; this.chSetC[newPlace] = flags;
+  }
+  private shortLZ(): void {
+    const inp = this.inp; this.numHuf = 0;
+    let field = inp.get16();
+    if (this.lCount === 2) {
+      inp.add(1);
+      if (field >= 0x8000) { this.copy15(this.lastDist, this.lastLength); return; }
+      field = (field << 1) & 0xffff; this.lCount = 0;
+    }
+    field >>>= 8;
+    let length = 0;
+    if (this.avrLn1 < 37) {
+      const len = (i: number) => (i === 1 ? this.buf60 + 3 : SHORT_LEN1[i]);
+      for (; length < 15; length++) if (((field ^ SHORT_XOR1[length]) & ~(0xff >>> len(length)) & 0xff) === 0) break;
+      inp.add(len(length));
+    } else {
+      const len = (i: number) => (i === 3 ? this.buf60 + 3 : SHORT_LEN2[i]);
+      for (; length < 15; length++) if (((field ^ SHORT_XOR2[length]) & ~(0xff >>> len(length)) & 0xff) === 0) break;
+      inp.add(len(length));
+    }
+    if (length >= 9) {
+      if (length === 9) { this.lCount++; this.copy15(this.lastDist, this.lastLength); return; }
+      if (length === 14) {
+        this.lCount = 0;
+        length = this.decodeNum(inp.get16(), 3, DEC_L2, POS_L2) + 5;
+        const distance = (inp.get16() >>> 1) | 0x8000; inp.add(15);
+        this.lastLength = length; this.lastDist = distance; this.copy15(distance, length); return;
+      }
+      this.lCount = 0;
+      const save = length, distance = this.oldDist[(this.oldDistPtr - (length - 9)) & 3];
+      length = this.decodeNum(inp.get16(), 2, DEC_L1, POS_L1) + 2;
+      if (length === 0x101 && save === 10) { this.buf60 ^= 1; return; }
+      if (distance > 256) length++;
+      if (distance >= this.maxDist3) length++;
+      this.oldDist[this.oldDistPtr++] = distance; this.oldDistPtr &= 3;
+      this.lastLength = length; this.lastDist = distance; this.copy15(distance, length); return;
+    }
+    this.lCount = 0;
+    this.avrLn1 += length; this.avrLn1 -= this.avrLn1 >>> 4;
+    let place = this.decodeNum(inp.get16(), 5, DEC_HF2, POS_HF2) & 0xff;
+    let distance = this.chSetA[place];
+    if (--place !== -1) { this.chSetA[place + 1] = this.chSetA[place]; this.chSetA[place] = distance; }
+    length += 2;
+    this.oldDist[this.oldDistPtr++] = ++distance; this.oldDistPtr &= 3;
+    this.lastLength = length; this.lastDist = distance; this.copy15(distance, length);
+  }
+  private longLZ(): void {
+    const inp = this.inp; this.numHuf = 0;
+    this.nlzb += 16; if (this.nlzb > 0xff) { this.nlzb = 0x90; this.nhfb >>>= 1; }
+    const oldAvr2 = this.avrLn2;
+    let field = inp.get16(), length: number;
+    if (this.avrLn2 >= 122) length = this.decodeNum(field, 3, DEC_L2, POS_L2);
+    else if (this.avrLn2 >= 64) length = this.decodeNum(field, 2, DEC_L1, POS_L1);
+    else if (field < 0x100) { length = field; inp.add(16); }
+    else { for (length = 0; ((field << length) & 0x8000) === 0; length++); inp.add(length + 1); }
+    this.avrLn2 += length; this.avrLn2 -= this.avrLn2 >>> 5;
+    field = inp.get16();
+    let place: number;
+    if (this.avrPlcB > 0x28ff) place = this.decodeNum(field, 5, DEC_HF2, POS_HF2);
+    else if (this.avrPlcB > 0x6ff) place = this.decodeNum(field, 5, DEC_HF1, POS_HF1);
+    else place = this.decodeNum(field, 4, DEC_HF0, POS_HF0);
+    this.avrPlcB += place; this.avrPlcB -= this.avrPlcB >>> 8;
+    let distance: number, newPlace: number;
+    for (;;) {
+      distance = this.chSetB[place & 0xff];
+      newPlace = this.nToPlB[distance & 0xff]++; distance = (distance + 1) & 0xffff;
+      if (!(distance & 0xff)) this.corrHuff(this.chSetB, this.nToPlB); else break;
+    }
+    this.chSetB[place & 0xff] = this.chSetB[newPlace]; this.chSetB[newPlace] = distance;
+    distance = ((distance & 0xff00) | (inp.get16() >>> 8)) >>> 1; inp.add(7);
+    const oldAvr3 = this.avrLn3;
+    if (length !== 1 && length !== 4) {
+      if (length === 0 && distance <= this.maxDist3) { this.avrLn3++; this.avrLn3 -= this.avrLn3 >>> 8; }
+      else if (this.avrLn3 > 0) this.avrLn3--;
+    }
+    length += 3;
+    if (distance >= this.maxDist3) length++;
+    if (distance <= 256) length += 8;
+    this.maxDist3 = oldAvr3 > 0xb0 || (this.avrPlc >= 0x2a00 && oldAvr2 < 0x40) ? 0x7f00 : 0x2001;
+    this.oldDist[this.oldDistPtr++] = distance; this.oldDistPtr &= 3;
+    this.lastLength = length; this.lastDist = distance; this.copy15(distance, length);
+  }
+  private huffDecode(): void {
+    const inp = this.inp;
+    let field = inp.get16(), place: number;
+    if (this.avrPlc > 0x75ff) place = this.decodeNum(field, 8, DEC_HF4, POS_HF4);
+    else if (this.avrPlc > 0x5dff) place = this.decodeNum(field, 6, DEC_HF3, POS_HF3);
+    else if (this.avrPlc > 0x35ff) place = this.decodeNum(field, 5, DEC_HF2, POS_HF2);
+    else if (this.avrPlc > 0x0dff) place = this.decodeNum(field, 5, DEC_HF1, POS_HF1);
+    else place = this.decodeNum(field, 4, DEC_HF0, POS_HF0);
+    place &= 0xff;
+    if (this.stMode) {
+      if (place === 0 && field > 0xfff) place = 0x100;
+      if (--place === -1) {
+        field = inp.get16(); inp.add(1);
+        if (field & 0x8000) { this.numHuf = this.stMode = 0; return; }
+        const length = field & 0x4000 ? 4 : 3; inp.add(1);
+        let distance = this.decodeNum(inp.get16(), 5, DEC_HF2, POS_HF2);
+        distance = (distance << 5) | (inp.get16() >>> 11); inp.add(5);
+        this.copy15(distance, length); return;
+      }
+    } else if (this.numHuf++ >= 16 && this.flagsCnt === 0) this.stMode = 1;
+    this.avrPlc += place; this.avrPlc -= this.avrPlc >>> 8;
+    this.nhfb += 16; if (this.nhfb > 0xff) { this.nhfb = 0x90; this.nlzb >>>= 1; }
+    this.win[this.unpPtr++] = this.chSet[place] >>> 8; this.left--;
+    let cur: number, newPlace: number;
+    for (;;) {
+      cur = this.chSet[place];
+      newPlace = this.nToPl[cur & 0xff]++; cur = (cur + 1) & 0xffff;
+      if ((cur & 0xff) > 0xa1) this.corrHuff(this.chSet, this.nToPl); else break;
+    }
+    this.chSet[place] = this.chSet[newPlace]; this.chSet[newPlace] = cur;
+  }
+
+  // RAR 2.0 ------------------------------------------------------------
+  private copy20(length: number, distance: number): void {
+    this.lastDist = this.oldDist[this.oldDistPtr++ & 3] = distance; this.oldDistPtr &= 3;
+    this.lastLength = length; this.left -= length;
+    this.copyString(length, distance);
+  }
+  private unpack20(solid: boolean): void {
+    if (!solid) { this.tablesRead = false; this.audio = false; this.channelDelta = 0; this.curChannel = 0; this.channels = 1; this.aud = [newAudio(), newAudio(), newAudio(), newAudio()]; this.oldTable.fill(0); }
+    if ((!solid || !this.tablesRead) && !this.readTables20()) return;
+    const inp = this.inp;
+    while (this.left >= 0) {
+      this.unpPtr &= this.mask;
+      if (inp.over) break;
+      if (((this.wrPtr - this.unpPtr) & this.mask) < 270 && this.wrPtr !== this.unpPtr) this.writeOld();
+      if (this.audio) {
+        const n = this.md[this.curChannel].decode(inp);
+        if (n === 256) { if (!this.readTables20()) break; continue; }
+        this.win[this.unpPtr++] = this.decodeAudio(n);
+        if (++this.curChannel === this.channels) this.curChannel = 0;
+        this.left--; continue;
+      }
+      let n = this.ld.decode(inp);
+      if (n < 256) { this.win[this.unpPtr++] = n; this.left--; continue; }
+      if (n > 269) {
+        n -= 270; let length = LDECODE[n] + 3, bits = LBITS[n];
+        if (bits > 0) { length += inp.get16() >>> (16 - bits); inp.add(bits); }
+        const dn = this.dd.decode(inp); let distance = DDECODE2[dn] + 1; bits = DBITS2[dn];
+        if (bits > 0) { distance += inp.get16() >>> (16 - bits); inp.add(bits); }
+        if (distance >= 0x2000) { length++; if (distance >= 0x40000) length++; }
+        this.copy20(length, distance); continue;
+      }
+      if (n === 269) { if (!this.readTables20()) break; continue; }
+      if (n === 256) { this.copy20(this.lastLength, this.lastDist); continue; }
+      if (n < 261) {
+        const distance = this.oldDist[(this.oldDistPtr - (n - 256)) & 3];
+        const ln = this.rd.decode(inp); let length = LDECODE[ln] + 2; const bits = LBITS[ln];
+        if (bits > 0) { length += inp.get16() >>> (16 - bits); inp.add(bits); }
+        if (distance >= 0x101) { length++; if (distance >= 0x2000) { length++; if (distance >= 0x40000) length++; } }
+        this.copy20(length, distance); continue;
+      }
+      { // 261…269: short distances, length 2
+        const k = n - 261; let distance = SDDECODE[k] + 1; const bits = SDBITS[k];
+        if (bits > 0) { distance += inp.get16() >>> (16 - bits); inp.add(bits); }
+        this.copy20(2, distance);
+      }
+    }
+    // A table change right after the file's data belongs to the next solid file.
+    if (inp.b.length >= inp.addr + 5) {
+      if (this.audio) { if (this.md[this.curChannel].decode(inp) === 256) this.readTables20(); }
+      else if (this.ld.decode(inp) === 269) this.readTables20();
+    }
+  }
+  private readTables20(): boolean {
+    const inp = this.inp, field = inp.get16();
+    this.audio = !!(field & 0x8000);
+    if (!(field & 0x4000)) this.oldTable.fill(0);
+    inp.add(2);
+    let size: number;
+    if (this.audio) { this.channels = ((field >>> 12) & 3) + 1; if (this.curChannel >= this.channels) this.curChannel = 0; inp.add(2); size = MC2 * this.channels; }
+    else size = NC2 + DC2 + RC2;
+    const bl = new Uint8Array(BC2);
+    for (let i = 0; i < BC2; i++) { bl[i] = inp.get16() >>> 12; inp.add(4); }
+    const bd = new Huff(bl, 0, BC2), t = new Uint8Array(size);
+    for (let i = 0; i < size;) {
+      if (inp.over) return false;
+      const n = bd.decode(inp);
+      if (n < 16) { t[i] = (n + this.oldTable[i]) & 15; i++; }
+      else if (n === 16) {
+        let c = (inp.get16() >>> 14) + 3; inp.add(2);
+        if (i === 0) return false;
+        while (c-- > 0 && i < size) { t[i] = t[i - 1]; i++; }
+      } else {
+        let c: number; if (n === 17) { c = (inp.get16() >>> 13) + 3; inp.add(3); } else { c = (inp.get16() >>> 9) + 11; inp.add(7); }
+        while (c-- > 0 && i < size) t[i++] = 0;
+      }
+    }
+    this.tablesRead = true;
+    if (inp.over) return true;
+    if (this.audio) { this.md = []; for (let i = 0; i < this.channels; i++) this.md.push(new Huff(t, i * MC2, MC2)); }
+    else { this.ld = new Huff(t, 0, NC2); this.dd = new Huff(t, NC2, DC2); this.rd = new Huff(t, NC2 + DC2, RC2); }
+    this.oldTable.set(t);
+    return true;
+  }
+  private decodeAudio(delta: number): number {
+    const v = this.aud[this.curChannel], d = v.d, k = v.k;
+    v.count++;
+    d[3] = d[2]; d[2] = d[1]; d[1] = v.lastDelta - d[0]; d[0] = v.lastDelta;
+    const pch = ((8 * v.lastChar + k[0] * d[0] + k[1] * d[1] + k[2] * d[2] + k[3] * d[3] + k[4] * this.channelDelta) >> 3) & 0xff;
+    const ch = (pch - delta) & 0xff;
+    const x = (((delta & 255) << 24) >> 24) * 8, dif = v.dif;
+    dif[0] += Math.abs(x); dif[1] += Math.abs(x - d[0]); dif[2] += Math.abs(x + d[0]); dif[3] += Math.abs(x - d[1]); dif[4] += Math.abs(x + d[1]);
+    dif[5] += Math.abs(x - d[2]); dif[6] += Math.abs(x + d[2]); dif[7] += Math.abs(x - d[3]); dif[8] += Math.abs(x + d[3]); dif[9] += Math.abs(x - this.channelDelta); dif[10] += Math.abs(x + this.channelDelta);
+    this.channelDelta = v.lastDelta = (((ch - v.lastChar) & 255) << 24) >> 24;
+    v.lastChar = ch;
+    if ((v.count & 0x1f) === 0) {
+      let min = dif[0], which = 0; dif[0] = 0;
+      for (let i = 1; i < 11; i++) { if (dif[i] < min) { min = dif[i]; which = i; } dif[i] = 0; }
+      if (which) { const j = (which - 1) >> 1; if (which & 1) { if (k[j] >= -16) k[j]--; } else if (k[j] < 16) k[j]++; }
+    }
+    return ch;
+  }
 }
 
 // RAR 5.0 ---------------------------------------------------------------------------------------------

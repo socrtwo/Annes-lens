@@ -57,6 +57,38 @@ describe('RAR 2.x–4.x archives', () => {
   });
 });
 
+describe('RAR 1.5 and 2.0 coders (archives made with RAR 1.54 and RAR 2.50)', () => {
+  it('RAR 1.5: a file matches the original byte for byte', () => {
+    const r = open('rars-154-readme.rar'), e = r.entries[0];
+    expect([e.version, e.method]).toEqual([15, 3]);
+    expect(r.read(e)).toEqual(fx('rars-README.md'));
+  });
+  it('RAR 1.5: 17 files of best compression', () => {
+    const r = open('rars-154-docs.rar');
+    expect(r.entries.length).toBe(17);
+    expect(r.entries.reduce((n, e) => n + r.read(e).length, 0)).toBe(r.entries.reduce((n, e) => n + e.size, 0));
+  });
+  it('RAR 1.5: a solid archive continues whatever the per-file flag says', () => {
+    const r = open('rars-154-solid-flag-cleared.rar');
+    expect(r.entries.map((e) => [e.solid, r.read(e).length])).toEqual([[false, expect.any(Number)], [true, expect.any(Number)]]);
+  });
+  it('RAR 1.5 comments: headers whose CRC old RAR wrote wrong are not called damaged', () => {
+    const r = open('rarfile-rar15-comment.rar');
+    expect(r.warnings).toEqual([]);
+    expect(r.entries.map((e) => text(r.read(e)).length)).toEqual([7, 8]);
+  });
+  it('RAR 2.0: multimedia-switch and text files, a long LZ stream, a solid pair, zero fill', () => {
+    for (const [n, sizes] of [['rars-250-audio-switch.rar', [32768]], ['rars-250-text.rar', [2300]], ['rars-250-biglz.rar', [167936]], ['rars-250-solid.rar', [15840, 13800]], ['rars-20-zero-fill.rar', [240]]] as const) {
+      const r = open(n);
+      expect(r.entries.map((e) => [e.version, r.read(e).length]), n).toEqual(sizes.map((x) => [20, x]));
+    }
+  });
+  it('a compressed entry with no data is an empty file', () => {
+    const r = open('rars-30-empty-compressed.rar');
+    expect([r.entries[0].method, r.read(r.entries[0]).length]).toEqual([3, 0]);
+  });
+});
+
 describe('RAR 5.0 archives', () => {
   it('stored and compressed files', () => {
     const s = open('la-rar5-stored.rar');

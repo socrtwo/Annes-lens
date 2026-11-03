@@ -2,13 +2,19 @@
 """RAR fixtures: libarchive's RAR test archives, and stored (uncompressed) RAR archives of pictures written here.
 
 No RAR compressor is used (RARLAB's rar is proprietary). Compressed data comes from libarchive's test suite
-(BSD-2-Clause, see tests/fixtures/rar/LICENSE-libarchive), fetched at a pinned commit and uudecoded; every
-file in a RAR archive carries a CRC-32 of its contents, so unpacking them checks itself.
+(BSD-2-Clause, see tests/fixtures/rar/LICENSE-libarchive), fetched at a pinned commit and uudecoded, and, for
+the RAR 1.5 and 2.0 coders, from archives made with RAR 1.54 and RAR 2.50 by the rars project (Apache-2.0,
+LICENSE-rars) and from Python rarfile's tests (ISC, LICENSE-rarfile). Every file in a RAR archive carries a
+CRC-32 of its contents, so unpacking them checks itself.
 
 Writes to tests/fixtures/rar/:
   la-*.rar         the libarchive archives listed in LIBARCHIVE below (RAR 2.9 and RAR 5.0: stored, LZ,
                    PPMd, a 241 MB file switching between PPMd and LZ, filters, solid, Unicode names, encryption,
                    damaged and fuzzed files)
+  rars-*.rar       RAR 1.54 (readme, a 17-file document set, a solid archive with the per-file flag cleared)
+                   and RAR 2.50 (multimedia switch, text, a long LZ stream, solid) archives, a zero-filled RAR 2.0
+                   file, an empty compressed file; rars-README.md is what readme_154_normal.rar holds
+  rarfile-rar15-comment.rar   RAR 1.5 with archive and file comments (headers whose CRC RAR 1.5 wrote wrong)
   comic4.cbr       RAR 2.x–4.x headers, stored: page-01.png, page-02.jpg, page-10.png, notes.txt, extras/
   comic5.cbr       the same pictures in a RAR 5.0 archive, stored
 Needs Pillow and network access to raw.githubusercontent.com.
@@ -34,6 +40,14 @@ LIBARCHIVE = [
 ]
 
 
+RARS = ('bitplane/rars', '62f91b868bdad99508408565cb50ce0a170f40bf', 'crates/rars/tests/fixtures/rar15_40', {
+    'rar154/readme_154_normal.rar': 'rars-154-readme.rar', 'rar154/expected/README.md': 'rars-README.md',
+    'rar154/doc_154_best.rar': 'rars-154-docs.rar', 'solid_flag_cleared_rar15.rar': 'rars-154-solid-flag-cleared.rar',
+    'rar250/AUDIO.RAR': 'rars-250-audio-switch.rar', 'rar250/AUTOREJ.RAR': 'rars-250-text.rar', 'rar250/BIGLZ.RAR': 'rars-250-biglz.rar',
+    'rar250/SOLID.RAR': 'rars-250-solid.rar', 'zero_fill/rar20.rar': 'rars-20-zero-fill.rar', 'empty_compressed_payload_rar30.rar': 'rars-30-empty-compressed.rar'})
+RARFILE = ('markokr/rarfile', 'd2f7df6fc843dae356fd6b0a85971dc36fd6e757', 'test/files', {'rar15-comment.rar': 'rarfile-rar15-comment.rar'})
+
+
 def uudecode(text: bytes) -> bytes:
     out, started = bytearray(), False
     for line in text.split(b'\n'):
@@ -52,6 +66,11 @@ def fetch():
         data = uudecode(urllib.request.urlopen(f'{BASE}/libarchive/test/{name}.uu').read())
         open(os.path.join(OUT, f'la-{n.replace("_", "-")}.rar'), 'wb').write(data)
     open(os.path.join(OUT, 'LICENSE-libarchive'), 'wb').write(urllib.request.urlopen(f'{BASE}/COPYING').read())
+    for (repo, commit, base, files), lic, licname in [(RARS, 'COPYING', 'LICENSE-rars'), (RARFILE, 'LICENSE', 'LICENSE-rarfile')]:
+        raw = f'https://raw.githubusercontent.com/{repo}/{commit}'
+        for src, dst in files.items():
+            open(os.path.join(OUT, dst), 'wb').write(urllib.request.urlopen(f'{raw}/{base}/{src}').read())
+        open(os.path.join(OUT, licname), 'wb').write(urllib.request.urlopen(f'{raw}/{lic}').read())
 
 
 # Pictures for the comics -------------------------------------------------------------------------------
