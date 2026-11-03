@@ -1,11 +1,12 @@
 /**
  * 7z archives: the headers (also when they are themselves compressed), folders of chained coders
- * (Copy, LZMA, LZMA2, BZip2, Deflate; one input and one output each), solid folders holding many files,
+ * (Copy, LZMA, LZMA2, BZip2, Deflate, PPMd; one input and one output each), solid folders holding many files,
  * empty files and folders, names and modification times. A folder is decompressed when one of its
  * files is first read. Encrypted archives and executable filters (BCJ) are refused with a message.
  */
 import { lzmaDecode, lzma2Decode } from './lzma';
 import { bzip2Decode } from './bzip2';
+import { Ppmd7, Range7z } from './ppmd';
 
 export interface SevenEntry { name: string; size: number; mtime: number; folder: number; offset: number }
 interface Coder { id: string; props: Uint8Array; nIn: number; nOut: number }
@@ -95,6 +96,23 @@ async function inflateRaw(u8: Uint8Array, size: number): Promise<Uint8Array> {
   for (;;) { const { done, value } = await r.read(); if (done) break; const n = Math.min(value.length, size - o); out.set(value.subarray(0, n), o); o += n; }
   return out;
 }
+/** 7z PPMd: properties are the model order and its memory size; the stream ends after `size` bytes. */
+export const ppmdStats = { restarts: 0, glues: 0 };
+function ppmd(input: Uint8Array, props: Uint8Array, size: number): Uint8Array {
+  if (props.length < 5) throw new Error('Damaged 7z PPMd properties');
+  const order = props[0], mem = (props[1] | (props[2] << 8) | (props[3] << 16) | (props[4] << 24)) >>> 0;
+  if (order < 2 || order > 64) throw new Error('Damaged 7z PPMd properties');
+  let p = 0; const rc = new Range7z(() => (p < input.length ? input[p++] : (p++, 0)));
+  const model = new Ppmd7(mem); model.init(order);
+  const out = new Uint8Array(size);
+  for (let i = 0; i < size; i++) {
+    const c = model.decodeSymbol(rc);
+    if (c < 0 || p > input.length + 4) throw new Error('The 7z PPMd data is damaged');
+    out[i] = c;
+  }
+  ppmdStats.restarts = model.restarts; ppmdStats.glues = model.glues;
+  return out;
+}
 async function runCoder(c: Coder, input: Uint8Array, size: number): Promise<Uint8Array> {
   switch (c.id) {
     case '00': return input.subarray(0, size);
@@ -102,6 +120,7 @@ async function runCoder(c: Coder, input: Uint8Array, size: number): Promise<Uint
     case '030101': return lzmaDecode(input, c.props, size);
     case '040202': return bzip2Decode(input).subarray(0, size);
     case '040108': return inflateRaw(input, size);
+    case '030401': return ppmd(input, c.props, size);
     case '06f10701': throw new Error('This 7z archive is encrypted (AES), which Anne\'s Lens does not open');
     default: throw new Error(`7z method ${METHODS[c.id] || c.id} is not supported`);
   }

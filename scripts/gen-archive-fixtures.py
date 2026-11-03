@@ -66,8 +66,26 @@ def archives():
         with py7zr.SevenZipFile(f'{OUT}/{name}', 'w', filters=filters) as z:
             for n, d in files.items():
                 z.writestr(d, n)
+    # PPMd (pyppmd, from 7-Zip's PPMd var.H code; 'mem' is a power of two): the pictures, and text through a 1 MB
+    # model that fills and restarts.
+    with py7zr.SevenZipFile(f'{OUT}/pics-ppmd.7z', 'w', filters=[{'id': py7zr.FILTER_PPMD, 'order': 6, 'mem': 24}]) as z:
+        for n, d in files.items():
+            z.writestr(d, n)
+    with py7zr.SevenZipFile(f'{OUT}/text-ppmd-small.7z', 'w', filters=[{'id': py7zr.FILTER_PPMD, 'order': 8, 'mem': 20}]) as z:
+        z.writestr(ppmd_text(), 'text.txt')
     with py7zr.SevenZipFile(f'{OUT}/pics-aes.7z', 'w', password='anne') as z:
         z.writestr(pics['page 1.png'], 'page 1.png')
+
+
+def ppmd_text():
+    """About 600 KB of varied, seeded text: enough contexts to exhaust a 1 MB PPMd model several times."""
+    rng = np.random.default_rng(11)
+    words = [''.join(chr(97 + c) for c in rng.integers(0, 26, rng.integers(2, 11))) for _ in range(6000)]
+    out, n = [], 0
+    while n < 600_000:
+        line = ' '.join(words[i] for i in rng.integers(0, len(words), rng.integers(4, 16))) + f' {int(rng.integers(0, 10**9))}.\n'
+        out.append(line); n += len(line)
+    return ''.join(out).encode()
 
 
 if __name__ == '__main__':

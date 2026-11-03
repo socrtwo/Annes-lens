@@ -86,3 +86,5 @@ The People tests use five official White House portraits from Wikimedia Commons 
 The WMF and EMF test files are made by `scripts/gen-metafile-fixtures.py`: two written record by record by the script, and LibreOffice's own exports of a drawing made for the tests (`drawing.svg`). LibreOffice (MPL 2.0) is used only on the developer's machine to export those files and render the reference pictures; nothing from it ships in the app, whose metafile interpreter is its own code.
 
 The RAR tests use archives from libarchive's test suite (BSD-2-Clause; `tests/fixtures/rar/LICENSE-libarchive`), fetched at a pinned commit by `scripts/gen-rar-fixtures.py`, which also writes two stored comic archives of its own. No RAR compressor was used to make any test file.
+
+PPMd (used by 7z and by RAR's text compression) is the app's own implementation of Dmitry Shkarin's PPMd variant H, an algorithm he placed in the public domain. The 7z PPMd test archives are made with py7zr and pyppmd on the developer's machine; nothing from them ships in the app.

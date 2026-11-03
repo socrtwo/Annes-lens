@@ -1,9 +1,11 @@
+import { Ppmd7, RangeRar } from './ppmd';
+
 /**
  * RAR decompression of the app's own: the RAR 2.9 (RAR 3.x/4.x archives) and RAR 5.0 LZ coders with their
  * standard filters (x86 E8/E8E9, Itanium, delta, RGB and audio for 2.9; E8, E8E9, ARM and delta for 5.0),
  * solid streams (the window, tables and recent distances carry over from file to file) and RAR's
  * circular window with filtered blocks written in order. Written for Anne's Lens; it contains no RARLAB
- * (unRAR) code. PPMd blocks (RAR 2.9 text compression) are refused with a message.
+ * (unRAR) code. PPMd blocks (RAR 2.9 text compression) use ppmd.ts.
  */
 
 export class RarError extends Error {}
@@ -179,6 +181,7 @@ export class Unpack3 extends Unpacker {
   private prevLowDist = 0; private lowDistRep = 0;
   private filters: { type: string }[] = []; private oldFilterLengths: number[] = []; private lastFilter = 0; private stack: (Filter3 | null)[] = [];
   private ppm = false;
+  private model: Ppmd7 | null = null; private rc: RangeRar | null = null; private escChar = 2;
 
   unpack(packed: Uint8Array, size: number, dict: number, solid: boolean): Uint8Array {
     this.window(dict, solid);
@@ -186,17 +189,17 @@ export class Unpack3 extends Unpacker {
     this.inp = new Bits(packed);
     if (!solid) {
       this.oldDist = [0, 0, 0, 0]; this.lastLength = 0; this.unpPtr = this.wrPtr = 0;
-      this.tablesRead = false; this.oldTable.fill(0); this.ppm = false;
+      this.tablesRead = false; this.oldTable.fill(0); this.ppm = false; this.escChar = 2;
       this.filters = []; this.oldFilterLengths = []; this.lastFilter = 0;
     }
     this.stack = [];
     if (!solid || !this.tablesRead) this.readTables();
-    if (this.ppm) throw new RarError('This RAR archive uses PPMd text compression, which Anne\'s Lens does not unpack yet');
     const inp = this.inp;
     for (;;) {
       this.unpPtr &= this.mask;
       if (inp.over) break;
       if (((this.wrPtr - this.unpPtr) & this.mask) < 260 && this.wrPtr !== this.unpPtr) this.writeBuf();
+      if (this.ppm) { if (!this.ppmStep()) break; continue; }
       const n = this.ld.decode(inp);
       if (n < 256) { this.win[this.unpPtr++] = n; continue; }
       if (n >= 271) {
@@ -217,7 +220,7 @@ export class Unpack3 extends Unpacker {
         this.insertOldDist(distance); this.lastLength = length; this.copyString(length, distance);
         continue;
       }
-      if (n === 256) { if (!this.endOfBlock()) break; if (this.ppm) throw new RarError('This RAR archive uses PPMd text compression, which Anne\'s Lens does not unpack yet'); continue; }
+      if (n === 256) { if (!this.endOfBlock()) break; continue; }
       if (n === 257) { this.readVmCode(); continue; }
       if (n === 258) { if (this.lastLength) this.copyString(this.lastLength, this.oldDist[0]); continue; }
       if (n < 263) {
@@ -243,13 +246,60 @@ export class Unpack3 extends Unpacker {
   private readTables(): void {
     const inp = this.inp; inp.align();
     const field = inp.get16();
-    if (field & 0x8000) { this.ppm = true; return; }
+    if (field & 0x8000) { this.ppm = true; this.ppmInit(); return; }
     this.ppm = false; this.prevLowDist = 0; this.lowDistRep = 0;
     if (!(field & 0x4000)) this.oldTable.fill(0);
     inp.add(2);
     const t = readLengths(inp, TABLE3, this.oldTable);
     this.ld = new Huff(t, 0, NC3); this.dd = new Huff(t, NC3, DC3); this.ldd = new Huff(t, NC3 + DC3, LDC3); this.rd = new Huff(t, NC3 + DC3 + LDC3, RC3);
     this.oldTable.set(t); this.tablesRead = true;
+  }
+  // PPMd blocks: the model's flags byte (order, reset, memory, escape character), then range-coded symbols.
+  private byte(): number { const b = this.inp.addr < this.inp.b.length ? this.inp.b[this.inp.addr] : 0; this.inp.addr++; return b; }
+  private ppmInit(): void {
+    const flags = this.byte(), reset = !!(flags & 0x20);
+    let maxMB = 0;
+    if (reset) maxMB = this.byte(); else if (!this.model) throw new RarError('Damaged PPMd data (no model to continue)');
+    if (flags & 0x40) this.escChar = this.byte();
+    this.rc = new RangeRar(() => this.byte());
+    if (reset) {
+      let order = (flags & 0x1f) + 1;
+      if (order > 16) order = 16 + (order - 16) * 3;
+      if (order === 1) { this.model = null; throw new RarError('Damaged PPMd data (order 1)'); }
+      const size = (maxMB + 1) * 1048576;
+      if (!this.model || this.model.memSize !== size) this.model = new Ppmd7(size);
+      this.model.init(order);
+    }
+  }
+  private ppmChar(): number { const c = this.model!.decodeSymbol(this.rc!); if (c < 0) { this.ppm = false; return -1; } return c; }
+  /** One PPMd step: a literal, or an escape (new tables, end of file, filter, match). False ends the file. */
+  private ppmStep(): boolean {
+    const ch = this.ppmChar();
+    if (ch === -1) return false; // as RAR does: the file ends here, and its CRC tells whether that was right
+    if (ch === this.escChar) {
+      const next = this.ppmChar();
+      if (next === 0) { this.readTables(); return true; }
+      if (next === -1 || next === 2) return false;
+      if (next === 3) {
+        const first = this.ppmChar(); if (first < 0) return false;
+        let length = (first & 7) + 1;
+        if (length === 7) { const b = this.ppmChar(); if (b < 0) return false; length = b + 7; }
+        else if (length === 8) { const b1 = this.ppmChar(), b2 = b1 < 0 ? -1 : this.ppmChar(); if (b2 < 0) return false; length = b1 * 256 + b2; }
+        if (!length) return false;
+        const code = new Uint8Array(length);
+        for (let i = 0; i < length; i++) { const c = this.ppmChar(); if (c < 0) return false; code[i] = c; }
+        this.addVmCode(first, code); return true;
+      }
+      if (next === 4) {
+        let distance = 0, length = 0;
+        for (let i = 0; i < 4; i++) { const c = this.ppmChar(); if (c < 0) return false; if (i === 3) length = c; else distance = distance * 256 + c; }
+        this.copyString(length + 32, distance + 2); return true;
+      }
+      if (next === 5) { const length = this.ppmChar(); if (length < 0) return false; this.copyString(length + 4, 1); return true; }
+      // 1, or anything else: the escape character itself
+    }
+    this.win[this.unpPtr++] = ch;
+    return true;
   }
   /** "1": new table here; "00": end of file; "01": end of file, new table at the start of the next. */
   private endOfBlock(): boolean {

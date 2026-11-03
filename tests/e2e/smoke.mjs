@@ -355,7 +355,7 @@ try {
   check('palette export', exported, [1, 'GIMP Palette']);
   // tar (gzip, bzip2, xz/CBT) and 7z (LZMA2 solid, Deflate CB7) open as folders of their pictures; an encrypted 7z says so.
   // RAR/CBR too (RAR 2.x–4.x and 5.0 headers); a RAR with encrypted headers says so.
-  const arch = Object.fromEntries([...['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-aes.7z'].map((n) => `archives/${n}`), 'rar/comic4.cbr', 'rar/comic5.cbr', 'rar/la-rar-encryption-header.rar'].map((n) => [n.split('/')[1], readFileSync(`tests/fixtures/${n}`).toString('base64')]));
+  const arch = Object.fromEntries([...['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-ppmd.7z', 'pics-aes.7z'].map((n) => `archives/${n}`), 'rar/comic4.cbr', 'rar/comic5.cbr', 'rar/la-rar-encryption-header.rar'].map((n) => [n.split('/')[1], readFileSync(`tests/fixtures/${n}`).toString('base64')]));
   const ar = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const out = {};
@@ -371,7 +371,7 @@ try {
     }
     return out;
   }, arch);
-  for (const n of ['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7']) {
+  for (const n of ['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-ppmd.7z']) {
     const r = ar[n];
     check(`archive ${n} as folder`, Array.isArray(r) && [r[0], r[1], r[2], r[3] && r[3][0] > 150 && r[3][1] < 80], [n, ['page 1.png', 'page 2.jpg', 'page 10.png', 'photo with a long name.png'], 'page 1.png', true], JSON.stringify(r));
   }

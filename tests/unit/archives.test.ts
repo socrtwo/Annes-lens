@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { readTar, untarable, isTar } from '../../src/codecs/tar';
-import { SevenZip, isSevenZip } from '../../src/codecs/sevenzip';
+import { SevenZip, isSevenZip, ppmdStats } from '../../src/codecs/sevenzip';
+import { crc32 } from '../../src/codecs/rarunpack';
 
 const fx = (n: string) => new Uint8Array(readFileSync(`tests/fixtures/archives/${n}`));
 const LONG = 'a-very-long-folder-name-'.repeat(5) + '/photo with a long name.png';
@@ -30,11 +31,16 @@ describe('tar archives (Python tarfile)', () => {
 });
 
 describe('7z archives (py7zr)', () => {
-  for (const n of ['pics-lzma2.7z', 'pics-lzma.7z', 'pics-bzip2.7z', 'pics-deflate.cb7', 'pics-copy.7z']) it(n, async () => {
+  for (const n of ['pics-lzma2.7z', 'pics-lzma.7z', 'pics-bzip2.7z', 'pics-deflate.cb7', 'pics-copy.7z', 'pics-ppmd.7z']) it(n, async () => {
     const u8 = fx(n); expect(isSevenZip(u8)).toBe(true);
     const z = await SevenZip.open(u8);
     expect(z.entries.map((e) => e.name).sort()).toEqual(NAMES);
     for (const e of z.entries) expect(same(await z.read(e), ref.get(e.name)), `${n} ${e.name}`).toBe(true);
+  });
+  it('PPMd through a 1 MB model that fills up: restarts and glued free blocks, output as py7zr gives it', async () => {
+    const z = await SevenZip.open(fx('text-ppmd-small.7z')), d = await z.read(z.entries[0]);
+    expect([d.length, crc32(d).toString(16)]).toEqual([600072, '5ec6707a']);
+    expect(ppmdStats.restarts).toBeGreaterThan(0); expect(ppmdStats.glues).toBeGreaterThan(0);
   });
   it('refuses an encrypted archive with a message', async () => {
     const z = await SevenZip.open(fx('pics-aes.7z'));

@@ -38,9 +38,16 @@ describe('RAR 2.x–4.x archives', () => {
     expect(r.entries.map((e) => e.name)).toContain('表だよ/漢字長いファイル名long-filename-in-漢字.txt');
     expect(r.read(file(r, 'abcdefghijklmnopqrsテスト.txt')).length).toBe(16);
   });
-  it('says so for PPMd text compression, encryption and damaged archives', () => {
-    const b = open('la-rar-compress-best.rar');
-    expect(() => b.read(file(b, 'LibarchiveAddingTest.html'))).toThrow(/PPMd/);
+  it('PPMd text compression (best compression)', () => {
+    const b = open('la-rar-compress-best.rar'), html = text(b.read(file(b, 'LibarchiveAddingTest.html')));
+    expect([html.length, html.endsWith('</BODY>\n</HTML>')]).toEqual([20111, true]);
+    expect(text(b.read(file(b, 'testdir/test.txt')))).toBe('test text document\r\n');
+  });
+  it('a 241 MB file that switches between PPMd and LZ blocks', () => {
+    const r = open('la-rar-ppmd-lzss-conversion.rar'), d = r.read(r.entries[0]); // CRC-checked
+    expect([d.length, text(d.subarray(d.length - 42))]).toEqual([241647978, 'gin-bottom: 0in"><BR>\n</P>\n</BODY>\n</HTML>']);
+  }, 60000);
+  it('says so for encryption and damaged archives', () => {
     const d = open('la-rar-encryption-data.rar');
     expect(d.encrypted).toBe(true); expect(() => d.read(d.entries[0])).toThrow(/encrypted/);
     const h = open('la-rar-encryption-header.rar');

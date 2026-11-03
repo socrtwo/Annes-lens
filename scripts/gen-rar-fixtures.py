@@ -7,7 +7,8 @@ file in a RAR archive carries a CRC-32 of its contents, so unpacking them checks
 
 Writes to tests/fixtures/rar/:
   la-*.rar         the libarchive archives listed in LIBARCHIVE below (RAR 2.9 and RAR 5.0: stored, LZ,
-                   filters, solid, Unicode names, encryption, damaged and fuzzed files)
+                   PPMd, a 241 MB file switching between PPMd and LZ, filters, solid, Unicode names, encryption,
+                   damaged and fuzzed files)
   comic4.cbr       RAR 2.x–4.x headers, stored: page-01.png, page-02.jpg, page-10.png, notes.txt, extras/
   comic5.cbr       the same pictures in a RAR 5.0 archive, stored
 Needs Pillow and network access to raw.githubusercontent.com.
@@ -22,7 +23,7 @@ LIBARCHIVE = [
     # RAR 2.9 (RAR 3.x/4.x)
     'rar', 'rar_compress_normal', 'rar_compress_best', 'rar3_lowdist_reset', 'rar_filter', 'rar_multi_lzss_blocks',
     'rar_unicode', 'rar_windows', 'rar_noeof', 'rar_subblock', 'rar_encryption_data', 'rar_encryption_header', 'rar_invalid1',
-    'rar_overflow', 'rar_symlink_huge', 'rar_newsub_huge', 'rar_ppmd_use_after_free',
+    'rar_overflow', 'rar_symlink_huge', 'rar_newsub_huge', 'rar_ppmd_use_after_free', 'rar_ppmd_lzss_conversion',
     # RAR 5.0
     'rar5_stored', 'rar5_compressed', 'rar5_multiple_files', 'rar5_multiple_files_solid', 'rar5_solid', 'rar5_arm',
     'rar5_win32', 'rar5_blake2', 'rar5_unicode', 'rar5_symlink', 'rar5_encrypted', 'rar5_encrypted_filenames',
