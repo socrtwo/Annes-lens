@@ -12,6 +12,10 @@ Writes to tests/fixtures/tiff/:
   cmyk-icc.tif (8-bit CMYK with tests/fixtures/color/press-cmyk.icc embedded), cmyk16-icc.tif (16-bit)
   cmyk-icc.png   LittleCMS (ImageCms): press profile → sRGB, relative colorimetric, no black point compensation
   cmyk-plain.tif + cmyk-plain.png    CMYK without a profile: 255 − min(255, C + K) and so on
+  zstd-rgb.tif (8-bit, horizontal predictor, 16-row strips), zstd-rgb16.tif, lzma-rgb.tif, webp-rgb.tif
+      (lossless WebP, 32 × 32 tiles): the planar-rgb.png picture with other compressions
+  lab-cie.tif (CIELab, signed a/b), lab-icc.tif (ICCLab, a/b + 128), lab-icc16.tif (16-bit ICCLab): that
+      picture in L*a*b* (D50), computed with the CIE formulas; its expected picture is planar-rgb.png itself
 Needs numpy, Pillow (with libtiff), tifffile, imagecodecs.
 """
 import io, os
@@ -94,9 +98,37 @@ def main():
     c, m, yy, k = [cmyk[..., i].astype(int) for i in range(4)]
     plain = np.stack([255 - np.minimum(255, c + k), 255 - np.minimum(255, m + k), 255 - np.minimum(255, yy + k)], -1).astype(np.uint8)
     Image.fromarray(plain).save(os.path.join(OUT, 'cmyk-plain.png'))
+    more(rgb)
     for f in sorted(os.listdir(OUT)):
         print(f, os.path.getsize(os.path.join(OUT, f)))
 
+
+def more(rgb):
+    """Newer compressions (libtiff codes 50000 ZSTD, 34925 LZMA, 50001 WebP) and CIE L*a*b*."""
+    tifffile.imwrite(os.path.join(OUT, 'zstd-rgb.tif'), rgb, photometric='rgb', compression='zstd', predictor=True, rowsperstrip=16)
+    tifffile.imwrite(os.path.join(OUT, 'zstd-rgb16.tif'), rgb.astype(np.uint16) * 257, photometric='rgb', compression='zstd')
+    tifffile.imwrite(os.path.join(OUT, 'lzma-rgb.tif'), rgb, photometric='rgb', compression='lzma', rowsperstrip=24)
+    tifffile.imwrite(os.path.join(OUT, 'webp-rgb.tif'), rgb, photometric='rgb', compression='webp', compressionargs={'level': 100, 'lossless': True}, tile=(32, 32))
+    # L*a*b* computed exactly (standard CIE formulas, sRGB D65 → Bradford → D50) and rounded to 8 and 16 bits; the
+    # expected picture is the original (LittleCMS's own 8-bit Lab path interpolates a grid and is less exact near the gamut edge).
+    L, a, b = srgb_to_lab(rgb)
+    i8 = lambda v: np.clip(np.round(v), -128, 127).astype(np.int8)
+    tifffile.imwrite(os.path.join(OUT, 'lab-cie.tif'), np.stack([np.round(L * 255 / 100).astype(np.uint8), i8(a).view(np.uint8), i8(b).view(np.uint8)], -1), photometric='cielab')
+    tifffile.imwrite(os.path.join(OUT, 'lab-icc.tif'), np.stack([np.round(L * 255 / 100).astype(np.uint8), (i8(a).astype(int) + 128).astype(np.uint8), (i8(b).astype(int) + 128).astype(np.uint8)], -1), photometric=9)
+    u16 = lambda v: np.clip(np.round(v * 256 + 32768), 0, 65535).astype(np.uint16)
+    tifffile.imwrite(os.path.join(OUT, 'lab-icc16.tif'), np.stack([np.round(L * 65535 / 100).astype(np.uint16), u16(a), u16(b)], -1), photometric=9)
+
+
+def srgb_to_lab(rgb):
+    c = rgb.astype(np.float64) / 255
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    m = np.array([[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.0721750], [0.0193339, 0.1191920, 0.9503041]])
+    brad = np.array([[0.8951, 0.2664, -0.1614], [-0.7502, 1.7135, 0.0367], [0.0389, -0.0685, 1.0296]])
+    d65, d50 = np.array([0.95047, 1.0, 1.08883]), np.array([0.9642, 1.0, 0.82491])
+    adapt = np.linalg.inv(brad) @ np.diag((brad @ d50) / (brad @ d65)) @ brad
+    xyz = lin @ (adapt @ m).T / d50
+    f = np.where(xyz > (6 / 29) ** 3, np.cbrt(xyz), xyz / (3 * (6 / 29) ** 2) + 4 / 29)
+    return 116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])
 
 if __name__ == '__main__':
     main()

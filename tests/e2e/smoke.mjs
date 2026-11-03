@@ -294,6 +294,19 @@ try {
   const near3 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 3);
   check('tiff: CMYK through its press profile (LittleCMS reference)', [tm.cmyk.slice(0, 4), near3(tm.cmyk[4], [238, 234, 234]), near3(tm.cmyk[5], [36, 38, 58])], [['cmyk-icc.tif', 64, 48, true], true, true], JSON.stringify(tm));
   check('tiff: Group 4 fax page (a black block with white inside)', tm.fax, ['fax-g4.tif', 1000, 300, true, [0, 0, 0], [255, 255, 255]], JSON.stringify(tm));
+  // WebP-compressed tiles go through the platform's WebP decoder; ZSTD strips through fzstd.
+  const tw = await p.evaluate(async (b) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {};
+    for (const [n, b64] of Object.entries(b)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before); i++) await wait(50);
+      const at = (x, y) => [...qn.picture.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3);
+      out[n] = [qn.picture.name, qn.picture.current.notes.join(', '), at(5, 5), at(15, 12), at(60, 44)];
+    }
+    return out;
+  }, Object.fromEntries(['webp-rgb.tif', 'zstd-rgb.tif'].map((n) => [n, readFileSync(`tests/fixtures/tiff/${n}`).toString('base64')])));
+  for (const n of ['webp-rgb.tif', 'zstd-rgb.tif']) check(`tiff: ${n} (pixels exact)`, [tw[n][0], tw[n][2], tw[n][3], tw[n][4]], [n, [20, 25, 20], [250, 20, 40], [240, 220, 208]], JSON.stringify(tw[n]));
 
   // JPEG-compressed TIFF (Pillow) decodes through the platform per strip; a CBZ opens as a folder of its pages.
   const tiffBytes = [...readFileSync('tests/fixtures/tiff/jpeg-strips.tif')];

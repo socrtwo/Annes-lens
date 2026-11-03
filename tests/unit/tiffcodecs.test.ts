@@ -43,3 +43,15 @@ describe('TIFF: planar, floating-point, signed and CMYK samples', () => {
     const plain = await compare('cmyk-plain.tif', 'cmyk-plain.png'); expect(plain.max).toBe(0); expect(plain.notes).toMatch(/no profile/);
   });
 });
+
+describe('TIFF: ZSTD, LZMA and L*a*b* (tifffile + imagecodecs; LittleCMS for Lab)', () => {
+  it('ZSTD (with the horizontal predictor, and 16-bit) and LZMA decode exactly', async () => {
+    for (const n of ['zstd-rgb.tif', 'zstd-rgb16.tif', 'lzma-rgb.tif']) { const r = await compare(n, 'planar-rgb.png'); expect(r.max, `${n} ${r.notes}`).toBe(0); }
+    expect((await compare('zstd-rgb.tif', 'planar-rgb.png')).notes).toMatch(/ZSTD/);
+  });
+  it('CIELab and ICCLab, 8 and 16 bits, come back to the sRGB picture they were made from', async () => {
+    // 8-bit L*a*b* rounds a* and b* to whole units: in a saturated green whose red is 0, one unit of a* is
+    // 12 levels of red (the worst pixel here). 16 bits leave only the conversion, within one level.
+    for (const [n, tol, mean] of [['lab-cie.tif', 12, 0.6], ['lab-icc.tif', 12, 0.6], ['lab-icc16.tif', 1, 0.01]] as const) { const r = await compare(n, 'planar-rgb.png'); expect(r.max, `${n} mean ${r.mean}`).toBeLessThanOrEqual(tol); expect(r.mean).toBeLessThan(mean); }
+  });
+});

@@ -64,6 +64,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | tesseract.js and Tesseract | Apache 2.0 |
 | SQLite (WASM) | public domain |
 | Material Symbols | Apache 2.0 |
+| fzstd (Zstandard decoding in TIFF) | MIT |
 | world-atlas (Natural Earth country outlines for the offline map) | ISC; Natural Earth data public domain |
 | OpenStreetMap map tiles (online, Browse ▸ Map) | map data © OpenStreetMap contributors, ODbL; credited on the map; tile usage policy followed (identifying User-Agent on the desktop, no bulk downloading) |
 | Capacitor, Electron, electron-builder | MIT |

@@ -8,6 +8,10 @@
  */
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
 import { decodeCcitt } from './ccitt';
+import { decompress as zstdDecompress } from 'fzstd';
+import { xzDecode } from './lzma';
+import { labToXyz } from '../color/transform';
+import { rgbToD50, inv3, SPACES } from '../color/spaces';
 import { parseIcc } from '../color/icc';
 import { colorFn } from '../color/transform';
 import { spaceProfile } from '../color/spaces';
@@ -118,9 +122,11 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
   if (sampleFormat === 3 && ![16, 24, 32, 64].includes(bits)) throw new Error(`${bits}-bit floating-point samples are not supported`);
   if (planar === 2 && bits < 8 && spp > 1) throw new Error('planar (separate) samples under 8 bits are not supported');
   if (photo === 5 && (tags.get(332)?.values[0] ?? 1) !== 1) throw new Error('separated data that is not CMYK (InkSet) is not supported');
-  const compressionName: Record<number, string> = { 1: 'uncompressed', 2: 'CCITT RLE', 3: 'CCITT G3', 4: 'CCITT G4', 5: 'LZW', 6: 'old JPEG', 7: 'JPEG', 8: 'Deflate', 32773: 'PackBits', 32946: 'Deflate', 34712: 'JPEG 2000', 50000: 'ZSTD' };
+  if (photo === 10) throw new Error('ITU L*a*b* (fax color) is not supported yet');
+  if ((photo === 8 || photo === 9) && (spp < 3 || (bits !== 8 && bits !== 16))) throw new Error('only 8- and 16-bit three-channel L*a*b* is supported');
+  const compressionName: Record<number, string> = { 1: 'uncompressed', 2: 'CCITT RLE', 3: 'CCITT G3', 4: 'CCITT G4', 5: 'LZW', 6: 'old JPEG', 7: 'JPEG', 8: 'Deflate', 32773: 'PackBits', 32946: 'Deflate', 34712: 'JPEG 2000', 34925: 'LZMA', 50000: 'ZSTD', 50001: 'WebP', 50002: 'JPEG XL' };
   if (comp === 7 || comp === 6) return decodeJpegPage(u8, tags, w, h, spp, photo, extra, warnings, pageNo, g);
-  if (![1, 2, 3, 4, 5, 8, 32773, 32946].includes(comp)) throw new Error(`${compressionName[comp] || 'compression ' + comp} is not supported yet`);
+  if (![1, 2, 3, 4, 5, 8, 32773, 32946, 34925, 50000, 50001].includes(comp)) throw new Error(`${compressionName[comp] || 'compression ' + comp} is not supported yet`);
   const t4 = g(292, 0), t6 = g(293, 0), lsbFirst = g(266, 1) === 2;
   // One strip or tile of `pw` pixels × `rows` rows with `n` samples per pixel, decompressed and with predictors undone.
   const piece = async (src: Uint8Array, pw: number, rows: number, n: number): Promise<Uint8Array> => {
@@ -129,6 +135,7 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
       // The codes T.4 calls white and black are the bit values 0 and 1; PhotometricInterpretation says how they look (as in libtiff).
       return decodeCcitt(src, pw, rows, { compression: comp as 2 | 3 | 4, t4Options: t4, t6Options: t6, lsbFirst });
     }
+    if (comp === 50001) return webpPiece(src, pw, rows, n);
     const dec = await inflateChunk(src, comp, rb * rows);
     if (pred === 3) return undoFloatPredictor(dec, bits / 8, n, pw, rows, le);
     undoPredictor(dec, pred, bits, n, pw, rows, rb);
@@ -197,12 +204,20 @@ async function decodePage(u8: Uint8Array, tags: Map<number, IfdEntry>, le: boole
     return (byte >> (8 - bits - (bitPos & 7))) & maxv;
   };
   const scale = bits === 16 ? 1 : 255 / maxv; // 16-bit samples come back as their high byte already
+  const full16 = (row: number, i: number) => (le ? raw[row + i * 2] | (raw[row + i * 2 + 1] << 8) : (raw[row + i * 2] << 8) | raw[row + i * 2 + 1]);
+  const lab = photo === 8 || photo === 9 ? labToSrgb8() : null;
   for (let y = 0; y < h; y++) {
     const row = y * rowBytes;
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4;
       const s0 = x * spp;
-      if (photo === 3 && map) {
+      if (lab) {
+        // CIELab (8): a and b signed; ICCLab (9): a and b offset by 128 (32768 in 16 bits).
+        let L, A, B;
+        if (bits === 16) { L = full16(row, s0) / 65535 * 100; const a = full16(row, s0 + 1), b = full16(row, s0 + 2); A = photo === 9 ? (a - 32768) / 256 : ((a << 16) >> 16) / 256; B = photo === 9 ? (b - 32768) / 256 : ((b << 16) >> 16) / 256; }
+        else { L = raw[row + s0] / 255 * 100; const a = raw[row + s0 + 1], b = raw[row + s0 + 2]; A = photo === 9 ? a - 128 : (a << 24) >> 24; B = photo === 9 ? b - 128 : (b << 24) >> 24; }
+        lab(L, A, B, d, o); d[o + 3] = hasAlpha && spp >= 4 ? sample(row, s0 + 3) * scale : 255;
+      } else if (photo === 3 && map) {
         const k = sample(row, s0), m = map.length / 3;
         d[o] = map[k] >> 8; d[o + 1] = map[m + k] >> 8; d[o + 2] = map[2 * m + k] >> 8; d[o + 3] = 255;
       } else if (photo === 2 || (spp >= 3 && photo !== 5)) {
@@ -280,6 +295,13 @@ function dpiOf(tags: Map<number, IfdEntry>): [number, number] | undefined {
 }
 
 async function inflateChunk(src: Uint8Array, comp: number, want: number): Promise<Uint8Array> {
+  if (comp === 50000 || comp === 34925) {
+    let dec: Uint8Array;
+    try { dec = comp === 50000 ? zstdDecompress(src) : xzDecode(src); }
+    catch (e) { throw new Error(`${comp === 50000 ? 'ZSTD' : 'LZMA'} data could not be read (${(e as Error).message})`); }
+    if (dec.length >= want) return dec.subarray(0, want);
+    const out = new Uint8Array(want); out.set(dec); return out;
+  }
   if (comp === 1) { if (src.length >= want) return src; const out = new Uint8Array(want); out.set(src); return out; }
   if (comp === 32773) return packBits(src, want);
   if (comp === 5) return lzwTiff(src, want);
@@ -424,4 +446,24 @@ function buildCmyk(iccBytes: Uint8Array, warnings: string[], pageNo: number): Cm
     }
   };
   return Object.assign(conv, { profile: prof.description || 'CMYK' });
+}
+
+/** L*a*b* (D50) → 8-bit sRGB through XYZ and the Bradford-adapted sRGB matrix (as an ICC v4 sRGB profile). */
+function labToSrgb8(): (L: number, a: number, b: number, d: Uint8ClampedArray, o: number) => void {
+  const s = SPACES[0], m = inv3(rgbToD50(s.primaries!, s.white!));
+  const enc = (v: number) => Math.round(255 * (v <= 0 ? 0 : v >= 1 ? 1 : v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
+  return (L, a, b, d, o) => {
+    const x = labToXyz([L, a, b]);
+    d[o] = enc(m[0] * x[0] + m[1] * x[1] + m[2] * x[2]); d[o + 1] = enc(m[3] * x[0] + m[4] * x[1] + m[5] * x[2]); d[o + 2] = enc(m[6] * x[0] + m[7] * x[1] + m[8] * x[2]);
+  };
+}
+/** A WebP strip or tile (libtiff compression 50001), decoded by the platform into TIFF's sample order. */
+async function webpPiece(src: Uint8Array, pw: number, rows: number, n: number): Promise<Uint8Array> {
+  if (typeof createImageBitmap === 'undefined') throw new Error('WebP-compressed TIFF needs the platform\'s WebP decoder');
+  const bmp = await createImageBitmap(new Blob([src as BlobPart], { type: 'image/webp' }));
+  const c: any = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(bmp.width, bmp.height) : Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+  const g = c.getContext('2d'); g.drawImage(bmp, 0, 0); bmp.close();
+  const rgba = g.getImageData(0, 0, c.width, c.height).data as Uint8ClampedArray, out = new Uint8Array(pw * rows * n);
+  for (let y = 0; y < Math.min(rows, c.height); y++) for (let x = 0; x < Math.min(pw, c.width); x++) for (let k = 0; k < n; k++) out[(y * pw + x) * n + k] = rgba[(y * c.width + x) * 4 + k];
+  return out;
 }
