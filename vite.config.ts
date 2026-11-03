@@ -10,7 +10,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /**
  * On-device runtimes: ONNX Runtime Web (AI models), Tesseract (OCR, with the English language
- * data), zxing (barcodes) and pdf.js (PDF pages). With QN_ORT_LOCAL=1 (the desktop build; its Content Security Policy
+ * data), zxing (barcodes), pdf.js (PDF pages, JPEG 2000) and the JPEG XL and AVIF decoders. With QN_ORT_LOCAL=1 (the desktop build; its Content Security Policy
  * only allows the app's own scripts) they are copied into dist/ and listed in dist/runtimes.json,
  * which src/platform/runtimes.ts reads; without it the app loads them from their pinned CDN
  * addresses. `npm run e2e` stages the same files itself.
@@ -25,8 +25,11 @@ export const LOCAL_RUNTIMES: { from: string; to: string; files: string[]; dirs?:
   // pdf.js: the library and its worker, its standalone image decoders (JPEG 2000 files), the WebAssembly decoders
   // (JPEG 2000, JBIG2, color management), CMaps and standard fonts.
   { from: 'node_modules/pdfjs-dist', to: 'pdf', files: ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'image_decoders/pdf.image_decoders.min.mjs', 'LICENSE'], dirs: ['wasm', 'cmaps', 'standard_fonts', 'iccs'] },
+  // JPEG XL (jxl-oxide) and AVIF (libavif with libaom, from jSquash) decoders, for platforms that lack them.
+  { from: 'node_modules/jxl-oxide-wasm', to: 'jxl', files: ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm', 'LICENSE-MIT', 'LICENSE-APACHE'] },
+  { from: 'node_modules/@jsquash/avif', to: 'avif', files: ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm', 'LICENSE'] },
 ];
-export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', ocrLangs: ['eng'] };
+export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', ocrLangs: ['eng'] };
 export function stageRuntimes(dist: string): void {
   for (const r of LOCAL_RUNTIMES) {
     const out = join(dist, r.to); mkdirSync(out, { recursive: true });

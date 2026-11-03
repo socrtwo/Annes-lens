@@ -256,6 +256,15 @@ try {
     const got = ok ? await jw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height, qn.picture.current.dpi, [...qn.picture.frameCanvas().getContext('2d').getImageData(15, 12, 1, 1).data].slice(0, 3)]) : await jw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a JPEG 2000 file opens through OpenJPEG', [got[0], got[1], got[2], got[3]], ['jp2', 53, 37, [300, 300]], JSON.stringify(got));
   } finally { await jApp.close().catch(() => undefined); }
+  // A JPEG XL file: Chromium has no decoder, so the app's jxl-oxide (a local runtime) decodes it under the same policy.
+  const jxlPath = join(base, 'photo.jxl'); writeFileSync(jxlPath, readFileSync('tests/fixtures/modern/lossless.jxl'));
+  const xApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, jxlPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const xw = await xApp.firstWindow();
+    const ok = await xw.waitForFunction(() => window.qn?.picture?.name === 'photo.jxl', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await xw.evaluate(() => [qn.picture.format.id, qn.picture.decoder, qn.picture.width, qn.picture.height]) : await xw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a JPEG XL file opens through jxl-oxide', got, ['jxl', 'jxl-oxide', 53, 37]);
+  } finally { await xApp.close().catch(() => undefined); }
   // People on real files: the face models are served from 127.0.0.1 (as from the model host), three portraits are
   // scanned, a person is named, and the names go into the JPEG files as MWG face regions.
   const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';

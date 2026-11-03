@@ -50,6 +50,7 @@ app.ui.tabsChanged();
 (window as any).__qnShow = () => import('./picture/slideshow');
 (window as any).__qnMusic = () => Promise.all([import('./picture/music'), import('./commands/slideshowMedia')]).then(([m, s]) => ({ ...m, ...s }));
 (window as any).__qnMetafile = () => import('./codecs/metafile');
+(window as any).__qnModern = () => import('./codecs/modern');
 (window as any).__qnMap = () => Promise.all([import('./commands/map'), import('./geo/slippy')]).then(([m, s]) => ({ ...m, ...s }));
 (window as any).__qnOverlays = () => import('./ui/overlays');
 (window as any).__qnNative = () => import('./platform/native');

@@ -16,6 +16,8 @@ const LOCAL_RUNTIMES = [
   ['node_modules/@tesseract.js-data/eng/4.0.0_best_int', 'ocr/lang', ['eng.traineddata.gz']],
   ['node_modules/zxing-wasm/dist/reader', 'zxing', ['zxing_reader.wasm']],
   ['node_modules/pdfjs-dist', 'pdf', ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'image_decoders/pdf.image_decoders.min.mjs'], ['wasm', 'cmaps', 'standard_fonts', 'iccs']],
+  ['node_modules/jxl-oxide-wasm', 'jxl', ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm']],
+  ['node_modules/@jsquash/avif', 'avif', ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm']],
 ];
 if (existsSync('dist')) {
   for (const [from, to, files, dirs = []] of LOCAL_RUNTIMES) {
@@ -23,7 +25,7 @@ if (existsSync('dist')) {
     for (const f of files) if (existsSync(`${from}/${f}`)) { mkdirSync(dirname(`dist/${to}/${f}`), { recursive: true }); copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
     for (const d of dirs) if (existsSync(`${from}/${d}`)) cpSync(`${from}/${d}`, `dist/${to}/${d}`, { recursive: true });
   }
-  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', ocrLangs: ['eng'] }));
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
   // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
@@ -448,6 +450,26 @@ try {
   check('jpeg 2000: lossless JP2 and HTJ2K open exactly', ['rgb-lossless.jp2', 'ht.j2c'].map((n) => jx[n] && [jx[n][0], jx[n][2], jx[n][3], jx[n][6], jx[n][7]]), [['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]], ['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]]], JSON.stringify(jx));
   check('jpeg 2000: ICC profile and resolution of a tagged JP2', jx['tagged.jp2'] && [/color profile: .*Adobe RGB/i.test(jx['tagged.jp2'][4]), jx['tagged.jp2'][5]], [true, [300, 300]], JSON.stringify(jx['tagged.jp2']));
   check('jpeg 2000: an ICNS icon with a JPEG 2000 element', jx['icon.icns'] && [jx['icon.icns'][0], jx['icon.icns'][2], /ic07: JPEG 2000 element/.test(jx['icon.icns'][4])], ['icns', 128, true], JSON.stringify(jx['icon.icns']));
+  // JPEG XL (Chromium has no decoder: the app's jxl-oxide steps in) and AVIF through the app's libavif, from the staged runtimes.
+  const modFiles = Object.fromEntries(['lossless.jxl', 'anim.jxl', 'alpha.avif'].map((n) => [n, readFileSync(`tests/fixtures/modern/${n}`).toString('base64')]));
+  const mo = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), bytes = (n) => Uint8Array.from(atob(files[n]), (c) => c.charCodeAt(0));
+    const out = {};
+    for (const n of ['lossless.jxl', 'anim.jxl']) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([bytes(n)], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const pic = qn.picture;
+      if (!pic || pic === before) { out[n] = [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | '); document.querySelectorAll('.ql-toast').forEach((t) => t.remove()); continue; }
+      out[n] = [pic.format.id, pic.decoder, pic.width, pic.height, pic.current.frames.length, pic.current.frames.map((f) => f.delay), [...pic.frameCanvas().getContext('2d').getImageData(15, 12, 1, 1).data].slice(0, 3)];
+    }
+    const M = await window.__qnModern(), a = await M.decodeAvif(bytes('alpha.avif'));
+    out.avif = [a.pages[0].width, a.pages[0].height, a.pages[0].hasAlpha, a.pages[0].notes[0]];
+    return out;
+  }, modFiles);
+  check('jpeg xl: opens through jxl-oxide where the platform cannot', mo['lossless.jxl'] && mo['lossless.jxl'].slice(0, 5).concat([mo['lossless.jxl'][6]]), ['jxl', 'jxl-oxide', 53, 37, 1, [250, 20, 40]], JSON.stringify(mo['lossless.jxl']));
+  check('jpeg xl: an animation, every frame with its time', mo['anim.jxl'] && [mo['anim.jxl'][4], mo['anim.jxl'][5]], [3, [100, 100, 100]], JSON.stringify(mo['anim.jxl']));
+  check('avif: the app\'s own decoder (libavif with libaom) from the staged runtime', mo.avif, [53, 37, true, 'AVIF, decoded by libavif with libaom (8 bits per sample)'], JSON.stringify(mo.avif));
 
   // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
   const editOps = await p.evaluate(async () => {

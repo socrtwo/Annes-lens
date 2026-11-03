@@ -54,9 +54,9 @@ export const FORMATS: FormatInfo[] = [
   { id: 'apng', label: 'Animated PNG', mime: 'image/apng', extensions: ['apng', 'png'], decoder: 'platform', save: false },
   { id: 'gif', label: 'GIF', mime: 'image/gif', extensions: ['gif'], decoder: 'own', save: false, notes: 'every frame, delays, loop count, comments' },
   { id: 'webp', label: 'WebP', mime: 'image/webp', extensions: ['webp'], decoder: 'platform', save: true, notes: 'animation where the platform has ImageDecoder' },
-  { id: 'avif', label: 'AVIF', mime: 'image/avif', extensions: ['avif'], decoder: 'platform', save: false, notes: 'where the platform decodes it' },
+  { id: 'avif', label: 'AVIF', mime: 'image/avif', extensions: ['avif'], decoder: 'platform+own', save: false, notes: 'the platform\'s decoder, else libavif with libaom (WebAssembly; the first frame of a sequence)' },
   { id: 'heic', label: 'HEIC / HEIF', mime: 'image/heic', extensions: ['heic', 'heif', 'hif'], decoder: 'platform', save: false, notes: 'where the platform decodes it (iOS, macOS, recent Android)' },
-  { id: 'jxl', label: 'JPEG XL', mime: 'image/jxl', extensions: ['jxl'], decoder: 'platform', save: false, notes: 'where the platform decodes it' },
+  { id: 'jxl', label: 'JPEG XL', mime: 'image/jxl', extensions: ['jxl'], decoder: 'platform+own', save: false, notes: 'the platform\'s decoder, else jxl-oxide (WebAssembly; animations, HDR and wide gamut converted to sRGB)' },
   { id: 'bmp', label: 'Windows Bitmap', mime: 'image/bmp', extensions: ['bmp', 'dib', 'rle'], decoder: 'platform+own', save: true, notes: '1–32 bits, RLE, bit fields, OS/2 headers' },
   { id: 'ico', label: 'Windows Icon', mime: 'image/x-icon', extensions: ['ico'], decoder: 'own', save: false, notes: 'every size as a page' },
   { id: 'cur', label: 'Windows Cursor', mime: 'image/x-icon', extensions: ['cur'], decoder: 'own', save: false, notes: 'every size as a page, with the hotspot' },
@@ -202,6 +202,10 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
         const rep = repairJpeg(u8);
         const r = await fromPlatform(rep.bytes, fmt, info);
         decoded = { ...r, decoder: 'jpeg (repaired)', warnings: [`The platform could not decode the file (${e?.message || e}); rebuilt from its coefficients: ${rep.decodedUnits} of ${rep.totalUnits} blocks present`, ...rep.warnings, ...r.warnings] };
+      } else if (fmt.id === 'jxl' || fmt.id === 'avif') {
+        // The platform does not decode it (JPEG XL in Chromium, AVIF on older systems): the app's own decoders.
+        const m = await import('./modern');
+        decoded = fromOwn(fmt.id === 'jxl' ? await m.decodeJxl(u8) : await m.decodeAvif(u8), fmt.id === 'jxl' ? 'jxl-oxide' : 'libavif');
       } else throw e;
     }
   }
