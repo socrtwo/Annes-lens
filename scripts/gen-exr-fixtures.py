@@ -8,7 +8,11 @@ alpha un-premultiplied, clipped to 0…1, sRGB curve, rounded.
 Writes to tests/fixtures/exr/: half-<compression>.exr for none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A;
 float-zip.exr, float-piz.exr, float-pxr24.exr; rgba-piz.exr (premultiplied alpha); gray-y.exr (Y only);
 layers.exr (diffuse.R/G/B and depth.Z); tiled-zip.exr (16 × 16 tiles), tiled-piz.exr (32 × 32, partial edge tiles);
-multipart.exr (two parts); dwaa.exr (refused); and *.png, the expected pictures.
+multipart.exr (two parts); and *.png, the expected pictures.
+DWA (lossy): dwaa.exr, dwab.exr (half RGB), dwaa-float.exr (FLOAT RGB), dwaa-rgba.exr (alpha: RLE),
+dwaa-y.exr (Y alone: one lossy channel), dwaa-layers.exr (diffuse.R/G/B with a FLOAT depth.Z, stored as is),
+dwaa-tiled.exr (32 × 32 tiles), dwab-tall.exr (60 × 600: three 256-line blocks), dwaa-linear.exr (a Y channel
+marked perceptually linear: no nonlinear curve); dwaa.f16, dwaa-y.f16: the library's decoded half values.
 Needs numpy, Pillow and OpenEXR (pip install OpenEXR).
 """
 import os
@@ -98,9 +102,33 @@ def main():
              OpenEXR.Part({'compression': OpenEXR.PIZ_COMPRESSION, 'type': OpenEXR.scanlineimage}, {'Y': lum}, 'luma')]
     OpenEXR.File(parts).write(p)
     reference(p, f'{OUT}/multipart-1.png'); reference(p, f'{OUT}/multipart-2.png', keys=('Y',), part=1)
-    write(f'{OUT}/dwaa.exr', half, OpenEXR.DWAA_COMPRESSION)
+    dwa(rgb, half, full, lum, x, a)
     for f in sorted(os.listdir(OUT)):
         print(f, os.path.getsize(f'{OUT}/{f}'))
+
+
+def dwa(rgb, half, full, lum, x, a):
+    D, DB = OpenEXR.DWAA_COMPRESSION, OpenEXR.DWAB_COMPRESSION
+    for name, ch, comp, kw in [('dwaa', half, D, {}), ('dwab', half, DB, {}), ('dwaa-float', full, D, {}),
+                               ('dwaa-y', {'Y': lum}, D, {'keys': ('Y',)})]:
+        p = f'{OUT}/{name}.exr'; write(p, ch, comp); reference(p, p.replace('.exr', '.png'), **kw)
+    rgba = {k: (rgb[..., i] * a).astype(np.float16) for i, k in enumerate('RGB')}; rgba['A'] = a.astype(np.float16)
+    p = f'{OUT}/dwaa-rgba.exr'; write(p, rgba, D); reference(p, p.replace('.exr', '.png'), alpha='A')
+    lay = {'depth.Z': (x * 1.0).astype(np.float32), **{f'diffuse.{k}': rgb[..., i].astype(np.float16) for i, k in enumerate('RGB')}}
+    p = f'{OUT}/dwaa-layers.exr'; write(p, lay, D); reference(p, p.replace('.exr', '.png'), keys=('diffuse.R', 'diffuse.G', 'diffuse.B'))
+    p = f'{OUT}/dwaa-tiled.exr'
+    write(p, half, D, type=OpenEXR.tiledimage, tiles=tiles(32, 32, OpenEXR.ONE_LEVEL)); reference(p, p.replace('.exr', '.png'))
+    ty, tx = np.mgrid[0:600, 0:60].astype(np.float32)
+    tall = {'R': (tx / 60 * 2).astype(np.float16), 'G': (0.5 + 0.5 * np.sin(ty / 23)).astype(np.float16), 'B': ((ty % 97) / 97).astype(np.float16)}
+    p = f'{OUT}/dwab-tall.exr'; write(p, tall, DB); reference(p, p.replace('.exr', '.png'))
+    # A lone channel marked perceptually linear skips the nonlinear curve (an R, G, B set never does).
+    p = f'{OUT}/dwaa-linear.exr'
+    OpenEXR.File({'compression': D, 'type': OpenEXR.scanlineimage}, {'Y': OpenEXR.Channel((0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]).astype(np.float16), 1, 1, True)}).write(p)
+    reference(p, p.replace('.exr', '.png'), keys=('Y',))
+    # The library's decoded half values (channels in name order), to compare values and not only pictures.
+    for n in ('dwaa', 'dwaa-y'):
+        f = OpenEXR.File(f'{OUT}/{n}.exr', separate_channels=True); ch = f.parts[0].channels
+        np.concatenate([ch[k].pixels.astype(np.float16).ravel() for k in sorted(ch)]).astype('<f2').tofile(f'{OUT}/{n}.f16')
 
 
 if __name__ == '__main__':

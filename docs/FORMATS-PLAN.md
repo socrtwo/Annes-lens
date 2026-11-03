@@ -33,7 +33,7 @@ Fidelity tiers:
 | TGA | .tga | footer / heuristics | Full | Yes | |
 | Netpbm | .pbm .pgm .ppm .pnm .pam .pfm | `P1`–`P7`, `Pf/PF` | Full | Yes | |
 | QOI | .qoi | `qoif` | Full | Yes | |
-| OpenEXR | .exr | `76 2F 31 01` | High (own decoder) | Yes | scanline, tiled (full-resolution level) and multi-part (a page each); none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A; HALF, FLOAT and UINT channels with subsampling; RGB(A), Y, Y/RY/BY and layers; tone-mapped for display like Radiance HDR; DWAA/DWAB, HTJ2K, ZSTD and deep data still to do |
+| OpenEXR | .exr | `76 2F 31 01` | High (own decoder) | Yes | scanline, tiled (full-resolution level) and multi-part (a page each); none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB (lossy DCT with Y'CbCr sets, RLE and stored channels, Huffman or zlib AC; values within a few half-float steps of the OpenEXR library's on under 0.1% of samples, the rest identical); HALF, FLOAT and UINT channels with subsampling; RGB(A), Y, Y/RY/BY and layers; tone-mapped for display like Radiance HDR; HTJ2K, ZSTD and deep data still to do |
 | Radiance HDR | .hdr .pic | `#?RADIANCE` | High | Yes | |
 | DDS | .dds | `DDS ` | High | No | BCn decompression |
 | SVG / SVGZ | .svg .svgz | XML root `svg` | Full (rendered) | Export (from trace) | rendered at any zoom; scripts never run |

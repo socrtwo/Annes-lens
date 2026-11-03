@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decodeExr, isExr } from '../../src/codecs/exr';
+import { decodeExr, exrChannels, isExr } from '../../src/codecs/exr';
+import { toHalf } from '../../src/codecs/dwa';
 import { decodePngTolerant } from '../../src/codecs/png';
 
 const fx = (n: string) => new Uint8Array(readFileSync(`tests/fixtures/exr/${n}`));
@@ -31,7 +32,36 @@ describe('OpenEXR (written and decoded by the OpenEXR library)', () => {
     expect([a.pages, a.max <= 1, b.max <= 1]).toEqual([2, true, true]);
     expect(b.notes).toMatch(/part 2 \(luma\)/);
   });
-  it('refuses DWAA with a message', () => {
-    expect(() => decodeExr(fx('dwaa.exr'))).toThrow(/DWAA compression is not supported/);
+});
+
+describe('OpenEXR DWAA and DWAB (lossy DCT; the library\'s own decoding as the reference)', () => {
+  for (const [n, what] of [['dwaa', 'DWAA, half RGB'], ['dwab', 'DWAB, half RGB'], ['dwaa-float', 'FLOAT RGB'], ['dwaa-y', 'a lone Y channel'],
+    ['dwaa-rgba', 'alpha stored with RLE'], ['dwaa-layers', 'a layer, with a FLOAT depth channel stored as is'], ['dwaa-tiled', '32 × 32 tiles'],
+    ['dwab-tall', 'three 256-line blocks'], ['dwaa-linear', 'a perceptually linear channel (no curve)']]) it(what, () => {
+    const r = compare(`${n}.exr`, `${n}.png`); expect(r.max, r.notes).toBeLessThanOrEqual(1); expect(r.warnings).toEqual([]);
+    expect(r.notes).toMatch(n.startsWith('dwab') ? /DWAB/ : /DWAA/);
+  });
+  it('the values match the library\'s to a few half-float steps', () => {
+    for (const [n, keys] of [['dwaa', ['B', 'G', 'R']], ['dwaa-y', ['Y']]] as const) {
+      const b = fx(`${n}.f16`), ref = new Uint16Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length));
+      const c = exrChannels(fx(`${n}.exr`));
+      let i = 0, differ = 0, max = 0;
+      for (const k of keys) for (const v of c.channels.get(k)!) { const d = Math.abs(toHalf(v) - ref[i++]); if (d) differ++; max = Math.max(max, d); }
+      expect(i).toBe(ref.length);
+      // OpenEXR's SIMD inverse DCT adds in a different order from its scalar one; a handful of values land a step or two apart.
+      expect(differ / i, n).toBeLessThan(0.001); expect(max, n).toBeLessThanOrEqual(4);
+    }
+  });
+  it('the depth channel of the layered file is kept exactly', () => {
+    const c = exrChannels(fx('dwaa-layers.exr')), z = c.channels.get('depth.Z')!;
+    expect([z[0], z[69], z[70 * 49 + 13]]).toEqual([0, 69, 13]);
+  });
+  it('damaged DWA data is reported', () => {
+    // The first block's header: version 2, then sizes; claim far more AC data than the block holds.
+    const u = fx('dwaa.exr').slice(), sig = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const at = u.findIndex((_, i) => sig.every((b, k) => u[i + k] === b));
+    expect(at).toBeGreaterThan(300);
+    new DataView(u.buffer).setUint32(at + 24, 0x7fffffff, true);
+    expect(() => decodeExr(u)).toThrow(/DWA data is damaged/);
   });
 });

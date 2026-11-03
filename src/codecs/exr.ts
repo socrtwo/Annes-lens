@@ -1,14 +1,15 @@
 /**
  * OpenEXR: scanline and tiled images (the full-resolution level of mip and rip maps), single or
  * multi-part (each part a page), HALF, FLOAT and UINT channels with subsampling, compressed with
- * NONE, RLE, ZIPS, ZIP, PIZ (Huffman + wavelet), PXR24, B44 or B44A, written from the file layout as
- * OpenEXR's compressors define it. RGB(A), luminance (Y) and luminance/chroma (Y, RY, BY) are shown;
+ * NONE, RLE, ZIPS, ZIP, PIZ (Huffman + wavelet), PXR24, B44, B44A, DWAA or DWAB (dwa.ts), written from
+ * the file layout as OpenEXR's compressors define it. RGB(A), luminance (Y) and luminance/chroma (Y, RY, BY) are shown;
  * other channel sets show their first layer or channel. Linear values are tone-mapped like Radiance
- * HDR (exposure 1, clipped, sRGB curve); premultiplied alpha is undone. DWAA/DWAB, HTJ2K and ZSTD
- * and deep data are refused with a message.
+ * HDR (exposure 1, clipped, sRGB curve); premultiplied alpha is undone. HTJ2K, ZSTD and deep
+ * data are refused with a message.
  */
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
 import { inflate } from './inflate';
+import { decodeDwa } from './dwa';
 
 export const isExr = (u8: Uint8Array): boolean => u8.length > 8 && u8[0] === 0x76 && u8[1] === 0x2f && u8[2] === 0x31 && u8[3] === 0x01;
 
@@ -260,6 +261,7 @@ function decompress(comp: number, src: Uint8Array, chs: Channel[], x0: number, y
     case 4: return piz(src, planes, y0, h);
     case 5: return pxr24(src, planes, y0, h);
     case 6: case 7: return b44(src, planes, y0, h);
+    case 8: case 9: return decodeDwa(src, planes, y0, h, { half: HALF, huffman: hufDecode, zlib: zip, rle, predictReorder });
     default: throw new Error(`OpenEXR ${COMPRESSION[comp] || comp} compression is not supported yet`);
   }
 }
@@ -302,7 +304,7 @@ function decodePart(u8: Uint8Array, h: Header, offsets: number[], multipart: boo
 }
 
 const srgb = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
-export function decodeExr(u8: Uint8Array, opts: { exposure?: number } = {}): DecodeResult {
+function parse(u8: Uint8Array): { headers: Header[]; tables: number[][]; multipart: boolean } {
   if (!isExr(u8)) throw new Error('Not an OpenEXR file');
   const flags = u8[5] | (u8[6] << 8) | (u8[7] << 16);
   if (flags & 0x8) throw new Error('Deep OpenEXR data is not supported');
@@ -326,10 +328,21 @@ export function decodeExr(u8: Uint8Array, opts: { exposure?: number } = {}): Dec
     const t: number[] = []; for (let i = 0; i < n; i++) t.push(r.u64());
     return t;
   });
+  return { headers, tables, multipart };
+}
+
+/** The linear channel values of the first part (for tests and tools). */
+export function exrChannels(u8: Uint8Array): { width: number; height: number; channels: Map<string, Float32Array> } {
+  const { headers, tables, multipart } = parse(u8), { w, ht, data } = decodePart(u8, headers[0], tables[0], multipart);
+  return { width: w, height: ht, channels: data };
+}
+
+export function decodeExr(u8: Uint8Array, opts: { exposure?: number } = {}): DecodeResult {
+  const { headers, tables, multipart } = parse(u8);
   const pages: DecodedPage[] = [], warnings: string[] = [], info: Record<string, string> = {};
   headers.forEach((h, i) => {
     if (h.type && /deep/.test(h.type)) { warnings.push(`Part ${i + 1} (${h.name || 'deep'}) holds deep data, which is not shown`); return; }
-    if (h.compression > 7) { warnings.push(`Part ${i + 1}: OpenEXR ${COMPRESSION[h.compression] || h.compression} compression is not supported yet`); return; }
+    if (h.compression > 9) { warnings.push(`Part ${i + 1}: OpenEXR ${COMPRESSION[h.compression] || h.compression} compression is not supported yet`); return; }
     if (h.levelMode === 2) warnings.push(`Part ${i + 1}: a rip map; its full-resolution level is shown`);
     const { w, ht, data } = decodePart(u8, h, tables[i], multipart);
     // Which channels to show.
