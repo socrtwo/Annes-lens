@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+<rect x="20" y="20" width="160" height="100" fill="#d03030" stroke="#000" stroke-width="4"/>
+<ellipse cx="290" cy="80" rx="80" ry="50" fill="#3060d0"/>
+<path d="M30 280 C 80 160, 160 160, 210 280 Z" fill="#30a050" stroke="#202020" stroke-width="3"/>
+<text x="230" y="230" font-family="Liberation Sans" font-size="32" fill="#000">Anne</text>
+</svg>

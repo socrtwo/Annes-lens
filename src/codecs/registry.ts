@@ -24,6 +24,7 @@ import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { decodeExr, isExr } from './exr';
+import { isEmf, isWmf } from './metafile';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
 import { isPdf } from './pdf';
@@ -70,6 +71,8 @@ export const FORMATS: FormatInfo[] = [
   { id: 'psd', label: 'Photoshop', mime: 'image/vnd.adobe.photoshop', extensions: ['psd', 'psb'], decoder: 'own', save: false, notes: 'the merged composite; bitmap, grayscale, indexed, RGB, CMYK, Lab; 8/16/32 bits; layer names listed' },
   { id: 'icns', label: 'Apple Icon', mime: 'image/icns', extensions: ['icns'], decoder: 'platform+own', save: false, notes: 'every size as a page; PNG elements by the platform, classic packed and 1-bit elements by the app' },
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
+  { id: 'emf', label: 'Enhanced Metafile', mime: 'image/emf', extensions: ['emf', 'emz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi; EMF+ records are skipped' },
+  { id: 'wmf', label: 'Windows Metafile', mime: 'image/wmf', extensions: ['wmf', 'wmz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi' },
   { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A; half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
@@ -94,6 +97,8 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIcns(u8)) return formatById('icns')!;
   if (isDds(u8)) return formatById('dds')!;
   if (isExr(u8)) return formatById('exr')!;
+  if (isEmf(u8)) return formatById('emf')!;
+  if (isWmf(u8)) return formatById('wmf')!;
   if (isHdr(u8)) return formatById('hdr')!;
   if (isPnm(u8)) return formatById('pnm')!;
   if (isDcx(u8)) return formatById('pcx')!;
@@ -115,7 +120,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIco(u8)) return (u8[2] | (u8[3] << 8)) === 2 ? formatById('cur')! : formatById('ico')!;
   if (isTiff(u8)) return identifyRaw(u8, name) ? formatById('raw')! : formatById('tiff')!;
   if (identifyRaw(u8, name)) return formatById('raw')!;
-  if (u8[0] === 0x1f && u8[1] === 0x8b) return formatById('svg')!; // svgz (checked again by the platform)
+  if (u8[0] === 0x1f && u8[1] === 0x8b) return /\.emz$/i.test(name) ? formatById('emf')! : /\.wmz$/i.test(name) ? formatById('wmf')! : formatById('svg')!; // gzip: emz, wmz or svgz
   if (isPcx(u8)) return formatById('pcx')!;
   const head = new TextDecoder('utf-8', { fatal: false }).decode(u8.subarray(0, Math.min(u8.length, 2048)));
   if (/<svg[\s>]/i.test(head) && !/<script/i.test(head.slice(0, 200))) return formatById('svg')!;
@@ -156,6 +161,13 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'psd') decoded = fromOwn(decodePsd(u8), 'psd');
   else if (fmt.id === 'dds') decoded = fromOwn(decodeDds(u8), 'dds');
   else if (fmt.id === 'exr') decoded = fromOwn(decodeExr(u8), 'exr');
+  else if (fmt.id === 'emf' || fmt.id === 'wmf') {
+    const mf = await import('./metafile');
+    if (u8[0] === 0x1f && u8[1] === 0x8b) { const ds = new DecompressionStream('gzip'); const w = ds.writable.getWriter(); void w.write(u8.slice()).catch(() => undefined); void w.close().catch(() => undefined); u8 = new Uint8Array(await new Response(ds.readable).arrayBuffer()); } // .emz / .wmz
+    const r = fmt.id === 'emf' ? await mf.renderEmf(u8) : await mf.renderWmf(u8);
+    const c = r.canvas;
+    decoded = { pages: [{ width: c.width, height: c.height, frames: [{ image: c, width: c.width, height: c.height, delay: 0 }], loops: 0, bitDepth: 32, hasAlpha: true, dpi: [96, 96], notes: r.notes }], info: {}, warnings: r.warnings, decoder: 'metafile' };
+  }
   else if (fmt.id === 'hdr') decoded = fromOwn(decodeHdr(u8), 'hdr');
   else if (fmt.id === 'icns') decoded = await decodeIcnsFile(u8);
   else if (fmt.id === 'raw') decoded = await decodeRawPreview(u8, entry.name);

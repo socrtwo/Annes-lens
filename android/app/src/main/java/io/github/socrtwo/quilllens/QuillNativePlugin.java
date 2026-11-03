@@ -314,7 +314,7 @@ public class QuillNativePlugin extends Plugin {
         "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "avif", "heic", "heif", "hif", "bmp", "dib", "ico", "cur", "tif", "tiff",
         "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
         "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr",
-        "pdf", "exr"
+        "pdf", "exr", "wmf", "emf", "wmz", "emz"
     };
 
     private static boolean isPictureName(String name) {

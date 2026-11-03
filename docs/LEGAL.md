@@ -82,3 +82,5 @@ Anne's Lens works offline. Online services are called only when the user invokes
 ## Test pictures
 
 The People tests use five official White House portraits from Wikimedia Commons (Barack Obama, Joe Biden, Kamala Harris, and the 2009 and 2012 joint portraits of Obama and Biden). They are works of the United States federal government and in the public domain; `scripts/gen-people-fixtures.py` lists their sources. Face recognition runs only when the user turns People on, only on the device, and its data stays in the app's storage until Forget all faces.
+
+The WMF and EMF test files are made by `scripts/gen-metafile-fixtures.py`: two written record by record by the script, and LibreOffice's own exports of a drawing made for the tests (`drawing.svg`). LibreOffice (MPL 2.0) is used only on the developer's machine to export those files and render the reference pictures; nothing from it ships in the app, whose metafile interpreter is its own code.

@@ -375,6 +375,38 @@ try {
     check(`archive ${n} as folder`, Array.isArray(r) && [r[0], r[1], r[2], r[3] && r[3][0] > 150 && r[3][1] < 80], [n, ['page 1.png', 'page 2.jpg', 'page 10.png', 'photo with a long name.png'], 'page 1.png', true], JSON.stringify(r));
   }
   check('archive: an encrypted 7z says so', /encrypted/.test(String(ar['pics-aes.7z'])), true, JSON.stringify(ar['pics-aes.7z']));
+  // WMF and EMF through the app's GDI interpreter. LibreOffice's own exports must look like LibreOffice's renderings;
+  // the hand-built files are probed where GDI puts their shapes (LibreOffice fills hatches solid and drops one
+  // border there, so those are checked by GDI's rules instead).
+  const mfFiles = Object.fromEntries(['shapes.wmf', 'shapes.emf', 'drawing.emf', 'drawing.wmf'].map((n) => [n, [readFileSync(`tests/fixtures/metafile/${n}`).toString('base64'), readFileSync(`tests/fixtures/metafile/${n.replace('.', '-')}.png`).toString('base64')]]));
+  const mf = await p.evaluate(async (files) => {
+    const M = await window.__qnMetafile(), out = {};
+    for (const [n, [b64, ref]] of Object.entries(files)) {
+      const u8 = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), r = n.endsWith('emf') ? await M.renderEmf(u8) : await M.renderWmf(u8);
+      const w = document.createElement('canvas'); w.width = r.canvas.width; w.height = r.canvas.height; const g = w.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w.width, w.height); g.drawImage(r.canvas, 0, 0);
+      const img = new Image(); img.src = 'data:image/png;base64,' + ref; await img.decode();
+      const rc = document.createElement('canvas'); rc.width = img.width; rc.height = img.height; const rg = rc.getContext('2d'); rg.fillStyle = '#fff'; rg.fillRect(0, 0, rc.width, rc.height); rg.drawImage(img, 0, 0);
+      const a = g.getImageData(0, 0, w.width, w.height).data, b = rg.getImageData(0, 0, rc.width, rc.height).data;
+      let sum = 0; for (let i = 0; i < Math.min(a.length, b.length); i += 4) sum += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      const at = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3);
+      const region = (x0, y0, x1, y1) => { const d = g.getImageData(x0, y0, x1 - x0, y1 - y0).data; let green = 0, white = 0, other = 0; for (let i = 0; i < d.length; i += 4) { if (d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240) white++; else if (d[i + 1] > d[i] + 40 && d[i + 1] > d[i + 2] + 40) green++; else other++; } return { green, white, other }; };
+      out[n] = { size: [w.width, w.height], ref: [rc.width, rc.height], mean: +(sum / (a.length / 4 * 3)).toFixed(2), at, region };
+      out[n].probes = n === 'shapes.wmf' ? { red: at(46, 40), blue: at(140, 40), pie: at(170, 123), bitmap: at(100, 85), hatch: region(35, 110, 58, 128) }
+        : n === 'shapes.emf' ? { red: at(40, 35), lens: at(50, 110), orange: at(115, 105), clippedAway: at(150, 105), bitmap: at(160, 22), border: at(10, 35) } : null;
+      delete out[n].at; delete out[n].region;
+    }
+    // Opened through the app as a picture.
+    await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(files['drawing.emf'][0]), (c) => c.charCodeAt(0))], 'drawing.emf')]);
+    for (let i = 0; i < 60 && qn.picture?.name !== 'drawing.emf'; i++) await new Promise((r) => setTimeout(r, 50));
+    out.opened = [qn.picture?.name, qn.picture?.format.id, qn.picture?.width, qn.picture?.height];
+    return out;
+  }, mfFiles);
+  const mfNear = (a, b, t = 12) => a.every((v, i) => Math.abs(v - b[i]) <= t);
+  check('metafile: LibreOffice-made EMF and WMF look like LibreOffice draws them', [mf['drawing.emf'].size, mf['drawing.emf'].ref, mf['drawing.emf'].mean < 1.5, mf['drawing.wmf'].mean < 5], [[373, 273], [373, 273], true, true], JSON.stringify([mf['drawing.emf'], mf['drawing.wmf']]));
+  const mw = mf['shapes.wmf'].probes, me = mf['shapes.emf'].probes;
+  check('metafile: WMF shapes, pie, bitmap and a cross-hatched brush', [mf['shapes.wmf'].size, mfNear(mw.red, [208, 48, 48]), mfNear(mw.blue, [48, 96, 208]), mfNear(mw.pie, [48, 96, 208]), mw.bitmap.some((v, i) => Math.abs(v - 255) > 30), mw.hatch.green > 20 && mw.hatch.white > 100], [[192, 144], true, true, true, true, true], JSON.stringify(mf['shapes.wmf']));
+  check('metafile: EMF mapping, Save/RestoreDC, world transform, path, clipping, bitmap', [mfNear(me.red, [208, 48, 48]), mfNear(me.lens, [40, 160, 80]), mfNear(me.orange, [240, 170, 20]), mfNear(me.clippedAway, [48, 96, 208]), me.bitmap.some((v) => v < 200), me.border.every((v) => v < 60)], [true, true, true, true, true, true], JSON.stringify(mf['shapes.emf']));
+  check('metafile: an EMF opens as a picture', mf.opened, ['drawing.emf', 'emf', 373, 273]);
   // OpenEXR: a PIZ file and premultiplied RGBA open through the app (references from the OpenEXR library).
   const exrFiles = Object.fromEntries(['half-piz.exr', 'rgba-piz.exr'].map((n) => [n, readFileSync(`tests/fixtures/exr/${n}`).toString('base64')]));
   const ex = await p.evaluate(async (files) => {
