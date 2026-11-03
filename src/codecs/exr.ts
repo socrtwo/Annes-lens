@@ -1,15 +1,18 @@
 /**
  * OpenEXR: scanline and tiled images (the full-resolution level of mip and rip maps), single or
  * multi-part (each part a page), HALF, FLOAT and UINT channels with subsampling, compressed with
- * NONE, RLE, ZIPS, ZIP, PIZ (Huffman + wavelet), PXR24, B44, B44A, DWAA or DWAB (dwa.ts), written from
- * the file layout as OpenEXR's compressors define it. RGB(A), luminance (Y) and luminance/chroma (Y, RY, BY) are shown;
+ * NONE, RLE, ZIPS, ZIP, PIZ (Huffman + wavelet), PXR24, B44, B44A, DWAA or DWAB (dwa.ts), ZSTD, or
+ * HTJ2K256/HTJ2K32 (OpenJPH, openjph.ts; HALF channels), written from the file layout as OpenEXR's
+ * compressors define it. RGB(A), luminance (Y) and luminance/chroma (Y, RY, BY) are shown;
  * other channel sets show their first layer or channel. Linear values are tone-mapped like Radiance
- * HDR (exposure 1, clipped, sRGB curve); premultiplied alpha is undone. HTJ2K, ZSTD and deep
- * data are refused with a message.
+ * HDR (exposure 1, clipped, sRGB curve); premultiplied alpha is undone. LJ2K, HTJ2K with FLOAT or UINT
+ * channels, and deep data are refused with a message.
  */
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
 import { inflate } from './inflate';
 import { decodeDwa } from './dwa';
+import { decompress as zstdDecompress } from 'fzstd';
+import { exrHtHeader, decodeHtj2k16 } from './openjph';
 
 export const isExr = (u8: Uint8Array): boolean => u8.length > 8 && u8[0] === 0x76 && u8[1] === 0x2f && u8[2] === 0x31 && u8[3] === 0x01;
 
@@ -18,8 +21,8 @@ const HALF = new Float32Array(65536);
 
 interface Channel { name: string; type: number; linear: boolean; xs: number; ys: number }
 interface Header { channels: Channel[]; compression: number; x0: number; y0: number; x1: number; y1: number; tiled: boolean; tileW: number; tileH: number; levelMode: number; name?: string; type?: string; chunkCount?: number; attrs: Record<string, string> }
-const COMPRESSION = ['none', 'RLE', 'ZIPS', 'ZIP', 'PIZ', 'PXR24', 'B44', 'B44A', 'DWAA', 'DWAB', 'HTJ2K256', 'HTJ2K32', 'ZSTD'];
-const LINES = [1, 1, 1, 16, 32, 16, 32, 32, 32, 256, 256, 32, 32];
+const COMPRESSION = ['none', 'RLE', 'ZIPS', 'ZIP', 'PIZ', 'PXR24', 'B44', 'B44A', 'DWAA', 'DWAB', 'HTJ2K256', 'HTJ2K32', 'LJ2K', 'ZSTD'];
+const LINES = [1, 1, 1, 16, 32, 16, 32, 32, 32, 256, 256, 32, 256, 1];
 const BYTES = [4, 2, 4]; // UINT, HALF, FLOAT
 
 class R {
@@ -250,6 +253,71 @@ function b44(src: Uint8Array, planes: Plane[], y0: number, h: number): Uint8Arra
   return interleave(words, planes, y0, h);
 }
 
+/**
+ * ZSTD (OpenEXR 3.4+): a 24-byte prefix ("zstd-exr", wire version, flags, payload size), then a Zstandard frame
+ * holding one or two segments (the 16-bit channels' rows, then the 32-bit ones), each a 64-bit length and its
+ * bytes split into planes (all first bytes, then all second bytes, …). Version 2 with flag 1 also stored each
+ * channel row as differences between neighbouring samples. Undone in reverse, back to the scanline layout.
+ */
+function zstdExr(src: Uint8Array, planes: Plane[], y0: number, h: number): Uint8Array {
+  const dv = new DataView(src.buffer, src.byteOffset, src.byteLength);
+  if (src.length < 24 || String.fromCharCode(...src.subarray(0, 8)) !== 'zstd-exr') throw new Error('Damaged OpenEXR ZSTD block');
+  const format = dv.getUint32(8, true), flags = dv.getUint32(12, true), size = dv.getUint32(16, true) + dv.getUint32(20, true) * 4294967296;
+  if ((format !== 1 && format !== 2) || 24 + size > src.length) throw new Error('Damaged OpenEXR ZSTD block');
+  const inner = zstdDecompress(src.subarray(24, 24 + size)), iv = new DataView(inner.buffer, inner.byteOffset, inner.byteLength);
+  // Rows of the block in file order, and where each sits in the sorted layout (2-byte rows first, then 4-byte).
+  type Row = { y: number; p: number; n: number; bpe: number; sorted: number };
+  const rows: Row[] = [];
+  for (let y = y0; y < y0 + h; y++) planes.forEach((pl, p) => { if (!(((y % pl.ch.ys) + pl.ch.ys) % pl.ch.ys)) rows.push({ y, p, n: pl.nx, bpe: BYTES[pl.ch.type], sorted: 0 }); });
+  let at = 0;
+  for (const r of rows) if (r.bpe === 2) { r.sorted = at; at += r.n * 2; }
+  const split = at;
+  for (const r of rows) if (r.bpe === 4) { r.sorted = at; at += r.n * 4; }
+  const total = at, sorted = new Uint8Array(total);
+  const segs: [number, number][] = split > 0 && total > split ? [[split, 2], [total - split, 4]] : [[total, split === 0 ? 4 : 2]];
+  let q = 0, t = 0;
+  for (const [len, el] of segs) {
+    if (q + 8 > inner.length || iv.getUint32(q, true) !== len || iv.getUint32(q + 4, true) !== 0 || q + 8 + len > inner.length) throw new Error('Damaged OpenEXR ZSTD block (segment)');
+    q += 8;
+    const n = len / el;
+    for (let i = 0; i < n; i++) for (let b = 0; b < el; b++) sorted[t + i * el + b] = inner[q + b * n + i];
+    q += len; t += len;
+  }
+  if (format === 2 && flags & 1) { // per-row prefix sums of 16- and 32-bit samples
+    const sv = new DataView(sorted.buffer);
+    for (const r of rows) {
+      if (r.bpe === 2) for (let k = 1; k < r.n; k++) sv.setUint16(r.sorted + k * 2, sv.getUint16(r.sorted + k * 2, true) + sv.getUint16(r.sorted + k * 2 - 2, true), true);
+      else for (let k = 1; k < r.n; k++) sv.setUint32(r.sorted + k * 4, (sv.getUint32(r.sorted + k * 4, true) + sv.getUint32(r.sorted + k * 4 - 4, true)) >>> 0, true);
+    }
+  }
+  const out = new Uint8Array(total); let o = 0;
+  for (const r of rows) { out.set(sorted.subarray(r.sorted, r.sorted + r.n * r.bpe), o); o += r.n * r.bpe; }
+  return out;
+}
+
+/**
+ * HTJ2K256 / HTJ2K32 (OpenEXR 3.4+): an 'HT' header mapping codestream components to channels, then a lossless
+ * High-Throughput JPEG 2000 codestream (decoded by OpenJPH) whose 16-bit samples are the HALF values' bits.
+ */
+function htj2kExr(src: Uint8Array, planes: Plane[], h: number): Uint8Array {
+  if (planes.some((p) => p.ch.type !== 1)) throw new Error('OpenEXR HTJ2K blocks with FLOAT or UINT channels are not supported yet');
+  if (planes.some((p) => p.ch.xs !== 1 || p.ch.ys !== 1)) throw new Error('OpenEXR HTJ2K with subsampled channels is not supported yet');
+  const { map, codestream } = exrHtHeader(src);
+  if (map.length !== planes.length) throw new Error('Damaged OpenEXR HTJ2K block (channel map)');
+  const d = decodeHtj2k16(codestream), w = planes[0].nx;
+  if (d.components !== planes.length || d.width < w || d.height < h) throw new Error('Damaged OpenEXR HTJ2K block (size)');
+  const compOf: number[] = []; map.forEach((c, k) => { compOf[c] = k; });
+  const n = d.components, out = new Uint8Array(h * planes.length * w * 2); let o = 0;
+  for (let y = 0; y < h; y++) for (let c = 0; c < planes.length; c++) {
+    const k = compOf[c];
+    for (let x = 0; x < w; x++) { const v = d.samples[(y * d.width + x) * n + k]; out[o++] = v & 255; out[o++] = v >> 8; }
+  }
+  return out;
+}
+
+/** True when a part of the file is HTJ2K-compressed (the decoder must be loaded first). */
+export function exrNeedsHtj2k(u8: Uint8Array): boolean { try { return parse(u8).headers.some((h) => h.compression === 10 || h.compression === 11); } catch { return false; } }
+
 /** Decodes one block (or tile) of `w` × `h` pixels starting at (x0, y0) into the uncompressed layout. */
 function decompress(comp: number, src: Uint8Array, chs: Channel[], x0: number, y0: number, w: number, h: number): Uint8Array {
   const planes = planesOf(chs, x0, y0, w, h), size = planes.reduce((a, p) => a + p.nx * p.ny * p.size * 2, 0);
@@ -261,6 +329,8 @@ function decompress(comp: number, src: Uint8Array, chs: Channel[], x0: number, y
     case 4: return piz(src, planes, y0, h);
     case 5: return pxr24(src, planes, y0, h);
     case 6: case 7: return b44(src, planes, y0, h);
+    case 13: return zstdExr(src, planes, y0, h);
+    case 10: case 11: return htj2kExr(src, planes, h);
     case 8: case 9: return decodeDwa(src, planes, y0, h, { half: HALF, huffman: hufDecode, zlib: zip, rle, predictReorder });
     default: throw new Error(`OpenEXR ${COMPRESSION[comp] || comp} compression is not supported yet`);
   }
@@ -342,7 +412,7 @@ export function decodeExr(u8: Uint8Array, opts: { exposure?: number } = {}): Dec
   const pages: DecodedPage[] = [], warnings: string[] = [], info: Record<string, string> = {};
   headers.forEach((h, i) => {
     if (h.type && /deep/.test(h.type)) { warnings.push(`Part ${i + 1} (${h.name || 'deep'}) holds deep data, which is not shown`); return; }
-    if (h.compression > 9) { warnings.push(`Part ${i + 1}: OpenEXR ${COMPRESSION[h.compression] || h.compression} compression is not supported yet`); return; }
+    if (h.compression === 12 || h.compression > 13) { warnings.push(`Part ${i + 1}: OpenEXR ${COMPRESSION[h.compression] || h.compression} compression is not supported yet`); return; }
     if (h.levelMode === 2) warnings.push(`Part ${i + 1}: a rip map; its full-resolution level is shown`);
     const { w, ht, data } = decodePart(u8, h, tables[i], multipart);
     // Which channels to show.

@@ -66,6 +66,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | Material Symbols | Apache 2.0 |
 | fzstd (Zstandard decoding in TIFF) | MIT |
 | jxl-oxide (JPEG XL decoding where the platform has none) | MIT or Apache 2.0 |
+| OpenJPH, as Cornerstone's codec-openjph build (OpenEXR HTJ2K compression) | BSD-2-Clause; MIT |
 | jSquash AVIF decoder (from Squoosh): libavif, libaom's AV1 decoder, libyuv | Apache 2.0; BSD-2-Clause; BSD-2-Clause with the AOMedia Patent License 1.0; BSD-3-Clause |
 | world-atlas (Natural Earth country outlines for the offline map) | ISC; Natural Earth data public domain |
 | OpenStreetMap map tiles (online, Browse ▸ Map) | map data © OpenStreetMap contributors, ODbL; credited on the map; tile usage policy followed (identifying User-Agent on the desktop, no bulk downloading) |

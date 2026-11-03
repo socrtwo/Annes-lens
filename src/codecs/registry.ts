@@ -24,7 +24,7 @@ import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { isJp2, isJ2k } from './jpx';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
-import { decodeExr, isExr } from './exr';
+import { decodeExr, isExr, exrNeedsHtj2k } from './exr';
 import { isEmf, isWmf } from './metafile';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
@@ -75,7 +75,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'emf', label: 'Enhanced Metafile', mime: 'image/emf', extensions: ['emf', 'emz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi; EMF+ records are skipped' },
   { id: 'wmf', label: 'Windows Metafile', mime: 'image/wmf', extensions: ['wmf', 'wmz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi' },
   { id: 'jp2', label: 'JPEG 2000', mime: 'image/jp2', extensions: ['jp2', 'jpx', 'jpf', 'jph', 'j2k', 'j2c', 'jpc', 'jhc'], decoder: 'own', save: false, notes: 'JP2/JPX files and codestreams, HTJ2K too, decoded by OpenJPEG (WebAssembly); shown at 8 bits; very large pictures at a reduced resolution level' },
-  { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A; half, float and uint channels; tone-mapped for display' },
+  { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB, ZSTD, HTJ2K (half channels); half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
@@ -163,7 +163,10 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'wbmp') decoded = fromOwn(decodeWbmp(u8), 'wbmp');
   else if (fmt.id === 'psd') decoded = fromOwn(decodePsd(u8), 'psd');
   else if (fmt.id === 'dds') decoded = fromOwn(decodeDds(u8), 'dds');
-  else if (fmt.id === 'exr') decoded = fromOwn(decodeExr(u8), 'exr');
+  else if (fmt.id === 'exr') {
+    if (exrNeedsHtj2k(u8)) await (await import('./openjph')).loadOpenJph();
+    decoded = fromOwn(decodeExr(u8), 'exr');
+  }
   else if (fmt.id === 'jp2') { const { decodeJpx } = await import('./jpx'); decoded = fromOwn(await decodeJpx(u8), 'openjpeg'); }
   else if (fmt.id === 'emf' || fmt.id === 'wmf') {
     const mf = await import('./metafile');

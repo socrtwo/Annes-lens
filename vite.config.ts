@@ -28,8 +28,10 @@ export const LOCAL_RUNTIMES: { from: string; to: string; files: string[]; dirs?:
   // JPEG XL (jxl-oxide) and AVIF (libavif with libaom, from jSquash) decoders, for platforms that lack them.
   { from: 'node_modules/jxl-oxide-wasm', to: 'jxl', files: ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm', 'LICENSE-MIT', 'LICENSE-APACHE'] },
   { from: 'node_modules/@jsquash/avif', to: 'avif', files: ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm', 'LICENSE'] },
+  // OpenJPH (HTJ2K) for OpenEXR's HTJ2K compression.
+  { from: 'node_modules/@cornerstonejs/codec-openjph', to: 'openjph', files: ['dist/openjphjs.js', 'dist/openjphjs.wasm', 'LICENSE'] },
 ];
-export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', ocrLangs: ['eng'] };
+export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', ocrLangs: ['eng'] };
 export function stageRuntimes(dist: string): void {
   for (const r of LOCAL_RUNTIMES) {
     const out = join(dist, r.to); mkdirSync(out, { recursive: true });

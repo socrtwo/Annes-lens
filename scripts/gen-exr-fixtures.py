@@ -13,6 +13,8 @@ DWA (lossy): dwaa.exr, dwab.exr (half RGB), dwaa-float.exr (FLOAT RGB), dwaa-rgb
 dwaa-y.exr (Y alone: one lossy channel), dwaa-layers.exr (diffuse.R/G/B with a FLOAT depth.Z, stored as is),
 dwaa-tiled.exr (32 × 32 tiles), dwab-tall.exr (60 × 600: three 256-line blocks), dwaa-linear.exr (a Y channel
 marked perceptually linear: no nonlinear curve); dwaa.f16, dwaa-y.f16: the library's decoded half values.
+ZSTD (OpenEXR 3.4+): zstd-half.exr, zstd-mixed.exr (RGB half, Z float = 1.5 x + y, id uint = x · y), zstd-tiled.exr.
+HTJ2K (OpenEXR 3.4+, lossless): htj2k256.exr, htj2k32.exr (half RGB), htj2k-rgba.exr, htj2k-float.exr (with a FLOAT channel).
 Needs numpy, Pillow and OpenEXR (pip install OpenEXR).
 """
 import os
@@ -103,8 +105,28 @@ def main():
     OpenEXR.File(parts).write(p)
     reference(p, f'{OUT}/multipart-1.png'); reference(p, f'{OUT}/multipart-2.png', keys=('Y',), part=1)
     dwa(rgb, half, full, lum, x, a)
+    zstd(rgb, x)
     for f in sorted(os.listdir(OUT)):
         print(f, os.path.getsize(f'{OUT}/{f}'))
+
+
+def zstd(rgb, x):
+    """ZSTD (OpenEXR 3.4+): half RGB; RGB with a FLOAT depth and a UINT id channel (both segments); 16 × 16 tiles."""
+    Z = OpenEXR.ZSTD_COMPRESSION
+    fresh = lambda: {k: rgb[..., i].astype(np.float16) for i, k in enumerate('RGB')}
+    p = f'{OUT}/zstd-half.exr'; write(p, fresh(), Z); reference(p, p.replace('.exr', '.png'))
+    y, xx = np.mgrid[0:H, 0:W]
+    mixed = {**fresh(), 'Z': (xx * 1.5 + y).astype(np.float32), 'id': (xx * y).astype(np.uint32)}
+    p = f'{OUT}/zstd-mixed.exr'; write(p, mixed, Z); reference(p, p.replace('.exr', '.png'))
+    p = f'{OUT}/zstd-tiled.exr'
+    write(p, fresh(), Z, type=OpenEXR.tiledimage, tiles=tiles(16, 16, OpenEXR.ONE_LEVEL)); reference(p, p.replace('.exr', '.png'))
+    # HTJ2K (lossless, OpenJPH inside OpenEXR): 256- and 32-line blocks; RGBA; and a FLOAT channel (refused).
+    for n, comp in [('htj2k256', OpenEXR.HTJ2K256_COMPRESSION), ('htj2k32', OpenEXR.HTJ2K32_COMPRESSION)]:
+        p = f'{OUT}/{n}.exr'; write(p, fresh(), comp); reference(p, p.replace('.exr', '.png'))
+    a = np.clip((xx / W) * 1.2, 0, 1).astype(np.float32)
+    rgba = {k: (rgb[..., i] * a).astype(np.float16) for i, k in enumerate('RGB')}; rgba['A'] = a.astype(np.float16)
+    p = f'{OUT}/htj2k-rgba.exr'; write(p, rgba, OpenEXR.HTJ2K32_COMPRESSION); reference(p, p.replace('.exr', '.png'), alpha='A')
+    write(f'{OUT}/htj2k-float.exr', {**fresh(), 'Z': (xx * 1.5 + y).astype(np.float32)}, OpenEXR.HTJ2K256_COMPRESSION)
 
 
 def dwa(rgb, half, full, lum, x, a):

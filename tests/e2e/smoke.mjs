@@ -18,6 +18,7 @@ const LOCAL_RUNTIMES = [
   ['node_modules/pdfjs-dist', 'pdf', ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'image_decoders/pdf.image_decoders.min.mjs'], ['wasm', 'cmaps', 'standard_fonts', 'iccs']],
   ['node_modules/jxl-oxide-wasm', 'jxl', ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm']],
   ['node_modules/@jsquash/avif', 'avif', ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm']],
+  ['node_modules/@cornerstonejs/codec-openjph', 'openjph', ['dist/openjphjs.js', 'dist/openjphjs.wasm']],
 ];
 if (existsSync('dist')) {
   for (const [from, to, files, dirs = []] of LOCAL_RUNTIMES) {
@@ -25,7 +26,7 @@ if (existsSync('dist')) {
     for (const f of files) if (existsSync(`${from}/${f}`)) { mkdirSync(dirname(`dist/${to}/${f}`), { recursive: true }); copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
     for (const d of dirs) if (existsSync(`${from}/${d}`)) cpSync(`${from}/${d}`, `dist/${to}/${d}`, { recursive: true });
   }
-  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', ocrLangs: ['eng'] }));
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
   // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
@@ -416,7 +417,7 @@ try {
   check('metafile: EMF mapping, Save/RestoreDC, world transform, path, clipping, bitmap', [mfNear(me.red, [208, 48, 48]), mfNear(me.lens, [40, 160, 80]), mfNear(me.orange, [240, 170, 20]), mfNear(me.clippedAway, [48, 96, 208]), me.bitmap.some((v) => v < 200), me.border.every((v) => v < 60)], [true, true, true, true, true, true], JSON.stringify(mf['shapes.emf']));
   check('metafile: an EMF opens as a picture', mf.opened, ['drawing.emf', 'emf', 373, 273]);
   // OpenEXR: PIZ, premultiplied RGBA and lossy DWAB/DWAA (tiled) files open through the app (references from the OpenEXR library).
-  const exrFiles = Object.fromEntries(['half-piz.exr', 'rgba-piz.exr', 'dwab.exr', 'dwaa-tiled.exr'].map((n) => [n, readFileSync(`tests/fixtures/exr/${n}`).toString('base64')]));
+  const exrFiles = Object.fromEntries(['half-piz.exr', 'rgba-piz.exr', 'dwab.exr', 'dwaa-tiled.exr', 'zstd-half.exr', 'htj2k32.exr'].map((n) => [n, readFileSync(`tests/fixtures/exr/${n}`).toString('base64')]));
   const ex = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await qn.exec('file.openDropped', Object.entries(files).map(([n, b64]) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)));
@@ -431,6 +432,7 @@ try {
   const near1 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
   check('exr: PIZ half and premultiplied RGBA match the OpenEXR library', [ex['half-piz.exr'].slice(0, 3), near1(ex['half-piz.exr'][3], [157, 123, 235, 255]), near1(ex['half-piz.exr'][4], [255, 156, 181, 255]), ex['rgba-piz.exr'][0], Math.abs(ex['rgba-piz.exr'][5][3] - 44) <= 1], [['exr', 70, 50], true, true, 'exr', true], JSON.stringify(ex));
   check('exr: DWAB and tiled DWAA match the OpenEXR library', ['dwab.exr', 'dwaa-tiled.exr'].map((n) => [ex[n].slice(0, 3), near1(ex[n][3], [156, 122, 235, 255]), near1(ex[n][4], [255, 157, 182, 255]), near1(ex[n][5], [0, 157, 255, 255])]), [[['exr', 70, 50], true, true, true], [['exr', 70, 50], true, true, true]], JSON.stringify(ex));
+  check('exr: ZSTD and HTJ2K (OpenJPH from its runtime) are lossless', ['zstd-half.exr', 'htj2k32.exr'].map((n) => ex[n] && [ex[n].slice(0, 3), near1(ex[n][3], [157, 123, 235, 255]), near1(ex[n][4], [255, 156, 181, 255])]), [[['exr', 70, 50], true, true], [['exr', 70, 50], true, true]], JSON.stringify([ex['zstd-half.exr'], ex['htj2k32.exr']]));
   // JPEG 2000 through OpenJPEG from the PDF runtime: lossless JP2, HTJ2K, a tagged JP2 (ICC, dpi) and an ICNS with a JPEG 2000 element.
   const jpxFiles = Object.fromEntries(['rgb-lossless.jp2', 'ht.j2c', 'tagged.jp2', 'icon.icns'].map((n) => [n, readFileSync(`tests/fixtures/jpx/${n}`).toString('base64')]));
   const jx = await p.evaluate(async (files) => {

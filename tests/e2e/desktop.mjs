@@ -265,6 +265,15 @@ try {
     const got = ok ? await xw.evaluate(() => [qn.picture.format.id, qn.picture.decoder, qn.picture.width, qn.picture.height]) : await xw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a JPEG XL file opens through jxl-oxide', got, ['jxl', 'jxl-oxide', 53, 37]);
   } finally { await xApp.close().catch(() => undefined); }
+  // An HTJ2K OpenEXR file: OpenJPH's classic script is imported as a module from a Blob under the same policy.
+  const htPath = join(base, 'render.exr'); writeFileSync(htPath, readFileSync('tests/fixtures/exr/htj2k32.exr'));
+  const hApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, htPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const hw = await hApp.firstWindow();
+    const ok = await hw.waitForFunction(() => window.qn?.picture?.name === 'render.exr', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await hw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height, /HTJ2K32/.test(qn.picture.current.notes.join(' '))]) : await hw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: an HTJ2K OpenEXR file opens through OpenJPH', got, ['exr', 70, 50, true]);
+  } finally { await hApp.close().catch(() => undefined); }
   // People on real files: the face models are served from 127.0.0.1 (as from the model host), three portraits are
   // scanned, a person is named, and the names go into the JPEG files as MWG face regions.
   const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';

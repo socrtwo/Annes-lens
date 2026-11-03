@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { createRequire } from 'node:module';
+import { setOpenJph } from '../../src/codecs/openjph';
 import { readFileSync } from 'node:fs';
 import { decodeExr, exrChannels, isExr } from '../../src/codecs/exr';
 import { toHalf } from '../../src/codecs/dwa';
@@ -31,6 +33,34 @@ describe('OpenEXR (written and decoded by the OpenEXR library)', () => {
     const a = compare('multipart.exr', 'multipart-1.png', 0), b = compare('multipart.exr', 'multipart-2.png', 1);
     expect([a.pages, a.max <= 1, b.max <= 1]).toEqual([2, true, true]);
     expect(b.notes).toMatch(/part 2 \(luma\)/);
+  });
+});
+
+describe('OpenEXR ZSTD (OpenEXR 3.4+; written and decoded by the OpenEXR library)', () => {
+  it('half RGB, one scanline per block', () => { const r = compare('zstd-half.exr', 'zstd-half.png'); expect(r.max, r.notes).toBeLessThanOrEqual(1); expect(r.notes).toMatch(/ZSTD/); });
+  it('float and uint channels beside half ones: both segments, exact values', () => {
+    const r = compare('zstd-mixed.exr', 'zstd-mixed.png'); expect(r.max).toBeLessThanOrEqual(1);
+    const c = exrChannels(fx('zstd-mixed.exr')), Z = c.channels.get('Z')!, id = c.channels.get('id')!;
+    for (const [x, y] of [[0, 0], [69, 49], [13, 27]]) { expect(Z[y * 70 + x]).toBe(x * 1.5 + y); expect(id[y * 70 + x]).toBe(x * y); }
+  });
+  it('tiled', () => { const r = compare('zstd-tiled.exr', 'zstd-tiled.png'); expect(r.max).toBeLessThanOrEqual(1); expect(r.notes).toMatch(/tiled/); });
+});
+
+describe('OpenEXR HTJ2K (OpenEXR 3.4+, lossless; OpenJPH)', () => {
+  beforeAll(async () => {
+    const factory = createRequire(import.meta.url)(process.cwd() + '/node_modules/@cornerstonejs/codec-openjph/dist/openjphjs.js'); // by file (package exports hide it)
+    setOpenJph(await factory({ wasmBinary: readFileSync('node_modules/@cornerstonejs/codec-openjph/dist/openjphjs.wasm') }));
+  });
+  it('256- and 32-line blocks of half RGB, exact', () => {
+    for (const n of ['htj2k256', 'htj2k32']) { const r = compare(`${n}.exr`, `${n}.png`); expect(r.max, n).toBe(0); expect(r.notes, n).toMatch(/HTJ2K/); }
+  });
+  it('premultiplied RGBA', () => { const r = compare('htj2k-rgba.exr', 'htj2k-rgba.png'); expect(r.max).toBeLessThanOrEqual(1); });
+  it('the half values are the library\'s bit for bit', () => {
+    const z = exrChannels(fx('zstd-half.exr')), h = exrChannels(fx('htj2k256.exr'));
+    for (const k of ['R', 'G', 'B']) expect(h.channels.get(k)).toEqual(z.channels.get(k));
+  });
+  it('a FLOAT channel is refused with a message', () => {
+    expect(() => decodeExr(fx('htj2k-float.exr'))).toThrow(/HTJ2K blocks with FLOAT or UINT channels/);
   });
 });
 
