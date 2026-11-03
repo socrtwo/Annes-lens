@@ -47,8 +47,8 @@ Fidelity tiers:
 | DICOM | .dcm | `DICM` at offset 128 | High | No | window/level, multiframe; *not for diagnosis* notice |
 | FITS | .fits .fit .fts | `SIMPLE  =` | High | No | astronomy; stretch for display |
 | CBZ / CB7 / CBT, EPUB pictures | .cbz .cb7 .cbt .epub | ZIP/7z/TAR | Full (as a folder) | CBZ | comics and books in two-page and right-to-left views |
-| ZIP, 7z, tar archives | .zip .7z .tar .tar.gz .tgz .tar.bz2 .tbz2 .tar.xz .txz | `PK`, `7z¼¯'\x1c`, ustar or a valid tar checksum (inside gzip, bzip2 or xz) | Full (as a folder) | — | own decoders for LZMA, LZMA2, .xz and bzip2 (gzip and Deflate by the platform); 7z: Copy, LZMA, LZMA2, BZip2, Deflate, solid folders, compressed headers; encrypted 7z and executable filters (BCJ/BCJ2) are refused; RAR still to do |
-| CBR / RAR | .cbr .rar | `Rar!` | Identify, or Full with a module | No | only with a permissively licensed decoder; see *Licensing* |
+| ZIP, 7z, tar archives | .zip .7z .tar .tar.gz .tgz .tar.bz2 .tbz2 .tar.xz .txz | `PK`, `7z¼¯'\x1c`, ustar or a valid tar checksum (inside gzip, bzip2 or xz) | Full (as a folder) | — | own decoders for LZMA, LZMA2, .xz and bzip2 (gzip and Deflate by the platform); 7z: Copy, LZMA, LZMA2, BZip2, Deflate, solid folders, compressed headers; encrypted 7z and executable filters (BCJ/BCJ2) are refused |
+| CBR / RAR | .cbr .rar | `Rar!\x1a\x07\x00` (RAR 1.5–4.x), `Rar!\x1a\x07\x01\x00` (RAR 5.0) | Full (as a folder) | No | the app's own decoder: RAR 2.9 (archives from RAR 3.x and 4.x) and RAR 5.0 LZ compression with their standard filters (x86, Itanium, ARM, delta, RGB, audio), solid archives (files cached while replaying the stream), Unicode names, CRC-32 checked; PPMd text compression, the RAR 1.5/2.0 coders, encrypted archives and files continued in another volume are refused with a message; see *Licensing* |
 | MPO (stereo) | .mpo | JPEG + MPF | Full | No | stereo views |
 | Animated containers | .gif .apng .webp .avif .jxl | as above | Full | Yes | frame editor |
 | Video and audio met while browsing | .mp4 .mov .webm .mkv .avi .mp3 .ogg … | containers | Play via the platform's decoders | No | frame grab; no editing |
@@ -97,5 +97,5 @@ Every writable format has an options dialog (quality, chroma subsampling, progre
 ## Licensing notes
 
 - **HEIC/HEIF** uses HEVC, which is covered by patent pools in many countries. Anne's Lens decodes HEIC through the operating system where the system provides it (the platform vendor has the license) and offers a separate decoder module elsewhere with a notice. It does not encode HEIC itself; *Save As* offers AVIF, JPEG XL or JPEG instead.
-- **RAR** decompression is available only through permissively licensed decoders; the official unRAR source license forbids building a RAR compressor and has conditions the suite avoids bundling. Without a module, .cbr/.rar files are identified, not opened.
+- **RAR** decompression is the app's own code; it contains no RARLAB (unRAR) code, whose license forbids using it to re-create RAR compression and is not an open-source license. Anne's Lens does not create RAR archives.
 - **Ghostscript** (AGPL) is not used; EPS and PostScript open by their embedded previews.

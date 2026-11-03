@@ -1363,6 +1363,7 @@ public class QuillNativePlugin extends Plugin {
             case "pdf": return "application/pdf";
             case "txt": return "text/plain";
             case "zip": case "cbz": return "application/zip";
+            case "rar": case "cbr": return "application/vnd.rar";
             default:
                 return null;
         }

@@ -354,7 +354,8 @@ try {
   });
   check('palette export', exported, [1, 'GIMP Palette']);
   // tar (gzip, bzip2, xz/CBT) and 7z (LZMA2 solid, Deflate CB7) open as folders of their pictures; an encrypted 7z says so.
-  const arch = Object.fromEntries(['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-aes.7z'].map((n) => [n, readFileSync(`tests/fixtures/archives/${n}`).toString('base64')]));
+  // RAR/CBR too (RAR 2.x–4.x and 5.0 headers); a RAR with encrypted headers says so.
+  const arch = Object.fromEntries([...['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-aes.7z'].map((n) => `archives/${n}`), 'rar/comic4.cbr', 'rar/comic5.cbr', 'rar/la-rar-encryption-header.rar'].map((n) => [n.split('/')[1], readFileSync(`tests/fixtures/${n}`).toString('base64')]));
   const ar = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const out = {};
@@ -375,6 +376,11 @@ try {
     check(`archive ${n} as folder`, Array.isArray(r) && [r[0], r[1], r[2], r[3] && r[3][0] > 150 && r[3][1] < 80], [n, ['page 1.png', 'page 2.jpg', 'page 10.png', 'photo with a long name.png'], 'page 1.png', true], JSON.stringify(r));
   }
   check('archive: an encrypted 7z says so', /encrypted/.test(String(ar['pics-aes.7z'])), true, JSON.stringify(ar['pics-aes.7z']));
+  for (const n of ['comic4.cbr', 'comic5.cbr']) {
+    const r = ar[n];
+    check(`archive ${n} (RAR) as folder`, Array.isArray(r) && [r[0], r[1], r[2]], [n, ['cover.png', 'page-01.png', 'page-02.jpg', 'page-10.png'], 'cover.png'], JSON.stringify(r));
+  }
+  check('archive: a RAR with encrypted headers says so', /encrypted/.test(String(ar['la-rar-encryption-header.rar'])), true, JSON.stringify(ar['la-rar-encryption-header.rar']));
   // WMF and EMF through the app's GDI interpreter. LibreOffice's own exports must look like LibreOffice's renderings;
   // the hand-built files are probed where GDI puts their shapes (LibreOffice fills hatches solid and drops one
   // border there, so those are checked by GDI's rules instead).

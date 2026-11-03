@@ -71,9 +71,9 @@ The final list will be generated from `package.json` and the WASM build manifest
 | On-device models | each model's own license, shown before download; permissive only (see AI-PLAN.md) |
 | YuNet face detection, SFace face recognition (Browse ▸ People; OpenCV Zoo via huggingface.co/opencv) | MIT; Apache 2.0 |
 
-**Optional modules** (separate downloads, dynamically loaded, license shown first, never required): RAW development (LibRaw, LGPL-2.1 or CDDL-1.0), HEIC decoding where the platform lacks it (libheif LGPL-3.0 with an HEVC decoder; patent notice), RAR reading where a permissively licensed decoder is available. Their source and license texts are linked from Help ▸ About, and they can be replaced by the user, as the LGPL requires.
+**Optional modules** (separate downloads, dynamically loaded, license shown first, never required): RAW development (LibRaw, LGPL-2.1 or CDDL-1.0), HEIC decoding where the platform lacks it (libheif LGPL-3.0 with an HEVC decoder; patent notice). Their source and license texts are linked from Help ▸ About, and they can be replaced by the user, as the LGPL requires.
 
-**Not used:** Ghostscript (AGPL), G'MIC and GIMP code (GPL), dcraw-derived GPL code, unRAR in the base app, non-commercial-only model weights.
+**Not used:** Ghostscript (AGPL), G'MIC and GIMP code (GPL), dcraw-derived GPL code, RARLAB's unRAR code (RAR and CBR archives are read by the app's own decoder, which contains none of it; Anne's Lens does not create RAR archives), non-commercial-only model weights.
 
 ## Online services
 
@@ -84,3 +84,5 @@ Anne's Lens works offline. Online services are called only when the user invokes
 The People tests use five official White House portraits from Wikimedia Commons (Barack Obama, Joe Biden, Kamala Harris, and the 2009 and 2012 joint portraits of Obama and Biden). They are works of the United States federal government and in the public domain; `scripts/gen-people-fixtures.py` lists their sources. Face recognition runs only when the user turns People on, only on the device, and its data stays in the app's storage until Forget all faces.
 
 The WMF and EMF test files are made by `scripts/gen-metafile-fixtures.py`: two written record by record by the script, and LibreOffice's own exports of a drawing made for the tests (`drawing.svg`). LibreOffice (MPL 2.0) is used only on the developer's machine to export those files and render the reference pictures; nothing from it ships in the app, whose metafile interpreter is its own code.
+
+The RAR tests use archives from libarchive's test suite (BSD-2-Clause; `tests/fixtures/rar/LICENSE-libarchive`), fetched at a pinned commit by `scripts/gen-rar-fixtures.py`, which also writes two stored comic archives of its own. No RAR compressor was used to make any test file.

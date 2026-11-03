@@ -63,7 +63,7 @@ def([
   {
     id: 'browse.openArchive', icon: 'folder_zip', noRecord: true, tip: 'ZIP, CBZ, EPUB, 7z, CB7, tar or CBT (also .tar.gz, .tar.bz2, .tar.xz): the pictures inside become the folder',
     run: async (app) => {
-      const files = await openDocuments('.zip,.cbz,.epub,.7z,.cb7,.tar,.cbt,.tgz,.tbz,.tbz2,.txz,.gz,.bz2,.xz,application/zip', ['application/zip', 'application/vnd.comicbook+zip', 'application/epub+zip', 'application/x-7z-compressed', 'application/x-cb7', 'application/x-tar', 'application/gzip', 'application/x-bzip2', 'application/x-xz', 'application/octet-stream'], false);
+      const files = await openDocuments('.zip,.cbz,.epub,.7z,.cb7,.rar,.cbr,.tar,.cbt,.tgz,.tbz,.tbz2,.txz,.gz,.bz2,.xz,application/zip', ['application/zip', 'application/vnd.comicbook+zip', 'application/epub+zip', 'application/x-7z-compressed', 'application/x-cb7', 'application/vnd.rar', 'application/x-rar-compressed', 'application/x-cbr', 'application/x-tar', 'application/gzip', 'application/x-bzip2', 'application/x-xz', 'application/octet-stream'], false);
       if (!files.length) return;
       const { archiveFolder } = await import('./file');
       const folder = await archiveFolder(files[0].name, files[0].data);
