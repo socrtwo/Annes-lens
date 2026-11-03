@@ -247,6 +247,15 @@ try {
     const got = ok ? await pw.evaluate(() => { const f = qn.picture.pages[0].frames[0].image, c = document.createElement('canvas'); c.width = f.width; c.height = f.height; const g = c.getContext('2d'); g.drawImage(f, 0, 0); const at = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3); const k = f.width / 612; return [qn.picture.pages.length, f.width, at(Math.round(172 * k), Math.round(132 * k))]; }) : await pw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a PDF opens through pdf.js (three pages, 150 dpi, the red block)', got, [3, 1275, [255, 0, 0]]);
   } finally { await pdfApp.close().catch(() => undefined); }
+  // A JPEG 2000 file from the command line: OpenJPEG (pdf.js's image decoders) compiles in the page under the same policy.
+  const jp2Path = join(base, 'scan.jp2'); writeFileSync(jp2Path, readFileSync('tests/fixtures/jpx/tagged.jp2'));
+  const jApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, jp2Path], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const jw = await jApp.firstWindow();
+    const ok = await jw.waitForFunction(() => window.qn?.picture?.name === 'scan.jp2', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await jw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height, qn.picture.current.dpi, [...qn.picture.frameCanvas().getContext('2d').getImageData(15, 12, 1, 1).data].slice(0, 3)]) : await jw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a JPEG 2000 file opens through OpenJPEG', [got[0], got[1], got[2], got[3]], ['jp2', 53, 37, [300, 300]], JSON.stringify(got));
+  } finally { await jApp.close().catch(() => undefined); }
   // People on real files: the face models are served from 127.0.0.1 (as from the model host), three portraits are
   // scanned, a person is named, and the names go into the JPEG files as MWG face regions.
   const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';

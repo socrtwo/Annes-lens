@@ -22,8 +22,9 @@ export const LOCAL_RUNTIMES: { from: string; to: string; files: string[]; dirs?:
   { from: 'node_modules/tesseract.js-core', to: 'ocr/core', files: ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js'] },
   { from: 'node_modules/@tesseract.js-data/eng/4.0.0_best_int', to: 'ocr/lang', files: ['eng.traineddata.gz'] },
   { from: 'node_modules/zxing-wasm/dist/reader', to: 'zxing', files: ['zxing_reader.wasm'] },
-  // pdf.js: the library and its worker, the WebAssembly decoders (JPEG 2000, JBIG2, color management), CMaps and standard fonts.
-  { from: 'node_modules/pdfjs-dist', to: 'pdf', files: ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'LICENSE'], dirs: ['wasm', 'cmaps', 'standard_fonts', 'iccs'] },
+  // pdf.js: the library and its worker, its standalone image decoders (JPEG 2000 files), the WebAssembly decoders
+  // (JPEG 2000, JBIG2, color management), CMaps and standard fonts.
+  { from: 'node_modules/pdfjs-dist', to: 'pdf', files: ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'image_decoders/pdf.image_decoders.min.mjs', 'LICENSE'], dirs: ['wasm', 'cmaps', 'standard_fonts', 'iccs'] },
 ];
 export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', ocrLangs: ['eng'] };
 export function stageRuntimes(dist: string): void {

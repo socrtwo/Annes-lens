@@ -28,6 +28,7 @@ export const profileName = (bytes: Uint8Array | undefined | null): string => (by
 export async function embeddedIcc(u8: Uint8Array, formatId: string): Promise<Uint8Array | null> {
   if (formatId === 'jpeg' || formatId === 'webp') return extractMeta(u8).icc || null;
   if (formatId === 'png' || formatId === 'apng') return pngIcc(u8);
+  if (formatId === 'jp2') { const { jpxInfo } = await import('../codecs/jpx'); return jpxInfo(u8).icc; }
   if (formatId === 'tiff') {
     const le = u8[0] === 0x49, big = (le ? u8[2] | (u8[3] << 8) : (u8[2] << 8) | u8[3]) === 43;
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);

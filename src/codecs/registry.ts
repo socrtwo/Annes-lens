@@ -21,6 +21,7 @@ import { decodeXpm, decodeXbm, isXpm, isXbm } from './xpm';
 import { decodeWbmp, isWbmp } from './wbmp';
 import { decodePsd, isPsd } from './psd';
 import { isIcns, readIcns, decodeIcnsClassic } from './icns';
+import { isJp2, isJ2k } from './jpx';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { decodeExr, isExr } from './exr';
@@ -73,6 +74,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
   { id: 'emf', label: 'Enhanced Metafile', mime: 'image/emf', extensions: ['emf', 'emz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi; EMF+ records are skipped' },
   { id: 'wmf', label: 'Windows Metafile', mime: 'image/wmf', extensions: ['wmf', 'wmz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi' },
+  { id: 'jp2', label: 'JPEG 2000', mime: 'image/jp2', extensions: ['jp2', 'jpx', 'jpf', 'jph', 'j2k', 'j2c', 'jpc', 'jhc'], decoder: 'own', save: false, notes: 'JP2/JPX files and codestreams, HTJ2K too, decoded by OpenJPEG (WebAssembly); shown at 8 bits; very large pictures at a reduced resolution level' },
   { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A; half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
@@ -97,6 +99,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIcns(u8)) return formatById('icns')!;
   if (isDds(u8)) return formatById('dds')!;
   if (isExr(u8)) return formatById('exr')!;
+  if (isJp2(u8) || isJ2k(u8)) return formatById('jp2')!;
   if (isEmf(u8)) return formatById('emf')!;
   if (isWmf(u8)) return formatById('wmf')!;
   if (isHdr(u8)) return formatById('hdr')!;
@@ -161,6 +164,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'psd') decoded = fromOwn(decodePsd(u8), 'psd');
   else if (fmt.id === 'dds') decoded = fromOwn(decodeDds(u8), 'dds');
   else if (fmt.id === 'exr') decoded = fromOwn(decodeExr(u8), 'exr');
+  else if (fmt.id === 'jp2') { const { decodeJpx } = await import('./jpx'); decoded = fromOwn(await decodeJpx(u8), 'openjpeg'); }
   else if (fmt.id === 'emf' || fmt.id === 'wmf') {
     const mf = await import('./metafile');
     if (u8[0] === 0x1f && u8[1] === 0x8b) { const ds = new DecompressionStream('gzip'); const w = ds.writable.getWriter(); void w.write(u8.slice()).catch(() => undefined); void w.close().catch(() => undefined); u8 = new Uint8Array(await new Response(ds.readable).arrayBuffer()); } // .emz / .wmz
@@ -201,7 +205,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
       } else throw e;
     }
   }
-  if (fmt.id === 'tiff') { const own = await keepEmbedded(u8, 'tiff'); if (own) for (const pg of decoded.pages) { pg.icc = own.icc; pg.notes.push(`color profile: ${own.profile.description || 'embedded'}`); } }
+  if (fmt.id === 'tiff' || fmt.id === 'jp2') { const own = await keepEmbedded(u8, fmt.id); if (own) for (const pg of decoded.pages) { pg.icc = own.icc; pg.notes.push(`color profile: ${own.profile.description || 'embedded'}`); } }
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;
   // EXIF orientation: the platform decodes with imageOrientation 'none', so the pixels are as stored.
@@ -252,9 +256,15 @@ async function decodeIcnsFile(u8: Uint8Array) {
   for (const e of elements) {
     if (!e.png && !e.jp2) continue;
     try {
-      const bmp = await createImageBitmap(new Blob([e.bytes as BlobPart], { type: e.png ? 'image/png' : 'image/jp2' }));
-      out.push({ page: { width: bmp.width, height: bmp.height, frames: [{ image: bmp, width: bmp.width, height: bmp.height, delay: 0 }], loops: 0, bitDepth: 32, hasAlpha: true, notes: [`${e.type}: ${e.png ? 'PNG' : 'JPEG 2000'} element${e.size && e.size !== bmp.width ? ` (${e.size} pt, ${Math.round(bmp.width / e.size)}×)` : ''}`] }, size: bmp.width });
-    } catch (err: any) { warnings.push(`${e.type}: ${e.jp2 ? 'JPEG 2000 elements need the platform decoder' : err?.message || err}`); }
+      const label = (w: number) => `${e.type}: ${e.png ? 'PNG' : 'JPEG 2000'} element${e.size && e.size !== w ? ` (${e.size} pt, ${Math.round(w / e.size)}×)` : ''}`;
+      if (e.jp2) { // the app's JPEG 2000 decoder
+        const { decodeJpx } = await import('./jpx');
+        const pg = pageFromDecoded((await decodeJpx(e.bytes)).pages[0]); pg.notes = [label(pg.width)];
+        out.push({ page: pg, size: pg.width }); continue;
+      }
+      const bmp = await createImageBitmap(new Blob([e.bytes as BlobPart], { type: 'image/png' }));
+      out.push({ page: { width: bmp.width, height: bmp.height, frames: [{ image: bmp, width: bmp.width, height: bmp.height, delay: 0 }], loops: 0, bitDepth: 32, hasAlpha: true, notes: [label(bmp.width)] }, size: bmp.width });
+    } catch (err: any) { warnings.push(`${e.type}: ${err?.message || err}`); }
   }
   if (!out.length) throw new Error(warnings[0] || 'No readable icon element');
   out.sort((a, b) => b.size - a.size);

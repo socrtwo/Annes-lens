@@ -59,7 +59,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | libpng, zlib | libpng / zlib |
 | libwebp, libjxl, dav1d, OpenJPEG | BSD |
 | UTIF-style TIFF code and pako | MIT |
-| pdf.js (PDF pages), with its WebAssembly decoders: OpenJPEG (JPEG 2000), PDFium's JBIG2, qcms, QuickJS | Apache 2.0; BSD-2-Clause; BSD-3-Clause; MIT; MIT |
+| pdf.js (PDF pages, and its image decoders for JPEG 2000 files), with its WebAssembly decoders: OpenJPEG (JPEG 2000), PDFium's JBIG2, qcms, QuickJS | Apache 2.0; BSD-2-Clause; BSD-3-Clause; MIT; MIT |
 | ONNX Runtime Web, Transformers.js | MIT, Apache 2.0 |
 | tesseract.js and Tesseract | Apache 2.0 |
 | SQLite (WASM) | public domain |

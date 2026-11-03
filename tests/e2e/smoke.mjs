@@ -15,7 +15,7 @@ const LOCAL_RUNTIMES = [
   ['node_modules/tesseract.js-core', 'ocr/core', ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']],
   ['node_modules/@tesseract.js-data/eng/4.0.0_best_int', 'ocr/lang', ['eng.traineddata.gz']],
   ['node_modules/zxing-wasm/dist/reader', 'zxing', ['zxing_reader.wasm']],
-  ['node_modules/pdfjs-dist', 'pdf', ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs'], ['wasm', 'cmaps', 'standard_fonts', 'iccs']],
+  ['node_modules/pdfjs-dist', 'pdf', ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs', 'image_decoders/pdf.image_decoders.min.mjs'], ['wasm', 'cmaps', 'standard_fonts', 'iccs']],
 ];
 if (existsSync('dist')) {
   for (const [from, to, files, dirs = []] of LOCAL_RUNTIMES) {
@@ -429,6 +429,25 @@ try {
   const near1 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
   check('exr: PIZ half and premultiplied RGBA match the OpenEXR library', [ex['half-piz.exr'].slice(0, 3), near1(ex['half-piz.exr'][3], [157, 123, 235, 255]), near1(ex['half-piz.exr'][4], [255, 156, 181, 255]), ex['rgba-piz.exr'][0], Math.abs(ex['rgba-piz.exr'][5][3] - 44) <= 1], [['exr', 70, 50], true, true, 'exr', true], JSON.stringify(ex));
   check('exr: DWAB and tiled DWAA match the OpenEXR library', ['dwab.exr', 'dwaa-tiled.exr'].map((n) => [ex[n].slice(0, 3), near1(ex[n][3], [156, 122, 235, 255]), near1(ex[n][4], [255, 157, 182, 255]), near1(ex[n][5], [0, 157, 255, 255])]), [[['exr', 70, 50], true, true, true], [['exr', 70, 50], true, true, true]], JSON.stringify(ex));
+  // JPEG 2000 through OpenJPEG from the PDF runtime: lossless JP2, HTJ2K, a tagged JP2 (ICC, dpi) and an ICNS with a JPEG 2000 element.
+  const jpxFiles = Object.fromEntries(['rgb-lossless.jp2', 'ht.j2c', 'tagged.jp2', 'icon.icns'].map((n) => [n, readFileSync(`tests/fixtures/jpx/${n}`).toString('base64')]));
+  const jx = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    for (const [n, b64] of Object.entries(files)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const pic = qn.picture;
+      if (!pic || pic === before) { out[n] = [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | '); document.querySelectorAll('.ql-toast').forEach((t) => t.remove()); continue; }
+      const at = (x, y) => [...pic.frameCanvas().getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 4);
+      out[n] = [pic.format.id, pic.decoder, pic.width, pic.height, pic.current.notes.join(' | '), pic.current.dpi || null, at(15, 12), at(40, 5)];
+    }
+    return out;
+  }, jpxFiles);
+  check('jpeg 2000: lossless JP2 and HTJ2K open exactly', ['rgb-lossless.jp2', 'ht.j2c'].map((n) => jx[n] && [jx[n][0], jx[n][2], jx[n][3], jx[n][6], jx[n][7]]), [['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]], ['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]]], JSON.stringify(jx));
+  check('jpeg 2000: ICC profile and resolution of a tagged JP2', jx['tagged.jp2'] && [/color profile: .*Adobe RGB/i.test(jx['tagged.jp2'][4]), jx['tagged.jp2'][5]], [true, [300, 300]], JSON.stringify(jx['tagged.jp2']));
+  check('jpeg 2000: an ICNS icon with a JPEG 2000 element', jx['icon.icns'] && [jx['icon.icns'][0], jx['icon.icns'][2], /ic07: JPEG 2000 element/.test(jx['icon.icns'][4])], ['icns', 128, true], JSON.stringify(jx['icon.icns']));
 
   // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
   const editOps = await p.evaluate(async () => {
