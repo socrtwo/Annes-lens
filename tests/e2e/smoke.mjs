@@ -2,7 +2,8 @@
 // walks the folder, zooms, rotates, undoes, reads pixel info, switches menus and saves a copy.
 // Usage: npm run build && npm run e2e   (set QN_URL to test an already-running server instead)
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { chromium } from 'playwright';
 import { startMockAi } from './mockAi.mjs';
 
@@ -14,10 +15,15 @@ const LOCAL_RUNTIMES = [
   ['node_modules/tesseract.js-core', 'ocr/core', ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']],
   ['node_modules/@tesseract.js-data/eng/4.0.0_best_int', 'ocr/lang', ['eng.traineddata.gz']],
   ['node_modules/zxing-wasm/dist/reader', 'zxing', ['zxing_reader.wasm']],
+  ['node_modules/pdfjs-dist', 'pdf', ['build/pdf.min.mjs', 'build/pdf.worker.min.mjs'], ['wasm', 'cmaps', 'standard_fonts', 'iccs']],
 ];
 if (existsSync('dist')) {
-  for (const [from, to, files] of LOCAL_RUNTIMES) { mkdirSync(`dist/${to}`, { recursive: true }); for (const f of files) if (existsSync(`${from}/${f}`)) copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
-  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', ocrLangs: ['eng'] }));
+  for (const [from, to, files, dirs = []] of LOCAL_RUNTIMES) {
+    mkdirSync(`dist/${to}`, { recursive: true });
+    for (const f of files) if (existsSync(`${from}/${f}`)) { mkdirSync(dirname(`dist/${to}/${f}`), { recursive: true }); copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
+    for (const d of dirs) if (existsSync(`${from}/${d}`)) cpSync(`${from}/${d}`, `dist/${to}/${d}`, { recursive: true });
+  }
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
   // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
@@ -225,6 +231,51 @@ try {
   check('cut jpeg pixel', damaged.out[0] && damaged.out[0][4] && damaged.out[0][4].every((v, i) => Math.abs(v - damaged.want[i]) <= 4), true);
   check('cut png', damaged.out[1] && damaged.out[1].slice(0, 4), ['cut.png', 'png (tolerant)', 64, true]);
   check('cut png pixel', damaged.out[1] && damaged.out[1][4] && damaged.out[1][4][0] === 204 && damaged.out[1][4][1] === 102, true);
+
+  // PDF pages through pdf.js: three pages at 72 dpi against PDFium (vector shapes in RGB and CMYK, text, a JPEG, a
+  // JPEG 2000 picture, a Group 4 fax strip, a rotated page); 150 dpi sizes; the page limit; a password-protected copy.
+  const pdfFix = { pdf: readFileSync('tests/fixtures/pdf/sample.pdf').toString('base64'), locked: readFileSync('tests/fixtures/pdf/locked.pdf').toString('base64'), refs: [1, 2, 3].map((n) => readFileSync(`tests/fixtures/pdf/sample-${n}.png`).toString('base64')) };
+  const pdfr = await p.evaluate(async (fx) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const until = async (f) => { for (let i = 0; i < 200 && !f(); i++) await wait(50); };
+    qn.prefs.confirmClose = false;
+    const open = async (name, b64) => { const before = qn.picture; await qn.exec('file.openDropped', [new File([bytes(b64)], name)]); await until(() => qn.picture && qn.picture !== before && qn.picture.name === name); };
+    qn.prefs.pdf = { dpi: 72, maxPages: 100 }; qn.savePrefs();
+    await open('sample.pdf', fx.pdf);
+    const pic = qn.picture, out = { pages: pic.pages.length, info: [pic.info?.title || pic.info?.['title'], pic.info?.pages], notes: pic.pages.map((pg) => pg.notes.join(', ')), sizes: pic.pages.map((pg) => [pg.width, pg.height]), diff: [], spots: [] };
+    for (let i = 0; i < 3; i++) {
+      const img = new Image(); img.src = 'data:image/png;base64,' + fx.refs[i]; await img.decode();
+      const rc = document.createElement('canvas'); rc.width = img.width; rc.height = img.height; rc.getContext('2d').drawImage(img, 0, 0);
+      const ref = rc.getContext('2d').getImageData(0, 0, img.width, img.height).data;
+      const f = pic.pages[i].frames[0].image, c = document.createElement('canvas'); c.width = f.width; c.height = f.height; c.getContext('2d').drawImage(f, 0, 0);
+      const got = c.getContext('2d').getImageData(0, 0, f.width, f.height).data;
+      let sum = 0; for (let k = 0; k < Math.min(got.length, ref.length); k += 4) sum += Math.abs(got[k] - ref[k]) + Math.abs(got[k + 1] - ref[k + 1]) + Math.abs(got[k + 2] - ref[k + 2]);
+      out.diff.push(+(sum / (ref.length / 4 * 3)).toFixed(2));
+      const at = (d, w, x, y) => [...d.subarray((y * w + x) * 4, (y * w + x) * 4 + 3)];
+      const spots = i === 0 ? [[172, 132], [440, 132], [172, 312], [180, 52]] : i === 1 ? [[200, 182], [460, 157], [406, 473], [300, 520]] : [[100, 500], [700, 300]];
+      out.spots.push(spots.map(([x, y]) => [at(got, f.width, x, y), at(ref, img.width, x, y)]));
+    }
+    // 150 dpi, then a limit of two pages.
+    qn.prefs.pdf = { dpi: 150, maxPages: 2 }; qn.savePrefs();
+    await open('sample.pdf', fx.pdf);
+    out.big = [qn.picture.pages.length, qn.picture.pages[0].width, qn.picture.pages[0].height, qn.picture.warnings?.join(' ') || ''];
+    // The locked copy: a wrong password, then the right one.
+    qn.prefs.pdf = { dpi: 72, maxPages: 100 }; qn.savePrefs();
+    const run = qn.exec('file.openDropped', [new File([bytes(fx.locked)], 'locked.pdf')]);
+    const seen = new Set();
+    const answer = async (pw) => { let d; for (let i = 0; i < 100 && !(d = [...document.querySelectorAll('.ql-dialog')].find((x) => x.getAttribute('aria-label') === 'Password' && !seen.has(x) && x.isConnected)); i++) await wait(50); seen.add(d); const help = d.querySelector('.ql-help')?.textContent || ''; d.querySelector('input').value = pw; d.querySelector('input').dispatchEvent(new Event('input', { bubbles: true })); d.querySelector('.ql-primary').click(); await wait(100); return help; };
+    out.asked = [await answer('wrong'), await answer('anne')];
+    await run; await until(() => qn.picture?.name === 'locked.pdf');
+    out.locked = [qn.picture?.name, qn.picture?.pages.length];
+    return out;
+  }, pdfFix);
+  const close = (a, b, t) => a.every((v, i) => Math.abs(v - b[i]) <= t);
+  check('pdf: three pages through pdf.js, sizes at 72 dpi, rotation, metadata', [pdfr.pages, pdfr.sizes, pdfr.info, /PDF page 1 of 3/.test(pdfr.notes[0])], [3, [[612, 792], [595, 842], [792, 612]], ["Anne's Lens PDF test", '3'], true], JSON.stringify(pdfr.notes));
+  check('pdf: pages match PDFium (mean difference per channel)', pdfr.diff.map((d) => d < 6), [true, true, true], JSON.stringify(pdfr.diff));
+  check('pdf: shapes, JPEG, JPEG 2000 and fax strip land where PDFium puts them', pdfr.spots.flat().map(([g, r]) => close(g, r, 24)), pdfr.spots.flat().map(() => true), JSON.stringify(pdfr.spots));
+  check('pdf: 150 dpi and the page limit', [pdfr.big[0], pdfr.big[1], pdfr.big[2], /Pages 1–2 of 3/.test(pdfr.big[3])], [2, 1275, 1650, true], JSON.stringify(pdfr.big));
+  check('pdf: a password-protected PDF asks, says when the password is wrong, then opens', [/protected by a password/.test(pdfr.asked[0]), /does not open/.test(pdfr.asked[1]), pdfr.locked], [true, true, ['locked.pdf', 3]], JSON.stringify(pdfr));
 
   // A Group 4 fax page and a CMYK TIFF with its press profile open through the app (libtiff and LittleCMS made the references).
   const tifMore = { fax: [...readFileSync('tests/fixtures/tiff/fax-g4.tif')], cmyk: [...readFileSync('tests/fixtures/tiff/cmyk-icc.tif')] };

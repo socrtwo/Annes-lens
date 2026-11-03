@@ -238,6 +238,15 @@ try {
   const fsOn = await fw.waitForFunction(() => window.qn?.picture?.name === 'a.png' && document.body.classList.contains('ql-fullscreen'), null, { timeout: 30000 }).then(() => true).catch(() => false);
   await fsApp.close().catch(() => undefined);
   check('cli --fullscreen opens the picture full screen', fsOn, true);
+  // A PDF from the command line: pdf.js and its worker run under the desktop Content Security Policy.
+  const pdfPath = join(base, 'sample.pdf'); writeFileSync(pdfPath, readFileSync('tests/fixtures/pdf/sample.pdf'));
+  const pdfApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, pdfPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const pw = await pdfApp.firstWindow();
+    const ok = await pw.waitForFunction(() => window.qn?.picture?.name === 'sample.pdf', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await pw.evaluate(() => { const f = qn.picture.pages[0].frames[0].image, c = document.createElement('canvas'); c.width = f.width; c.height = f.height; const g = c.getContext('2d'); g.drawImage(f, 0, 0); const at = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3); const k = f.width / 612; return [qn.picture.pages.length, f.width, at(Math.round(172 * k), Math.round(132 * k))]; }) : await pw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a PDF opens through pdf.js (three pages, 150 dpi, the red block)', got, [3, 1275, [255, 0, 0]]);
+  } finally { await pdfApp.close().catch(() => undefined); }
   // People on real files: the face models are served from 127.0.0.1 (as from the model host), three portraits are
   // scanned, a person is named, and the names go into the JPEG files as MWG face regions.
   const SFACE = 'node_modules/.cache/annes-lens-models/face_recognition_sface_2021dec_int8.onnx';

@@ -37,7 +37,7 @@ Fidelity tiers:
 | Radiance HDR | .hdr .pic | `#?RADIANCE` | High | Yes | |
 | DDS | .dds | `DDS ` | High | No | BCn decompression |
 | SVG / SVGZ | .svg .svgz | XML root `svg` | Full (rendered) | Export (from trace) | rendered at any zoom; scripts never run |
-| PDF and AI-compatible PDF | .pdf .ai | `%PDF-` | High (pages rendered by pdf.js) | Yes (Export as PDF) | pages as a multipage picture; hand-off to Anne's Folio |
+| PDF and AI-compatible PDF | .pdf .ai | `%PDF-` | High (pages rendered by pdf.js) | Yes (Export as PDF) | pages as a multipage picture at 150 dpi (Options: resolution and how many pages; lower resolution when many pages would not fit in memory); password-protected files ask for the password; JPEG 2000, JBIG2 and CCITT pictures inside are decoded; Illustrator files saved PDF-compatible open the same way; hand-off to Anne's Folio |
 | EPS / PostScript | .eps .ps | `%!PS` / DOS EPS header | Preview | No | embedded TIFF/WMF preview; full PostScript interpretation is not planned (licensing) |
 | WMF / EMF | .wmf .emf | placeable header / `EMF` record | High | No | rendered by the app's own metafile renderer |
 | PCX / DCX | .pcx .dcx | `0A` + version | Full | Yes | |

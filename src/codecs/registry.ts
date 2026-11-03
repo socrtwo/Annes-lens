@@ -25,6 +25,7 @@ import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
+import { isPdf } from './pdf';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -70,6 +71,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'dds', label: 'DirectDraw Surface', mime: 'image/vnd-ms.dds', extensions: ['dds'], decoder: 'own', save: false, notes: 'uncompressed and BC1–BC5 (DXT1/3/5); cube faces as pages' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
+  { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
   { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
   { id: 'zip', label: 'ZIP archive / comic book', mime: 'application/zip', extensions: ['zip', 'cbz', 'epub'], decoder: 'own', save: false, notes: 'opened as a folder of the pictures inside (stored and deflate entries)' },
 ];
@@ -93,6 +95,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isPnm(u8)) return formatById('pnm')!;
   if (isDcx(u8)) return formatById('pcx')!;
   if (isZip(u8)) return formatById('zip')!;
+  if (isPdf(u8)) return formatById('pdf')!;
   if (isEps(u8)) return formatById('eps')!;
   if (u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) return formatById('jpeg')!;
   if (at(u8, 0, '\x89PNG\r\n\x1a\n')) { return pngInfo(u8).animated ? formatById('apng')! : formatById('png')!; }
@@ -127,6 +130,8 @@ export const decodeOptions = {
   autoRotate: true,
   /** RAW files open as their embedded preview; when off, DNG files are developed (Use Embedded Preview by Default). */
   rawPreferPreview: true,
+  /** Asks for a document's password (set by the app's interface); null: the user gave up. */
+  askPassword: null as null | ((name: string, wrong: boolean) => Promise<string | null>),
 };
 
 /** Decodes bytes into a Picture. Throws with a readable message when nothing can be shown. */
@@ -150,6 +155,19 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'hdr') decoded = fromOwn(decodeHdr(u8), 'hdr');
   else if (fmt.id === 'icns') decoded = await decodeIcnsFile(u8);
   else if (fmt.id === 'raw') decoded = await decodeRawPreview(u8, entry.name);
+  else if (fmt.id === 'pdf') {
+    const { decodePdf, pdfOptions } = await import('./pdf');
+    let password: string | undefined, r;
+    for (let attempt = 0; ; attempt++) {
+      try { r = await decodePdf(u8, pdfOptions, password); break; }
+      catch (e: any) {
+        if (!e?.password || !decodeOptions.askPassword || attempt >= 5) throw e;
+        const p = await decodeOptions.askPassword(entry.name, e.password === 'wrong'); if (p === null) throw e;
+        password = p;
+      }
+    }
+    decoded = { ...r, decoder: 'pdf.js' };
+  }
   else if (fmt.id === 'eps') decoded = await decodeEpsFile(u8);
   else if (fmt.id === 'zip') throw new Error('This is an archive: open it to browse the pictures inside (File ▸ Open)');
   else if (fmt.id === 'bmp') {

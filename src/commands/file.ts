@@ -380,6 +380,8 @@ def([
         { key: 'alphaColor', label: 'Transparency color', type: 'color', value: p.alphaColor, half: true, visibleIf: (v) => v.alphaDisplay === 'custom' },
         { key: 'background', label: 'Window background (empty: theme)', type: 'text', value: p.background, half: true, placeholder: '#202020' },
         { key: 'fullScreenBackground', label: 'Full-screen background', type: 'color', value: p.fullScreenBackground, half: true },
+        { key: 'pdfDpi', label: 'PDF pages: resolution (dpi)', type: 'number', min: 36, max: 600, value: p.pdf.dpi, half: true },
+        { key: 'pdfPages', label: 'PDF pages: how many open', type: 'number', min: 1, max: 2000, value: p.pdf.maxPages, half: true },
         { key: 'h2', type: 'heading', label: 'Folder' },
         { key: 'sort', label: 'Sort pictures by', type: 'select', options: [{ value: 'natural', label: 'Name (natural: 2 before 10)' }, { value: 'name', label: 'Name (plain)' }, { value: 'date', label: 'File date' }, { value: 'size', label: 'Size' }, { value: 'type', label: 'Type' }], value: p.sort, half: true },
         { key: 'sortDescending', label: 'Descending', type: 'checkbox', value: p.sortDescending, half: true },
@@ -413,6 +415,7 @@ def([
         alphaDisplay: r.alphaDisplay, alphaColor: r.alphaColor, background: String(r.background || '').trim(), fullScreenBackground: r.fullScreenBackground,
         sort: r.sort, sortDescending: r.sortDescending,
         theme: r.theme, uiScale: parseFloat(r.uiScale), menuStyle: r.menuStyle, menuLayout: r.menuLayout, qatPosition: r.qatPosition, qatLabels: r.qatLabels, statusBar: r.statusBar, escExits: r.escExits, confirmClose: r.confirmClose, confirmDelete: r.confirmDelete,
+        pdf: { dpi: Math.max(36, Math.min(600, Math.round(+r.pdfDpi) || 150)), maxPages: Math.max(1, Math.min(2000, Math.round(+r.pdfPages) || 100)) },
         jpegQuality: +r.jpegQuality || 90, defaultSaveFormat: r.defaultSaveFormat, keepMetadata: !!r.keepMetadata, keepOriginal: !!r.keepOriginal,
       } satisfies Partial<Prefs>);
       app.savePrefs();

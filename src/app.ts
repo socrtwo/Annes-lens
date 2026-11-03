@@ -6,7 +6,7 @@
 import { viewHooks } from './ui/viewHooks';
 import { getCommand, allCommands, type Command } from './commands/registry';
 import { loadPrefs, savePrefs, type Prefs } from './prefs';
-import { toast } from './ui/dialog';
+import { toast, openDialog } from './ui/dialog';
 import { canonicalKey } from './util/keys';
 import type { Shell } from './ui/shell';
 import type { Viewer } from './ui/viewer';
@@ -16,6 +16,7 @@ import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
 import { Journal } from './picture/journal';
 import { decodeOptions } from './codecs/registry';
+import { pdfOptions } from './codecs/pdf';
 
 let tabCounter = 0;
 
@@ -187,7 +188,12 @@ export class App {
   /** Renames, moves, copies and deletes of this session, for Undo File Operation. */
   journal = new Journal();
 
-  constructor(public host: HTMLElement) { this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; }
+  constructor(public host: HTMLElement) {
+    decodeOptions.askPassword = async (name, wrong) => {
+      const r = await openDialog({ title: 'Password', ok: 'Open', help: wrong ? `That password does not open ${name}. Try again.` : `${name} is protected by a password.`, fields: [{ key: 'pw', label: 'Password', type: 'password', value: '' }] });
+      return r ? String(r.pw) : null;
+    };
+    this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; pdfOptions.dpi = this.prefs.pdf.dpi; pdfOptions.maxPages = this.prefs.pdf.maxPages; }
 
   get tab(): PictureTab { return this.active; }
   /** The picture in the active window, or null. */
@@ -196,7 +202,7 @@ export class App {
   get folder(): Folder { return this.active.folder; }
 
   onRefresh(fn: (app: App) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; }
+  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; pdfOptions.dpi = this.prefs.pdf.dpi; pdfOptions.maxPages = this.prefs.pdf.maxPages; }
 
   rebuildKeyIndex(): void {
     this.keyIndex.clear(); this.keyCandidates.clear();
