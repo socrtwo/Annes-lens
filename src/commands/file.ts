@@ -16,17 +16,35 @@ import { paintHooks } from '../paint/hooks';
 import { installCustomMenus } from '../ui/classicMenus';
 import { iccForSave, writeWithProfile, profileName } from '../color/embedded';
 
-/** A ZIP/CBZ/EPUB opened as a folder: the pictures inside, inflated on demand, in natural order. */
+/** Archive file names that open as folders. */
+export const ARCHIVE_NAME = /\.(zip|cbz|epub|7z|cb7|tar|cbt|tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i;
+/** A ZIP/CBZ/EPUB, 7z/CB7 or tar/CBT (plain, gzip, bzip2 or xz) opened as a folder: the pictures inside, read on demand, in natural order. */
 export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Folder | null> {
   const u8 = new Uint8Array(data);
+  type Item = { name: string; size: number; mtime: number; read: () => Promise<Uint8Array> };
+  let items: Item[] = [], warnings: string[] = [];
   const { isZip, readZip, readZipEntry } = await import('../codecs/zip');
-  if (!isZip(u8)) return null;
-  const { entries, warnings } = readZip(u8);
-  const pics = entries.filter((e) => isPictureName(e.name) && !/(^|\/)(__MACOSX|\.)/.test(e.name));
+  const { isSevenZip, SevenZip } = await import('../codecs/sevenzip');
+  try {
+    if (isZip(u8)) {
+      const r = readZip(u8); warnings = r.warnings;
+      items = r.entries.map((e) => ({ name: e.name, size: e.size, mtime: e.mtime, read: async () => readZipEntry(u8, e) }));
+    } else if (isSevenZip(u8)) {
+      const z = await SevenZip.open(u8); warnings = z.warnings;
+      if (z.encrypted) throw new Error('This 7z archive is encrypted (AES), which Anne\'s Lens does not open');
+      items = z.entries.map((e) => ({ name: e.name, size: e.size, mtime: e.mtime, read: () => z.read(e) }));
+    } else {
+      const { untarable, readTar } = await import('../codecs/tar');
+      const t = await untarable(u8); if (!t) return null;
+      const r = readTar(t.tar); warnings = r.warnings;
+      items = r.entries.map((e) => ({ name: e.name, size: e.size, mtime: e.mtime, read: async () => t.tar.subarray(e.offset, e.offset + e.size) }));
+    }
+  } catch (e) { toast(`${name}: ${(e as Error).message}.`, { ms: 6000 }); return null; }
+  const pics = items.filter((e) => isPictureName(e.name) && e.size > 0 && !/(^|\/)(__MACOSX|\.)/.test(e.name));
   if (!pics.length) { toast(`${name} holds no pictures Anne's Lens can open${warnings.length ? ` (${warnings[0]})` : ''}.`); return null; }
   const list: Entry[] = pics.map((e) => ({
     name: e.name.split('/').pop() || e.name, uri: null, size: e.size, mtime: e.mtime,
-    read: async () => { const b = readZipEntry(u8, e); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer; },
+    read: async () => { const b = await e.read(); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer; },
   }));
   const folder = new Folder(list, name);
   folder.sort('natural');
@@ -38,7 +56,7 @@ export async function archiveFolder(name: string, data: ArrayBuffer): Promise<Fo
 export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow?: boolean } = {}): Promise<void> {
   if (!files.length) return;
   if (files.length === 1 && /\.qlpe$/i.test(files[0].name)) { const { openEncrypted } = await import('./tools'); await openEncrypted(app, files[0].name, new Uint8Array(files[0].data)); return; }
-  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name) || (files.length === 1 && new Uint8Array(files[0].data, 0, 4).join(',') === '80,75,3,4')) {
+  if (files.length === 1 && (ARCHIVE_NAME.test(files[0].name) || /^(80,75,3,4|55,122,188,175)$/.test(new Uint8Array(files[0].data, 0, 4).join(',')))) {
     const folder = await archiveFolder(files[0].name, files[0].data);
     if (folder) { await app.openFolder(folder, 0, opts); return; }
   }
@@ -61,7 +79,7 @@ export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow
 }
 
 export async function openDroppedFiles(app: App, files: File[]): Promise<void> {
-  if (files.length === 1 && /\.(zip|cbz|epub)$/i.test(files[0].name)) { const folder = await archiveFolder(files[0].name, await files[0].arrayBuffer()); if (folder) await app.openFolder(folder, 0); return; }
+  if (files.length === 1 && ARCHIVE_NAME.test(files[0].name)) { const folder = await archiveFolder(files[0].name, await files[0].arrayBuffer()); if (folder) await app.openFolder(folder, 0); return; }
   const list = files.filter((f) => isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name));
   if (!list.length) { toast('None of the dropped files is a picture Anne\'s Lens can open.'); return; }
   const folder = new Folder(list.map(entryFromFile), list.length === 1 ? list[0].name : `${list.length} dropped files`);

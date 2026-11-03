@@ -173,6 +173,24 @@
                 <data android:pathPattern=".*\\.CBZ" />
                 <data android:pathPattern=".*\\..*\\.CBZ" />
                 <data android:pathPattern=".*\\..*\\..*\\.CBZ" />
+                <data android:pathPattern=".*\\.cb7" />
+                <data android:pathPattern=".*\\..*\\.cb7" />
+                <data android:pathPattern=".*\\..*\\..*\\.cb7" />
+                <data android:pathPattern=".*\\.CB7" />
+                <data android:pathPattern=".*\\..*\\.CB7" />
+                <data android:pathPattern=".*\\..*\\..*\\.CB7" />
+                <data android:pathPattern=".*\\.cbt" />
+                <data android:pathPattern=".*\\..*\\.cbt" />
+                <data android:pathPattern=".*\\..*\\..*\\.cbt" />
+                <data android:pathPattern=".*\\.CBT" />
+                <data android:pathPattern=".*\\..*\\.CBT" />
+                <data android:pathPattern=".*\\..*\\..*\\.CBT" />
+                <data android:pathPattern=".*\\.7z" />
+                <data android:pathPattern=".*\\..*\\.7z" />
+                <data android:pathPattern=".*\\..*\\..*\\.7z" />
+                <data android:pathPattern=".*\\.7Z" />
+                <data android:pathPattern=".*\\..*\\.7Z" />
+                <data android:pathPattern=".*\\..*\\..*\\.7Z" />
             </intent-filter>
 
             <!-- Receive pictures shared from other apps (one or several). -->

@@ -47,6 +47,7 @@ Fidelity tiers:
 | DICOM | .dcm | `DICM` at offset 128 | High | No | window/level, multiframe; *not for diagnosis* notice |
 | FITS | .fits .fit .fts | `SIMPLE  =` | High | No | astronomy; stretch for display |
 | CBZ / CB7 / CBT, EPUB pictures | .cbz .cb7 .cbt .epub | ZIP/7z/TAR | Full (as a folder) | CBZ | comics and books in two-page and right-to-left views |
+| ZIP, 7z, tar archives | .zip .7z .tar .tar.gz .tgz .tar.bz2 .tbz2 .tar.xz .txz | `PK`, `7z¼¯'\x1c`, ustar or a valid tar checksum (inside gzip, bzip2 or xz) | Full (as a folder) | — | own decoders for LZMA, LZMA2, .xz and bzip2 (gzip and Deflate by the platform); 7z: Copy, LZMA, LZMA2, BZip2, Deflate, solid folders, compressed headers; encrypted 7z and executable filters (BCJ/BCJ2) are refused; RAR still to do |
 | CBR / RAR | .cbr .rar | `Rar!` | Identify, or Full with a module | No | only with a permissively licensed decoder; see *Licensing* |
 | MPO (stereo) | .mpo | JPEG + MPF | Full | No | stereo views |
 | Animated containers | .gif .apng .webp .avif .jxl | as above | Full | Yes | frame editor |

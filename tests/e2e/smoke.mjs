@@ -340,6 +340,28 @@ try {
     return [pal.colors.length, new TextDecoder().decode(encodePalette(pal, 'gpl').bytes).split('\n')[0]];
   });
   check('palette export', exported, [1, 'GIMP Palette']);
+  // tar (gzip, bzip2, xz/CBT) and 7z (LZMA2 solid, Deflate CB7) open as folders of their pictures; an encrypted 7z says so.
+  const arch = Object.fromEntries(['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7', 'pics-aes.7z'].map((n) => [n, readFileSync(`tests/fixtures/archives/${n}`).toString('base64')]));
+  const ar = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    for (const [n, b64] of Object.entries(files)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      const opened = () => !!qn.picture && qn.picture !== before;
+      for (let i = 0; i < 100 && !opened() && !document.querySelector('.ql-toast'); i++) await wait(50);
+      await wait(200);
+      const px = opened() ? [...qn.picture.frameCanvas().getContext('2d').getImageData(10, 15, 1, 1).data].slice(0, 3) : null;
+      out[n] = opened() ? [qn.folder.name, qn.folder.entries.map((e) => e.name), qn.picture.name, px] : [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | ');
+      document.querySelectorAll('.ql-toast').forEach((t) => t.remove());
+    }
+    return out;
+  }, arch);
+  for (const n of ['pics.tar.gz', 'pics.tbz2', 'pics.cbt', 'pics-lzma2.7z', 'pics-deflate.cb7']) {
+    const r = ar[n];
+    check(`archive ${n} as folder`, Array.isArray(r) && [r[0], r[1], r[2], r[3] && r[3][0] > 150 && r[3][1] < 80], [n, ['page 1.png', 'page 2.jpg', 'page 10.png', 'photo with a long name.png'], 'page 1.png', true], JSON.stringify(r));
+  }
+  check('archive: an encrypted 7z says so', /encrypted/.test(String(ar['pics-aes.7z'])), true, JSON.stringify(ar['pics-aes.7z']));
 
   // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
   const editOps = await p.evaluate(async () => {
