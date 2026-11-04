@@ -22,6 +22,7 @@ import { decodeWbmp, isWbmp } from './wbmp';
 import { decodePsd, isPsd } from './psd';
 import { isIcns, readIcns, decodeIcnsClassic } from './icns';
 import { isJp2, isJ2k } from './jpx';
+import { isIff, isPcd, isMacBinaryPaint, decodeIff, decodePcd, decodeMacPaint } from './retro';
 import { decodeDds, isDds } from './dds';
 import { decodeHdr, isHdr } from './hdr';
 import { decodeExr, isExr, exrNeedsHtj2k } from './exr';
@@ -75,6 +76,9 @@ export const FORMATS: FormatInfo[] = [
   { id: 'emf', label: 'Enhanced Metafile', mime: 'image/emf', extensions: ['emf', 'emz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi; EMF+ records are skipped' },
   { id: 'wmf', label: 'Windows Metafile', mime: 'image/wmf', extensions: ['wmf', 'wmz'], decoder: 'own', save: false, notes: 'drawn by a GDI interpreter of the app\'s own at 96 dpi' },
   { id: 'jp2', label: 'JPEG 2000', mime: 'image/jp2', extensions: ['jp2', 'jpx', 'jpf', 'jph', 'j2k', 'j2c', 'jpc', 'jhc'], decoder: 'own', save: false, notes: 'JP2/JPX files and codestreams, HTJ2K too, decoded by OpenJPEG (WebAssembly); shown at 8 bits; very large pictures at a reduced resolution level' },
+  { id: 'iff', label: 'Amiga IFF (ILBM/PBM)', mime: 'image/x-ilbm', extensions: ['iff', 'ilbm', 'lbm', 'ham', 'ham8'], decoder: 'own', save: false, notes: 'Deluxe Paint and Amiga pictures: 1–8 bitplanes, Extra Half-Brite, HAM6/HAM8, 24/32-bit, chunky PBM, masks; color cycling as an animation' },
+  { id: 'macpaint', label: 'MacPaint', mime: 'image/x-macpaint', extensions: ['mac', 'pntg', 'pnt'], decoder: 'own', save: false, notes: '576 × 720, 1 bit; MacBinary files too' },
+  { id: 'pcd', label: 'Kodak Photo CD', mime: 'image/x-photo-cd', extensions: ['pcd'], decoder: 'own', save: false, notes: 'the Base image (768 × 512) with Kodak\'s Photo YCC conversion; 4Base and 16Base not decoded' },
   { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB, ZSTD, HTJ2K (half channels); half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
@@ -100,6 +104,9 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isDds(u8)) return formatById('dds')!;
   if (isExr(u8)) return formatById('exr')!;
   if (isJp2(u8) || isJ2k(u8)) return formatById('jp2')!;
+  if (isIff(u8)) return formatById('iff')!;
+  if (isPcd(u8)) return formatById('pcd')!;
+  if (isMacBinaryPaint(u8)) return formatById('macpaint')!;
   if (isEmf(u8)) return formatById('emf')!;
   if (isWmf(u8)) return formatById('wmf')!;
   if (isHdr(u8)) return formatById('hdr')!;
@@ -132,6 +139,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   // Formats without a magic number come last: a plausible header, or the name.
   if (isTga(u8, name)) return formatById('tga')!;
   if (isWbmp(u8, name)) return formatById('wbmp')!;
+  if (/\.(mac|pntg|pnt)$/i.test(name) && u8.length >= 512 + 720 && u8[0] === 0 && u8[1] === 0 && u8[2] === 0 && u8[3] <= 3) return formatById('macpaint')!; // no magic number
   return null;
 }
 
@@ -167,6 +175,9 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
     if (exrNeedsHtj2k(u8)) await (await import('./openjph')).loadOpenJph();
     decoded = fromOwn(decodeExr(u8), 'exr');
   }
+  else if (fmt.id === 'iff') decoded = fromOwn(decodeIff(u8), 'iff');
+  else if (fmt.id === 'macpaint') decoded = fromOwn(decodeMacPaint(u8), 'macpaint');
+  else if (fmt.id === 'pcd') decoded = fromOwn(decodePcd(u8), 'pcd');
   else if (fmt.id === 'jp2') { const { decodeJpx } = await import('./jpx'); decoded = fromOwn(await decodeJpx(u8), 'openjpeg'); }
   else if (fmt.id === 'emf' || fmt.id === 'wmf') {
     const mf = await import('./metafile');

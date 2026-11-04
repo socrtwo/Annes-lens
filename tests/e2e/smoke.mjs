@@ -452,6 +452,21 @@ try {
   check('jpeg 2000: lossless JP2 and HTJ2K open exactly', ['rgb-lossless.jp2', 'ht.j2c'].map((n) => jx[n] && [jx[n][0], jx[n][2], jx[n][3], jx[n][6], jx[n][7]]), [['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]], ['jp2', 53, 37, [250, 20, 40, 255], [160, 30, 90, 255]]], JSON.stringify(jx));
   check('jpeg 2000: ICC profile and resolution of a tagged JP2', jx['tagged.jp2'] && [/color profile: .*Adobe RGB/i.test(jx['tagged.jp2'][4]), jx['tagged.jp2'][5]], [true, [300, 300]], JSON.stringify(jx['tagged.jp2']));
   check('jpeg 2000: an ICNS icon with a JPEG 2000 element', jx['icon.icns'] && [jx['icon.icns'][0], jx['icon.icns'][2], /ic07: JPEG 2000 element/.test(jx['icon.icns'][4])], ['icns', 128, true], JSON.stringify(jx['icon.icns']));
+  // Pictures from the 1980s and 1990s: MacPaint, Deluxe Paint (IFF ILBM with color cycling) and Kodak Photo CD.
+  const retroFiles = Object.fromEntries(['paint.mac', 'cycle.iff', 'photo.pcd'].map((n) => [n, readFileSync(`tests/fixtures/retro/${n}`).toString('base64')]));
+  const rt = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {};
+    for (const [n, b64] of Object.entries(files)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const pic = qn.picture;
+      if (!pic || pic === before) { out[n] = [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | '); document.querySelectorAll('.ql-toast').forEach((t) => t.remove()); continue; }
+      out[n] = [pic.format.id, pic.width, pic.height, pic.current.frames.length];
+    }
+    return out;
+  }, retroFiles);
+  check('retro: MacPaint, an animated Deluxe Paint picture and a Photo CD open', [rt['paint.mac'], rt['cycle.iff'], rt['photo.pcd']], [['macpaint', 576, 720, 1], ['iff', 50, 30, 8], ['pcd', 768, 512, 1]], JSON.stringify(rt));
   // JPEG XL (Chromium has no decoder: the app's jxl-oxide steps in) and AVIF through the app's libavif, from the staged runtimes.
   const modFiles = Object.fromEntries(['lossless.jxl', 'anim.jxl', 'alpha.avif'].map((n) => [n, readFileSync(`tests/fixtures/modern/${n}`).toString('base64')]));
   const mo = await p.evaluate(async (files) => {

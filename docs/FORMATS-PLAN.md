@@ -66,14 +66,14 @@ The base app reads every RAW file's TIFF-like structure and metadata and shows t
 
 | Format | Program(s) | Era | Extensions | Planned tier |
 |---|---|---|---|---|
-| MacPaint | MacPaint | 1984– | .mac .pntg | Full |
+| MacPaint | MacPaint | 1984– | .mac .pntg .pnt | **Done:** Full (576 × 720, 1 bit; plain or in a MacBinary file) |
 | PICT | QuickDraw | 1984–2009 | .pict .pct | High (bitmap opcodes; vector opcodes rendered) |
-| IFF ILBM / PBM (Amiga, Deluxe Paint) | Deluxe Paint | 1985– | .iff .ilbm .lbm | Full (HAM, EHB, color cycling shown as animation) |
+| IFF ILBM / PBM (Amiga, Deluxe Paint) | Deluxe Paint | 1985– | .iff .ilbm .lbm .ham | **Done:** Full (1–8 bitplanes, Extra Half-Brite, HAM6/HAM8, 24/32-bit deep ILBM, chunky PBM, ByteRun1, mask planes and transparent colors, 4-bit OCS palettes widened, CRNG/CCRT color cycling played as an animation) |
 | Degas, NEOchrome (Atari ST) | | 1985– | .pi1–.pi3 .neo | Full |
 | Koala, Doodle (Commodore 64) | | 1980s | .koa .dd | Full |
 | GEM IMG | GEM/Ventura | 1985– | .img | Full |
 | Sun Raster, SGI, Utah RLE | Unix workstations | 1980s–90s | .ras .sgi .rgb .rle | Full |
-| Kodak Photo CD | Photo CD | 1992–2004 | .pcd | High (all resolutions) |
+| Kodak Photo CD | Photo CD | 1992–2004 | .pcd | **Done:** High for the Base image (768 × 512, Kodak's Photo YCC conversion, the disc's orientation); 4Base and 16Base (Huffman-coded residuals) still to do |
 | FlashPix | Kodak/Microsoft | 1996– | .fpx | High |
 | Paint Shop Pro | Jasc | 1990s–2000s | .psp .pspimage | Preview (composite) |
 | CorelDRAW / Corel PHOTO-PAINT | Corel | 1990s– | .cdr .cpt | Preview (embedded) |
