@@ -5,8 +5,10 @@
  * color, MONOCHROME1/2); every frame as a page; the modality rescale and the first window (LINEAR, LINEAR_EXACT and
  * SIGMOID functions), or the full range of the frame when there is none. Compressed pixel data: RLE (own), JPEG
  * baseline and 12-bit extended (pdf.js's decoder and the app's own DCT decoder), JPEG lossless (the app's own process
- * 14 decoder), JPEG 2000 and HTJ2K (OpenJPEG as WebAssembly at full precision, or pdf.js's 8-bit build of it when
- * that runtime is not available). JPEG-LS and the video syntaxes are named in the error. Overlay planes, VOI lookup tables and presentation states are not applied.
+ * 14 decoder), JPEG-LS (the app's own T.87 decoder), JPEG 2000 and HTJ2K (OpenJPEG as WebAssembly at full precision,
+ * or pdf.js's 8-bit build of it when that runtime is not available). The video syntaxes are named in the error.
+ * Modality and VOI lookup tables are applied (a VOI LUT before a window); overlay planes (separate or embedded in the
+ * pixel words) are drawn in white. Presentation states are not applied.
  *
  * The pictures are for viewing only: the app is not a medical device and shows nothing for diagnosis.
  */
@@ -15,6 +17,7 @@ import { inflate } from './inflate';
 import { jpxInfo } from './jpx';
 import { decodeLjpeg } from '../raw/ljpeg';
 import { decodeDctSamples } from './jpegdct';
+import { decodeJpegLs } from './jpegls';
 import { openJpegReady, decodeJ2k16 } from './openjpeg16';
 
 export const NOT_FOR_DIAGNOSIS = 'For viewing only: Anne\'s Lens is not a medical device, and this picture is not for diagnosis or treatment decisions';
@@ -56,8 +59,31 @@ const LONG_VR = new Set(['OB', 'OW', 'OF', 'OD', 'OL', 'OV', 'SQ', 'UT', 'UN', '
 const T = (g: number, e: number) => ((g << 16) | e) >>> 0;
 const PIXEL = T(0x7fe0, 0x0010), FLOAT_PIXEL = T(0x7fe0, 0x0008), DOUBLE_PIXEL = T(0x7fe0, 0x0009), ITEM = 0xfffee000, ITEM_END = 0xfffee00d, SEQ_END = 0xfffee0dd;
 
-interface Element { vr: string; off: number; len: number; be: boolean; frags?: { off: number; len: number }[]; bot?: number[] }
+interface Element { vr: string; off: number; len: number; be: boolean; frags?: { off: number; len: number }[]; bot?: number[]; items?: Elements[] }
 type Elements = Map<number, Element>;
+/** Sequences whose items are kept (the lookup tables). */
+const KEEP_ITEMS = new Set([T(0x28, 0x3000), T(0x28, 0x3010)]);
+
+/** The items of a sequence from `start` to `end` (or to the sequence delimiter when `end` is Infinity). */
+function walkItems(u8: Uint8Array, start: number, end: number, explicit: boolean, be: boolean, collect: boolean, depth: number): { end: number; items: Elements[] } {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), items: Elements[] = [];
+  let q = start;
+  while (q + 8 <= Math.min(end, u8.length)) {
+    const t = T(dv.getUint16(q, !be), dv.getUint16(q + 2, !be)), l = dv.getUint32(q + 4, !be);
+    if (t === SEQ_END) { q += 8; break; }
+    if (t !== ITEM) { q = Math.min(end, u8.length); break; }
+    if (l === 0xffffffff) {
+      if (depth > 16) throw new Error('Sequences nested too deeply');
+      const item = new Map<number, Element>();
+      q = parseDataset(u8, q + 8, u8.length, explicit, be, item, depth + 1);
+      if (collect) items.push(item);
+    } else {
+      if (collect) { const item = new Map<number, Element>(); parseDataset(u8, q + 8, Math.min(u8.length, q + 8 + l), explicit, be, item, depth + 1); items.push(item); }
+      q += 8 + l;
+    }
+  }
+  return { end: q, items };
+}
 
 /** Parses one data set (or sequence item) into `into`, top-level elements only; returns the position after `end` or the delimiter. */
 function parseDataset(u8: Uint8Array, start: number, end: number, explicit: boolean, be: boolean, into: Elements, depth: number): number {
@@ -91,20 +117,16 @@ function parseDataset(u8: Uint8Array, start: number, end: number, explicit: bool
         p = q; continue;
       }
       // A sequence (or UN) of undefined length: walk its items to the delimiter (UN items are implicit VR little endian).
-      let q = off;
-      const nested = new Map<number, Element>(), nestedExplicit = explicit && vr !== 'UN', nestedBe = vr === 'UN' ? false : be;
-      while (q + 8 <= u8.length) {
-        const t = T(nestedBe ? dv.getUint16(q, false) : dv.getUint16(q, true), nestedBe ? dv.getUint16(q + 2, false) : dv.getUint16(q + 2, true));
-        const l = nestedBe ? dv.getUint32(q + 4, false) : dv.getUint32(q + 4, true);
-        if (t === SEQ_END) { q += 8; break; }
-        if (t !== ITEM) { q = u8.length; break; }
-        if (l === 0xffffffff) { if (depth > 16) throw new Error('Sequences nested too deeply'); q = parseDataset(u8, q + 8, u8.length, nestedExplicit, nestedBe, nested, depth + 1); }
-        else q += 8 + l;
-      }
-      if (!into.has(tag)) into.set(tag, { vr: vr || 'SQ', off, len: q - off, be });
-      p = q; continue;
+      const w = walkItems(u8, off, Infinity, explicit && vr !== 'UN', vr === 'UN' ? false : be, KEEP_ITEMS.has(tag), depth);
+      if (!into.has(tag)) into.set(tag, { vr: vr || 'SQ', off, len: w.end - off, be, items: w.items });
+      p = w.end; continue;
     }
     if (tag === ITEM) { p = off + len; continue; } // an item in a data set is out of place: skip it
+    if (KEEP_ITEMS.has(tag) && !into.has(tag)) { // a sequence of known length whose items matter
+      const w = walkItems(u8, off, off + len, explicit, be, true, depth);
+      into.set(tag, { vr: 'SQ', off, len, be, items: w.items });
+      p = off + len; continue;
+    }
     if (!into.has(tag) || tag === PIXEL) into.set(tag, { vr, off, len: Math.min(len, u8.length - off), be });
     p = off + len;
     if (p > u8.length) break;
@@ -248,6 +270,40 @@ function frameFragments(pix: Element, u8: Uint8Array, frames: number): Uint8Arra
   throw new Error(`${frags.length} fragments for ${frames} frames without an offset table`);
 }
 
+/** A lookup table item (PS3.3 C.11.1/C.11.2): descriptor [entries, first mapped value, bits] and its data, as numbers. */
+interface Lut { first: number; values: Float64Array; bits: number; max: number; explanation?: string }
+function readLut(d: Parsed, item: Elements, signedFirst: boolean): Lut | null {
+  const desc = item.get(T(0x28, 0x3002)), data = item.get(T(0x28, 0x3006));
+  if (!desc || !data || desc.len < 6) return null;
+  const dv = new DataView(d.u8.buffer, d.u8.byteOffset + desc.off, desc.len);
+  const n = dv.getUint16(0, !desc.be) || 65536, f = dv.getUint16(2, !desc.be), bits = dv.getUint16(4, !desc.be) || 16;
+  const first = signedFirst && f > 32767 ? f - 65536 : f;
+  const values = new Float64Array(n);
+  const dd = new DataView(d.u8.buffer, d.u8.byteOffset + data.off, data.len);
+  const bytes = bits <= 8 && data.len < n * 2;
+  let max = 1;
+  for (let i = 0; i < n; i++) { const v = bytes ? (i < data.len ? d.u8[data.off + i] : 0) : i * 2 + 2 <= data.len ? dd.getUint16(i * 2, !data.be) : 0; values[i] = v; if (v > max) max = v; }
+  const ex = item.get(T(0x28, 0x3003));
+  return { first, values, bits, max, explanation: ex ? decodeText(d, ex) : undefined };
+}
+const lutAt = (l: Lut, x: number): number => l.values[Math.max(0, Math.min(l.values.length - 1, Math.round(x) - l.first))];
+
+/** Overlay planes (PS3.3 C.9): their bits, 1 per pixel, row-major, origin 1-based; embedded planes come from the pixel words. */
+interface Overlay { group: number; rows: number; cols: number; originRow: number; originCol: number; frames: number; frameOrigin: number; bits: Uint8Array | null; bitPosition: number; type: string }
+function readOverlays(d: Parsed): Overlay[] {
+  const out: Overlay[] = [];
+  for (let g = 0x6000; g <= 0x601e; g += 2) {
+    const rows = u16v(d, g, 0x10), cols = u16v(d, g, 0x11);
+    if (!rows || !cols) continue;
+    const origin = d.el.get(T(g, 0x50));
+    let originRow = 1, originCol = 1;
+    if (origin && origin.len >= 4) { const dv = new DataView(d.u8.buffer, d.u8.byteOffset + origin.off, origin.len); originRow = dv.getInt16(0, !origin.be); originCol = dv.getInt16(2, !origin.be); }
+    const data = d.el.get(T(g, 0x3000));
+    out.push({ group: g, rows, cols, originRow, originCol, frames: Math.max(1, nums(d, g, 0x15)[0] || 1), frameOrigin: u16v(d, g, 0x51) || 1, bits: data ? d.u8.subarray(data.off, data.off + data.len) : null, bitPosition: u16v(d, g, 0x102) || 0, type: str(d, g, 0x40) || 'G' });
+  }
+  return out;
+}
+
 /** `dec` is pdf.js's image-decoders module (JpegImage, JpxImage); needed only for JPEG and JPEG 2000 pixel data. */
 export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFrames?: number; maxPixels?: number } = {}): Promise<DecodeResult> {
   const d = parseFile(input), warnings: string[] = [], info: Record<string, string> = {};
@@ -293,9 +349,8 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   const jpegTs = ts.startsWith('1.2.840.10008.1.2.4.');
   const needDec = jpegTs && /\.(50|51|9[0-3]|20[1-3])$/.test(ts);
   const noDecoder = () => new Error(`${TS[ts]} pixel data needs the JPEG decoders, which did not load`);
-  if (/\.(8[01])$/.test(ts)) throw new Error(`${TS[ts]} (JPEG-LS) pixel data is not supported yet`);
   if (/\.10[0-8]$/.test(ts)) throw new Error(`${TS[ts]} pixel data is a video stream, not a picture`);
-  if (jpegTs && !needDec && !/\.(57|70)$/.test(ts)) throw new Error(`Transfer syntax ${ts} is not supported`);
+  if (jpegTs && !needDec && !/\.(57|70|8[01])$/.test(ts)) throw new Error(`Transfer syntax ${ts} is not supported`);
   const frameBytes = encapsulated ? frameFragments(pix, u8, pi.frames) : null;
   const is422 = pi.pi === 'YBR_FULL_422' && pi.spp === 3 && !encapsulated;
   const frameSize = is422 ? rows * cols * 2 * (pi.bitsAlloc / 8) : Math.ceil((rows * cols * pi.spp * pi.bitsAlloc) / 8);
@@ -310,8 +365,12 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   if (haveRescale) info.rescale = `× ${rescaleSlope} + ${rescaleIntercept}${modality === 'CT' ? ' (Hounsfield units)' : ''}`;
   if (haveWindow) info.window = `center ${wc}, width ${ww}${voiFn !== 'LINEAR' ? ` (${voiFn})` : ''}${nums(d, 0x28, 0x1050).length > 1 ? ` (first of ${nums(d, 0x28, 0x1050).length})` : ''}`;
   info.pixels = `${pi.spp === 1 ? 'monochrome' : `${pi.spp} samples`}, ${pi.bitsStored} of ${pi.bitsAlloc} bits${pi.signed ? ', signed' : ''}, ${pi.pi}${pi.frames > 1 ? `, ${pi.frames} frames` : ''}`;
-  for (const g of [0x6000, 0x6002, 0x6004]) if (d.el.has(T(g, 0x3000))) { warnings.push('Overlay planes are not shown'); break; }
-  if (d.el.has(T(0x28, 0x3010))) warnings.push('The VOI lookup table is not applied (the window is used instead)');
+  const overlays = readOverlays(d);
+  const modalityLut = (d.el.get(T(0x28, 0x3000))?.items || []).map((it) => readLut(d, it, pi.signed)).find(Boolean) || null;
+  const voiLut = (d.el.get(T(0x28, 0x3010))?.items || []).map((it) => readLut(d, it, true)).find(Boolean) || null;
+  if (modalityLut) info['modality LUT'] = `${modalityLut.values.length} entries from ${modalityLut.first}${modalityLut.explanation ? ` (${modalityLut.explanation})` : ''}`;
+  if (voiLut) info['VOI LUT'] = `${voiLut.values.length} entries from ${voiLut.first}${voiLut.explanation ? ` (${voiLut.explanation})` : ''}${haveWindow ? '; used instead of the window' : ''}`;
+  if (overlays.length) info.overlays = overlays.map((o) => `${o.rows} × ${o.cols} at (${o.originCol}, ${o.originRow})${o.type === 'R' ? ', ROI' : ''}${o.bits ? '' : ' (embedded)'}`).join('; ');
 
   // The palette (PS3.3 C.7.6.3.1.5/6): descriptors [entries, first index, bits], data as 16-bit words (or bytes).
   let palette: Uint8Array[] | null = null, paletteFirst = 0, paletteN = 0;
@@ -349,7 +408,13 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
       if (!bytes) { warnings.push(`Frame ${f + 1} is missing from the pixel data`); break; }
       if (ts === '1.2.840.10008.1.2.5') fr = { v: unpackRle(bytes, pi) };
       else if (ts === '1.2.840.10008.1.2.1.98') fr = { v: unpackNative(bytes, pi, false) };
-      else if (/\.(57|70)$/.test(ts)) {
+      else if (/\.(8[01])$/.test(ts)) {
+        const j = decodeJpegLs(bytes);
+        if (j.width !== cols || j.height !== rows) warnings.push(`Frame ${f + 1} is ${j.width} × ${j.height}, not ${cols} × ${rows}`);
+        for (const w of j.warnings) if (!warnings.includes(w)) warnings.push(w);
+        if (j.near && f === 0) info['lossy compression'] = info['lossy compression'] || `JPEG-LS near-lossless, error up to ${j.near}`;
+        fr = { v: samplesFrom(j.data, j.width, j.height, j.comps, pi, pi.signed) };
+      } else if (/\.(57|70)$/.test(ts)) {
         const lj = decodeLjpeg(bytes);
         if (lj.width !== cols || lj.height !== rows) warnings.push(`Frame ${f + 1} is ${lj.width} × ${lj.height}, not ${cols} × ${rows}`);
         fr = { v: samplesFrom(lj.data, lj.width, lj.height, lj.comps, pi, pi.signed) };
@@ -401,12 +466,14 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
     } else {
       let lo = Infinity, hi = -Infinity;
       const slope = haveRescale ? rescaleSlope : 1, icpt = haveRescale ? rescaleIntercept : 0;
-      if (!haveWindow) for (let i = 0; i < n; i++) { const x = v[i * spp] * slope + icpt; if (x < lo) lo = x; if (x > hi) hi = x; }
+      const modal = (raw: number) => (modalityLut ? lutAt(modalityLut, raw) : raw * slope + icpt);
+      if (!haveWindow && !voiLut) for (let i = 0; i < n; i++) { const x = modal(v[i * spp]); if (x < lo) lo = x; if (x > hi) hi = x; }
       const inv = pi.pi === 'MONOCHROME1';
       for (let i = 0; i < n; i++) {
-        const x = v[i * spp] * slope + icpt;
+        const x = modal(v[i * spp]);
         let y: number;
-        if (haveWindow) {
+        if (voiLut) y = (lutAt(voiLut, x) / voiLut.max) * 255;
+        else if (haveWindow) {
           if (voiFn === 'SIGMOID') y = 255 / (1 + Math.exp((-4 * (x - wc)) / ww));
           else if (voiFn === 'LINEAR_EXACT') y = x <= wc - ww / 2 ? 0 : x > wc + ww / 2 ? 255 : ((x - (wc - ww / 2)) / ww) * 255;
           else y = x <= wc - 0.5 - (ww - 1) / 2 ? 0 : x > wc - 0.5 + (ww - 1) / 2 ? 255 : ((x - (wc - 0.5)) / (ww - 1) + 0.5) * 255;
@@ -415,9 +482,26 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
         if (inv) y = 255 - y;
         out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = y; out[i * 4 + 3] = 255;
       }
-      notes.push(haveWindow ? `window center ${wc}, width ${ww}${voiFn !== 'LINEAR' ? ` (${voiFn})` : ''}${haveRescale ? ', after the rescale' : ''}` : `shown over the frame's range ${fmt(lo)} to ${fmt(hi)}${haveRescale ? ' (rescaled values)' : ''} (no window in the file)`);
+      const after = modalityLut ? ', after the modality lookup table' : haveRescale ? ', after the rescale' : '';
+      notes.push(voiLut ? `the file's VOI lookup table (${voiLut.values.length} entries${voiLut.explanation ? `, ${voiLut.explanation}` : ''}) applied${after}` : haveWindow ? `window center ${wc}, width ${ww}${voiFn !== 'LINEAR' ? ` (${voiFn})` : ''}${after}` : `shown over the frame's range ${fmt(lo)} to ${fmt(hi)}${after ? ` (${after.slice(2)})` : ''} (no window in the file)`);
       if (inv) notes.push('MONOCHROME1: low values are bright');
     }
+    let drawn = 0;
+    for (const ov of overlays) {
+      const of = ov.frames > 1 || ov.frameOrigin > 1 ? f - (ov.frameOrigin - 1) : 0;
+      if (of < 0 || of >= ov.frames) continue;
+      const per = ov.rows * ov.cols;
+      const bit = (i: number): number => {
+        if (ov.bits) { const k = of * per + i; return k >> 3 < ov.bits.length ? (ov.bits[k >> 3] >> (k & 7)) & 1 : 0; }
+        if (encapsulated || pi.bitsAlloc !== 16) return 0;
+        const at = pix.off + f * frameSize + i * 2 * pi.spp; // embedded in the pixel words of this frame
+        return at + 2 <= u8.length ? ((be ? (u8[at] << 8) | u8[at + 1] : u8[at] | (u8[at + 1] << 8)) >> ov.bitPosition) & 1 : 0;
+      };
+      let any = false;
+      for (let oy = 0; oy < ov.rows; oy++) { const y = oy + ov.originRow - 1; if (y < 0 || y >= rows) continue; for (let ox = 0; ox < ov.cols; ox++) { const x = ox + ov.originCol - 1; if (x < 0 || x >= cols) continue; if (bit(oy * ov.cols + ox)) { const o = (y * cols + x) * 4; out[o] = out[o + 1] = out[o + 2] = 255; any = true; } } }
+      if (any) drawn++;
+    }
+    if (drawn) notes.push(`${drawn} overlay plane${drawn > 1 ? 's' : ''} drawn in white`);
     if (pi.frames > 1) notes.unshift(`frame ${f + 1} of ${pi.frames}`);
     notes.push(`${pi.bitsStored}-bit ${pi.spp === 1 ? 'monochrome' : `${pi.spp}-sample`} ${TS[ts] || 'DICOM'} pixel data`);
     if (depthNote) notes.push(depthNote);

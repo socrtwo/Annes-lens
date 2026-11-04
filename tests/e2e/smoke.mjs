@@ -511,7 +511,7 @@ try {
   check('pict: the text is drawn in its color, the shapes as decoded', [hist.text > 15, hist.shapesPx], [true, [200, 30, 30]], JSON.stringify([hist.text, hist.shapesPx]));
   check('pict: the QuickTime JPEG is drawn by the platform (quality 95, near the source)', hist.jpegPx && hist.jpegPx.every((v, i) => Math.abs(v - [165, 125, 130][i]) <= 12), true, JSON.stringify(hist.jpegPx)); // jpeg-source.png at (30, 18)
   // FlashPix (JPEG tiles through pdf.js), Autodesk FLC, clipboard files (a DIB; metafiles drawn as the files themselves are), JBIG and JBIG2.
-  const moreFiles = { 'view-rot90.fpx': 'flashpix', 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'layers.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile', 'ct-window.dcm': 'dicom', '693_J2KI.dcm': 'dicom', 'frames.dcm': 'dicom', 'extensions.fits': 'fits', 'int16-bzero.fits.gz': 'fits' };
+  const moreFiles = { 'view-rot90.fpx': 'flashpix', 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'layers.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile', 'ct-window.dcm': 'dicom', '693_J2KI.dcm': 'dicom', 'frames.dcm': 'dicom', 'extensions.fits': 'fits', 'int16-bzero.fits.gz': 'fits', 'SC_rgb_jls_lossy_sample.dcm': 'dicom', 'overlay.dcm': 'dicom' };
   const moreB64 = Object.fromEntries(Object.entries(moreFiles).map(([n, d]) => [n, readFileSync(`tests/fixtures/${d}/${n}`).toString('base64')]));
   const more = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {}, pix = {};
@@ -534,6 +534,8 @@ try {
     const j = pix['input_jpeg.fpx']; out.fpxPx = j ? [j[(20 * 70 + 30) * 4], j[(20 * 70 + 30) * 4 + 1], j[(20 * 70 + 30) * 4 + 2]] : null;
     const g = pix['page.jb2']; let black = 0; if (g) for (let i = 0; i < g.length; i += 4) if (g[i] === 0) black++; out.jb2Black = black;
     const dc = pix['693_J2KI.dcm'], cw = pix['ct-window.dcm'], fz = pix['int16-bzero.fits.gz'];
+    const jl = pix['SC_rgb_jls_lossy_sample.dcm'], ovl = pix['overlay.dcm'];
+    out.jlsPx = jl ? [jl[(50 * 100 + 10) * 4], jl[(50 * 100 + 10) * 4 + 1], jl[(50 * 100 + 10) * 4 + 2]] : null; out.ovlPx = ovl ? [ovl[(5 * 44 + 20) * 4], ovl[(4 * 44 + 20) * 4]] : null;
     out.ctPx = dc ? dc[(256 * 512 + 256) * 4] : null; out.cwPx = cw ? [cw[(16 * 48 + 20) * 4], cw[(31 * 48 + 47) * 4]] : null; out.fitsPx = fz ? [fz[(19 * 30) * 4], fz[29 * 4]] : null;
     return out;
   }, moreB64);
@@ -545,6 +547,7 @@ try {
   // DICOM: a CT in JPEG 2000 (OpenJPEG from the local runtime, full precision, the CT window applied), a 12-bit CT with a window, frames as pages; FITS: extensions as pages, a gzipped file shown bottom-up.
   check('dicom opens: JPEG 2000 at full precision with the window applied, 12-bit with a window, frames as pages', [more['693_J2KI.dcm'], more.ctPx, more['ct-window.dcm'], more.cwPx, more['frames.dcm:pages'], more.ctWarn], [['dicom', 512, 512, 1], 108, ['dicom', 48, 32, 1], [0, 255], 4, []], JSON.stringify([more['693_J2KI.dcm'], more.ctPx, more['ct-window.dcm'], more.cwPx, more['frames.dcm:pages'], more.ctWarn]));
   check('dicom: the details name the modality, window and transfer syntax, and every page says it is not for diagnosis', [more.ctInfo, /not a medical device/.test(more.ctNote || '')], [['CT', 'center 40, width 100', 'JPEG 2000 (1.2.840.10008.1.2.4.91)'], true], JSON.stringify([more.ctInfo, more.ctNote]));
+  check('dicom: JPEG-LS color pixel data (sample interleaved) and an overlay plane drawn in white', [more['SC_rgb_jls_lossy_sample.dcm'], more.jlsPx, more['overlay.dcm'], more.ovlPx], [['dicom', 100, 100, 1], [130, 130, 255], ['dicom', 44, 30, 1], [255, 104]], JSON.stringify([more['SC_rgb_jls_lossy_sample.dcm'], more.jlsPx, more['overlay.dcm'], more.ovlPx]));
   check('fits opens: image extensions as pages; a gzipped file, stretched, the first stored row at the bottom', [more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx], [['fits', 12, 8, 1], 2, ['fits', 30, 20, 1], [0, 255]], JSON.stringify([more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx]));
   check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)
   // A Corel file: recognized, not opened; the toast offers Send a Sample File, whose terms must be agreed to before the mail program opens.

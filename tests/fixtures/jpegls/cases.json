@@ -1,0 +1,128 @@
+{
+ "g8": {
+  "w": 33,
+  "h": 20,
+  "bits": 8,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "g8near2": {
+  "w": 33,
+  "h": 20,
+  "bits": 8,
+  "comps": 1,
+  "near": 2,
+  "ilv": 0,
+  "maxErr": 2
+ },
+ "g12": {
+  "w": 31,
+  "h": 24,
+  "bits": 12,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "g16": {
+  "w": 40,
+  "h": 16,
+  "bits": 16,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "g16near5": {
+  "w": 40,
+  "h": 16,
+  "bits": 16,
+  "comps": 1,
+  "near": 5,
+  "ilv": 0,
+  "maxErr": 5
+ },
+ "g4": {
+  "w": 17,
+  "h": 12,
+  "bits": 4,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "g2": {
+  "w": 11,
+  "h": 9,
+  "bits": 2,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "rgb8ilv0": {
+  "w": 19,
+  "h": 14,
+  "bits": 8,
+  "comps": 3,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ },
+ "rgb8ilv1": {
+  "w": 19,
+  "h": 14,
+  "bits": 8,
+  "comps": 3,
+  "near": 0,
+  "ilv": 1,
+  "maxErr": 0
+ },
+ "rgb8ilv2": {
+  "w": 19,
+  "h": 14,
+  "bits": 8,
+  "comps": 3,
+  "near": 0,
+  "ilv": 2,
+  "maxErr": 0
+ },
+ "rgb8ilv2near3": {
+  "w": 19,
+  "h": 14,
+  "bits": 8,
+  "comps": 3,
+  "near": 3,
+  "ilv": 2,
+  "maxErr": 3
+ },
+ "rgb12ilv1": {
+  "w": 15,
+  "h": 10,
+  "bits": 12,
+  "comps": 3,
+  "near": 0,
+  "ilv": 1,
+  "maxErr": 0
+ },
+ "rgb16ilv2": {
+  "w": 15,
+  "h": 10,
+  "bits": 16,
+  "comps": 3,
+  "near": 0,
+  "ilv": 2,
+  "maxErr": 0
+ },
+ "big": {
+  "w": 130,
+  "h": 100,
+  "bits": 8,
+  "comps": 1,
+  "near": 0,
+  "ilv": 0,
+  "maxErr": 0
+ }
+}

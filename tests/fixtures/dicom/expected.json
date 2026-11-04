@@ -26,6 +26,24 @@
   "what": "explicit VR big endian, RGB",
   "width": 80
  },
+ "JPEGLSNearLossless_08.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 45,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.81",
+  "what": "JPEG-LS near-lossless, 8 bits",
+  "width": 10
+ },
+ "JPEGLSNearLossless_16.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 50,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.81",
+  "what": "JPEG-LS near-lossless, 16 bits, LSE presets",
+  "width": 10
+ },
  "JPGExtended.dcm": {
   "comment": "JPEG lossy",
   "frames": 1,
@@ -81,8 +99,13 @@
   "width": 64
  },
  "MR_small_jpeg_ls_lossless.dcm": {
-  "unsupported": "JPEG-LS",
-  "what": "JPEG-LS (not supported: the error names it)"
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.80",
+  "what": "JPEG-LS lossless, 16 bits, LSE presets",
+  "width": 64
  },
  "SC_rgb_dcmtk_+eb+cr.dcm": {
   "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
@@ -100,6 +123,24 @@
   "pi": "YBR_FULL_422",
   "ts": "1.2.840.10008.1.2.4.50",
   "what": "JPEG baseline, YBR_FULL_422",
+  "width": 100
+ },
+ "SC_rgb_jls_lossy_line.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 100,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.81",
+  "what": "JPEG-LS near-lossless, RGB line interleaved",
+  "width": 100
+ },
+ "SC_rgb_jls_lossy_sample.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 100,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.81",
+  "what": "JPEG-LS near-lossless, RGB sample interleaved",
   "width": 100
  },
  "SC_rgb_jpeg.dcm": {
@@ -156,6 +197,15 @@
   "what": "12 bits stored, rescale and a window; two window pairs",
   "width": 48
  },
+ "examples_overlay.dcm": {
+  "comment": "Precision V",
+  "frames": 1,
+  "height": 300,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "12-bit with an overlay plane (separate data)",
+  "width": 484
+ },
  "examples_palette.dcm": {
   "comment": "",
   "frames": 1,
@@ -201,6 +251,24 @@
   "what": "JPEG 2000 lossless, 12 bits stored, with a window",
   "width": 32
  },
+ "jls-12bit-near.dcm": {
+  "comment": "JPEG-LS near-lossless (error 2), 12 bits stored, with a window",
+  "frames": 1,
+  "height": 28,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.81",
+  "what": "JPEG-LS near-lossless (error 2), 12 bits stored, with a window",
+  "width": 36
+ },
+ "jls-rgb-planar.dcm": {
+  "comment": "JPEG-LS lossless, RGB in separate scans (planar configuration 1)",
+  "frames": 1,
+  "height": 20,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.80",
+  "what": "JPEG-LS lossless, RGB in separate scans (planar configuration 1)",
+  "width": 26
+ },
  "jpeg-color-frames.dcm": {
   "comment": "JPEG baseline, two color frames (YBR_FULL_422), with a basic offset table",
   "frames": 2,
@@ -228,6 +296,15 @@
   "what": "1 bit per pixel (a segmentation)",
   "width": 512
  },
+ "luts.dcm": {
+  "comment": "a Modality LUT Sequence and a VOI LUT Sequence (the LUT is used, not the window)",
+  "frames": 1,
+  "height": 24,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "a Modality LUT Sequence and a VOI LUT Sequence (the LUT is used, not the window)",
+  "width": 40
+ },
  "mono1.dcm": {
   "comment": "MONOCHROME1, 8 bits, no window (full range, inverted)",
   "frames": 1,
@@ -236,6 +313,24 @@
   "ts": "1.2.840.10008.1.2.1",
   "what": "MONOCHROME1, 8 bits, no window (full range, inverted)",
   "width": 40
+ },
+ "overlay-embedded.dcm": {
+  "comment": "an overlay plane embedded in bit 15 of the pixel words (retired encoding)",
+  "frames": 1,
+  "height": 20,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "an overlay plane embedded in bit 15 of the pixel words (retired encoding)",
+  "width": 24
+ },
+ "overlay.dcm": {
+  "comment": "an overlay plane (Overlay Data) with an origin inside the picture",
+  "frames": 1,
+  "height": 30,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "an overlay plane (Overlay Data) with an origin inside the picture",
+  "width": 44
  },
  "palette8.dcm": {
   "comment": "PALETTE COLOR, 8-bit indices, 16-bit lookup tables",

@@ -12,8 +12,10 @@ import numpy as np
 import pydicom
 from pydicom.dataset import Dataset, FileMetaDataset
 from pydicom.encaps import encapsulate
-from pydicom.uid import ExplicitVRLittleEndian, ImplicitVRLittleEndian, JPEGBaseline8Bit, JPEG2000Lossless, RLELossless, generate_uid
-from pydicom.pixels import apply_color_lut
+from pydicom.uid import ExplicitVRLittleEndian, ImplicitVRLittleEndian, JPEGBaseline8Bit, JPEG2000Lossless, RLELossless, JPEGLSLossless, JPEGLSNearLossless, generate_uid
+from pydicom.sequence import Sequence
+from pydicom.pixels import apply_color_lut, apply_modality_lut, apply_voi_lut, apply_voi
+import jpeg_ls
 from PIL import Image
 
 OUT = 'tests/fixtures/dicom'
@@ -28,7 +30,12 @@ PYDICOM_FILES = [
     ('MR_small_bigendian.dcm', 'explicit VR big endian'),
     ('MR_small_RLE.dcm', 'RLE lossless, 16 bits'),
     ('MR_small_jp2klossless.dcm', 'JPEG 2000 lossless, 16 bits'),
-    ('MR_small_jpeg_ls_lossless.dcm', 'JPEG-LS (not supported: the error names it)'),
+    ('MR_small_jpeg_ls_lossless.dcm', 'JPEG-LS lossless, 16 bits, LSE presets'),
+    ('JPEGLSNearLossless_08.dcm', 'JPEG-LS near-lossless, 8 bits'),
+    ('JPEGLSNearLossless_16.dcm', 'JPEG-LS near-lossless, 16 bits, LSE presets'),
+    ('SC_rgb_jls_lossy_line.dcm', 'JPEG-LS near-lossless, RGB line interleaved'),
+    ('SC_rgb_jls_lossy_sample.dcm', 'JPEG-LS near-lossless, RGB sample interleaved'),
+    ('examples_overlay.dcm', '12-bit with an overlay plane (separate data)'),
     ('693_J2KI.dcm', 'JPEG 2000 lossy, 14 bits stored, CT window'),
     ('image_dfl.dcm', 'deflated explicit VR LE, 8 bits'),
     ('JPGExtended.dcm', 'JPEG extended (process 2 and 4), 12 bits'),
@@ -81,10 +88,16 @@ def expected_frames(ds, arr):
             out.append(rgb)
             continue
         if pi.startswith('MONOCHROME'):
-            v = a.astype(np.float64)
-            if 'RescaleSlope' in ds and 'RescaleIntercept' in ds:
+            v = apply_modality_lut(a, ds).astype(np.float64) if 'ModalityLUTSequence' in ds else a.astype(np.float64)
+            if 'ModalityLUTSequence' not in ds and 'RescaleSlope' in ds and 'RescaleIntercept' in ds:
                 v = v * float(ds.RescaleSlope) + float(ds.RescaleIntercept)
-            if 'WindowCenter' in ds and 'WindowWidth' in ds and ds.WindowCenter is not None and ds.WindowWidth is not None and first(ds.WindowWidth) >= 1:
+            if 'VOILUTSequence' in ds:  # the app prefers the file's lookup table and scales its output by the table's largest entry
+                item = ds.VOILUTSequence[0]
+                lut = np.frombuffer(item.LUTData, '<u2' if int(item.LUTDescriptor[2]) > 8 or len(item.LUTData) >= 2 * (int(item.LUTDescriptor[0]) or 65536) else np.uint8)
+                firstv = int(item.LUTDescriptor[1]); firstv = firstv - 65536 if firstv > 32767 else firstv
+                idx = np.clip(np.round(v).astype(np.int64) - firstv, 0, len(lut) - 1)
+                y = np.round(lut[idx].astype(np.float64) / max(1, int(lut.max())) * 255)
+            elif 'WindowCenter' in ds and 'WindowWidth' in ds and ds.WindowCenter is not None and ds.WindowWidth is not None and first(ds.WindowWidth) >= 1:
                 y = window(v, first(ds.WindowCenter), first(ds.WindowWidth), str(ds.get('VOILUTFunction', 'LINEAR') or 'LINEAR'))
             else:
                 lo, hi = v.min(), v.max()
@@ -92,7 +105,24 @@ def expected_frames(ds, arr):
             if pi == 'MONOCHROME1':
                 y = 255 - y
             g = y.astype(np.uint8)
-            out.append(np.stack([g, g, g], -1))
+            rgb = np.stack([g, g, g], -1)
+            for group in range(0x6000, 0x6020, 2):
+                if (group, 0x3000) in ds or (group, 0x0010) in ds:
+                    if (group, 0x3000) in ds:
+                        ov = ds.overlay_array(group)
+                    else:  # embedded in the pixel words (retired): the bit at Overlay Bit Position
+                        words = np.frombuffer(ds.PixelData, '<u2').reshape(-1, int(ds.Rows), int(ds.Columns))
+                        ov = ((words[f] >> int(ds[group, 0x0102].value)) & 1).astype(np.uint8)
+                    if ov.ndim == 3:
+                        ov = ov[f] if f < ov.shape[0] else np.zeros(ov.shape[1:], np.uint8)
+                    r0, c0 = [int(x) - 1 for x in ds[group, 0x0050].value]
+                    for oy in range(ov.shape[0]):
+                        yy = oy + r0
+                        if 0 <= yy < rgb.shape[0]:
+                            xs = np.nonzero(ov[oy])[0] + c0
+                            xs = xs[(xs >= 0) & (xs < rgb.shape[1])]
+                            rgb[yy, xs] = 255
+            out.append(rgb)
             continue
         out.append(a.astype(np.uint8) if a.dtype == np.uint8 else (a.astype(np.uint32) * 255 // ((1 << int(ds.BitsStored)) - 1)).astype(np.uint8))
     return out
@@ -109,12 +139,10 @@ def save_expected(name, ds, arr):
 
 
 manifest = {}
+rng = np.random.default_rng(11)
 for name, what in PYDICOM_FILES:
     shutil.copyfile(os.path.join(PYD, name), os.path.join(OUT, name))
     ds = pydicom.dcmread(os.path.join(OUT, name))
-    if 'jpeg_ls' in name:
-        manifest[name] = {'what': what, 'unsupported': 'JPEG-LS'}
-        continue
     manifest[name] = {'what': what, **save_expected(name, ds, ds.pixel_array)}
 
 
@@ -254,6 +282,63 @@ ds.RedPaletteColorLookupTableData = np.array([i * 1040 for i in range(n)], '<u2'
 ds.GreenPaletteColorLookupTableData = np.array([65535 - i * 1040 for i in range(n)], '<u2').tobytes()
 ds.BluePaletteColorLookupTableData = np.array([(i * 4111) % 65536 for i in range(n)], '<u2').tobytes()
 write('palette8.dcm', ds)
+
+# JPEG-LS written with CharLS (pyjpegls): 12-bit near-lossless with a window, and RGB in separate scans (planar).
+ds = base_ds(JPEGLSNearLossless, 28, 36, 'MONOCHROME2', bits=16, stored=12)
+ds.ImageComments = 'JPEG-LS near-lossless (error 2), 12 bits stored, with a window'
+px = np.clip(gradient(28, 36, 20, 100), 0, 4095)
+px[10:18, 12:24] = 3000
+px[20:, :] += rng.integers(0, 300, size=(8, 36))
+px = np.clip(px, 0, 4095).astype('<u2')
+ds.PixelData = encapsulate([bytes(jpeg_ls.encode_array(px, lossy_error=2))])
+ds['PixelData'].VR = 'OB'
+ds.WindowCenter, ds.WindowWidth = 2000, 3000
+write('jls-12bit-near.dcm', ds)
+
+ds = base_ds(JPEGLSLossless, 20, 26, 'RGB', samples=3, bits=8)
+ds.ImageComments = 'JPEG-LS lossless, RGB in separate scans (planar configuration 1)'
+ds.PlanarConfiguration = 1
+rgb = np.zeros((3, 20, 26), np.uint8)
+rgb[0] = np.clip(gradient(20, 26, 1, 30), 0, 255); rgb[1] = 120; rgb[2] = np.clip(255 - gradient(20, 26, 2, 0), 0, 255)
+rgb[:, 5:9, 4:20] = 250
+rgb[1, 12:, :] = rng.integers(0, 256, size=(8, 26))
+ds.PixelData = encapsulate([bytes(jpeg_ls.encode_array(rgb, lossy_error=0, interleave_mode=0))])
+ds['PixelData'].VR = 'OB'
+write('jls-rgb-planar.dcm', ds)
+
+# Lookup tables: a modality LUT (a square-root curve) and a VOI LUT (an inverse-gamma curve) on 12-bit data; and a VOI LUT beside a window.
+ds = base_ds(ExplicitVRLittleEndian, 24, 40, 'MONOCHROME2', bits=16, stored=12)
+ds.ImageComments = 'a Modality LUT Sequence and a VOI LUT Sequence (the LUT is used, not the window)'
+px = np.clip(gradient(24, 40, 14, 0), 0, 4095).astype('<u2')
+ds.PixelData = px.tobytes()
+item = Dataset(); item.LUTDescriptor = [4096, 0, 16]
+item.LUTData = np.round(np.sqrt(np.arange(4096) / 4095) * 4095).astype('<u2').tobytes(); item.LUTExplanation = 'square root'
+ds.ModalityLUTSequence = Sequence([item]); ds.ModalityLUTType = 'US'
+item = Dataset(); item.LUTDescriptor = [2048, 1024, 16]
+item.LUTData = np.round(((np.arange(2048) / 2047) ** 2.2) * 60000).astype('<u2').tobytes(); item.LUTExplanation = 'gamma 2.2'
+ds.VOILUTSequence = Sequence([item])
+ds.WindowCenter, ds.WindowWidth = 2000, 1000
+write('luts.dcm', ds)
+
+# An overlay plane in its own element (a frame around a block), and one embedded in the unused high bits of 12-in-16 pixel words.
+ds = base_ds(ExplicitVRLittleEndian, 30, 44, 'MONOCHROME2', bits=8)
+ds.ImageComments = 'an overlay plane (Overlay Data) with an origin inside the picture'
+ds.PixelData = np.clip(gradient(30, 44, 1, 40), 0, 255).astype(np.uint8).tobytes()
+ov = np.zeros((16, 20), np.uint8); ov[0, :] = 1; ov[-1, :] = 1; ov[:, 0] = 1; ov[:, -1] = 1; ov[8, 4:16] = 1
+packed = np.packbits(ov.reshape(-1), bitorder='little')
+ds.add_new((0x6000, 0x0010), 'US', 16); ds.add_new((0x6000, 0x0011), 'US', 20); ds.add_new((0x6000, 0x0040), 'CS', 'G')
+ds.add_new((0x6000, 0x0050), 'SS', [6, 12]); ds.add_new((0x6000, 0x0100), 'US', 1); ds.add_new((0x6000, 0x0102), 'US', 0)
+ds.add_new((0x6000, 0x3000), 'OW', packed.tobytes() + (b'\0' if len(packed) % 2 else b''))
+write('overlay.dcm', ds)
+
+ds = base_ds(ExplicitVRLittleEndian, 20, 24, 'MONOCHROME2', bits=16, stored=12)
+ds.ImageComments = 'an overlay plane embedded in bit 15 of the pixel words (retired encoding)'
+px = np.clip(gradient(20, 24, 12, 0), 0, 4095).astype(np.uint16)
+ov = np.zeros((20, 24), np.uint16); ov[3:17, 3] = 1; ov[3, 3:21] = 1; ov[10, 3:21] = 1
+ds.PixelData = (px | (ov << 15)).astype('<u2').tobytes()
+ds.add_new((0x6000, 0x0010), 'US', 20); ds.add_new((0x6000, 0x0011), 'US', 24); ds.add_new((0x6000, 0x0040), 'CS', 'G')
+ds.add_new((0x6000, 0x0050), 'SS', [1, 1]); ds.add_new((0x6000, 0x0100), 'US', 16); ds.add_new((0x6000, 0x0102), 'US', 15)
+write('overlay-embedded.dcm', ds)
 
 # A raw dataset: implicit VR little endian, no preamble, no file meta (as some PACS exports and DICOMDIR-less dumps are).
 ds = base_ds(ImplicitVRLittleEndian, 10, 12, 'MONOCHROME2', bits=8)

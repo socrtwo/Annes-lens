@@ -89,7 +89,6 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
     expect(r.warnings).toEqual(['Only the first 5 of 15 frames are shown']);
   });
   it('explains what it cannot open', async () => {
-    await expect(decodeDicom(fx('MR_small_jpeg_ls_lossless.dcm'), pdfjs)).rejects.toThrow(/JPEG-LS lossless \(JPEG-LS\) pixel data is not supported yet/);
     setOpenJpeg(null);
     try { await expect(decodeDicom(fx('MR_small_jp2klossless.dcm'), null)).rejects.toThrow(/JPEG 2000 lossless pixel data needs the JPEG decoders/); } finally { setOpenJpeg(openjpeg); }
     await expect(decodeDicom(fx('jpeg-gray.dcm'), null)).rejects.toThrow(/JPEG baseline pixel data needs the JPEG decoders/);
@@ -98,6 +97,23 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
     const cut = await decodeDicom(fx('frames.dcm').subarray(0, fx('frames.dcm').length - 24 * 16 * 2 - 10), pdfjs);
     expect(cut.pages.length).toBe(2);
     expect(cut.warnings).toEqual(['The pixel data ends after frame 2 of 4']);
+  });
+  it('JPEG-LS: near-lossless files say so; lookup tables and overlay planes are applied and described', async () => {
+    const j = await decodeDicom(fx('jls-12bit-near.dcm'), pdfjs);
+    expect(j.info['lossy compression']).toBe('JPEG-LS near-lossless, error up to 2');
+    expect(j.info['transfer syntax']).toBe('JPEG-LS near-lossless (1.2.840.10008.1.2.4.81)');
+    expect((await decodeDicom(fx('MR_small_jpeg_ls_lossless.dcm'), pdfjs)).info['lossy compression']).toBeUndefined();
+    const l = await decodeDicom(fx('luts.dcm'), pdfjs);
+    expect(l.info['modality LUT']).toBe('4096 entries from 0 (square root)');
+    expect(l.info['VOI LUT']).toBe('2048 entries from 1024 (gamma 2.2); used instead of the window');
+    expect(l.pages[0].notes[0]).toBe("the file's VOI lookup table (2048 entries, gamma 2.2) applied, after the modality lookup table");
+    const o = await decodeDicom(fx('overlay.dcm'), pdfjs);
+    expect(o.info.overlays).toBe('16 × 20 at (12, 6)');
+    expect(o.pages[0].notes).toContain('1 overlay plane drawn in white');
+    const e = await decodeDicom(fx('overlay-embedded.dcm'), pdfjs);
+    expect(e.info.overlays).toBe('20 × 24 at (1, 1) (embedded)');
+    expect(e.pages[0].notes).toContain('1 overlay plane drawn in white');
+    expect(e.warnings).toEqual([]);
   });
   it('MONOCHROME1 is inverted and the first window of several is used; the JPEG 2000 depth note', async () => {
     const m = await decodeDicom(fx('mono1.dcm'), pdfjs);
