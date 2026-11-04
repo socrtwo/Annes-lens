@@ -39,6 +39,7 @@ import { isCfb } from './cfb';
 import { isFlashPix } from './flashpix';
 import { isClp } from './clipboard';
 import { isJbig, isJbig2 } from './jbig';
+import { isPsp } from './psp';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -100,6 +101,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'gem', label: 'GEM IMG', mime: 'image/x-gem', extensions: ['img', 'ximg'], decoder: 'own', save: false, notes: '1–8 planes, XIMG palettes' },
   { id: 'msp', label: 'Microsoft Paint', mime: 'image/x-msp', extensions: ['msp'], decoder: 'own', save: false, notes: 'Paint for Windows 1.x and 2.x' },
   { id: 'fpx', label: 'FlashPix', mime: 'image/vnd.fpx', extensions: ['fpx'], decoder: 'own', save: false, notes: 'the full resolution: uncompressed, single-color and JPEG tiles; monochrome, NIF RGB, Photo YCC, opacity' },
+  { id: 'psp', label: 'Paint Shop Pro', mime: 'image/x-paintshoppro', extensions: ['psp', 'pspimage', 'tub'], decoder: 'own', save: false, notes: 'Paint Shop Pro 5 to 9 and later (format versions 3–6+): the raster layers merged with their masks, opacity and blend modes' },
   { id: 'jbig', label: 'JBIG', mime: 'image/jbig', extensions: ['jbg', 'jbig', 'bie'], decoder: 'own', save: false, notes: 'T.82 bilevel and bit-plane pictures (the lowest layer of multi-layer files)' },
   { id: 'jbig2', label: 'JBIG2', mime: 'image/x-jbig2', extensions: ['jb2', 'jbig2'], decoder: 'own', save: false, notes: 'T.88 files, every page, through pdf.js (PDFium\'s JBIG2 decoder, WebAssembly)' },
   { id: 'clp', label: 'Windows clipboard file', mime: 'application/x-ms-clipboard', extensions: ['clp'], decoder: 'own', save: false, notes: 'Windows 3.x and NT: the bitmap (DIB or device-dependent) or metafile it holds' },
@@ -134,6 +136,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isFlic(u8)) return formatById('flic')!;
   if (isClp(u8)) return formatById('clp')!;
   if (isJbig2(u8)) return formatById('jbig2')!;
+  if (isPsp(u8)) return formatById('psp')!;
   if (isCfb(u8) && isFlashPix(u8)) return formatById('fpx')!;
   if (isSunRaster(u8)) return formatById('sun')!;
   if (isSgi(u8)) return formatById('sgi')!;
@@ -218,6 +221,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'pcd') decoded = fromOwn(decodePcd(u8), 'pcd');
   else if (fmt.id === 'sun') decoded = fromOwn(decodeSun(u8), 'sun');
   else if (fmt.id === 'flic') decoded = fromOwn(decodeFlic(u8), 'flic');
+  else if (fmt.id === 'psp') { const { decodePsp } = await import('./psp'); decoded = fromOwn(decodePsp(u8), 'psp'); }
   else if (fmt.id === 'jbig') { const { decodeJbig } = await import('./jbig'); decoded = fromOwn(decodeJbig(u8), 'jbig'); }
   else if (fmt.id === 'jbig2') {
     const [{ decodeJbig2 }, { imageDecoders }] = await Promise.all([import('./jbig'), import('./jpx')]);
