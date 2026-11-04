@@ -488,6 +488,27 @@ try {
   check('jpeg xl: opens through jxl-oxide where the platform cannot', mo['lossless.jxl'] && mo['lossless.jxl'].slice(0, 5).concat([mo['lossless.jxl'][6]]), ['jxl', 'jxl-oxide', 53, 37, 1, [250, 20, 40]], JSON.stringify(mo['lossless.jxl']));
   check('jpeg xl: an animation, every frame with its time', mo['anim.jxl'] && [mo['anim.jxl'][4], mo['anim.jxl'][5]], [3, [100, 100, 100]], JSON.stringify(mo['anim.jxl']));
   check('avif: the app\'s own decoder (libavif with libaom) from the staged runtime', mo.avif, [53, 37, true, 'AVIF, decoded by libavif with libaom (8 bits per sample)'], JSON.stringify(mo.avif));
+  // Workstation and home-computer formats, and PICT (its text and QuickTime JPEG are drawn by the platform).
+  const histNames = ['shapes.pct', 'jpeg.pct', 'v1.pct', 'sun24.ras', 'sgi-rle.sgi', 'urt.rle', 'low.pi1', 'spectrum.spu', 'koala.koa', 'ximg4.img', 'msp2.msp'];
+  const histFiles = Object.fromEntries(histNames.map((n) => [n, readFileSync(`tests/fixtures/historic/${n}`).toString('base64')]));
+  const hist = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {};
+    for (const [n, b64] of Object.entries(files)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const pic = qn.picture;
+      if (!pic || pic === before) { out[n] = [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | '); document.querySelectorAll('.ql-toast').forEach((t) => t.remove()); continue; }
+      const g = pic.frameCanvas().getContext('2d'), px = (x, y) => [...g.getImageData(x, y, 1, 1).data].slice(0, 3);
+      out[n] = [pic.format.id, pic.width, pic.height];
+      if (n === 'shapes.pct') { const d = g.getImageData(60, 58, 40, 16).data; let green = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] > 120 && d[i + 2] < 80) green++; out.text = green; out.shapesPx = px(20, 20); }
+      if (n === 'jpeg.pct') out.jpegPx = px(30, 18);
+    }
+    return out;
+  }, histFiles);
+  check('historic formats open by content and name', histNames.map((n) => hist[n]), [['pict', 120, 80], ['pict', 61, 37], ['pict', 100, 60], ['sun', 61, 37], ['sgi', 61, 37], ['utahrle', 61, 37], ['atarist', 320, 200], ['atarist', 320, 200], ['c64', 320, 200], ['gem', 48, 20], ['msp', 75, 30]], JSON.stringify(hist));
+  check('pict: the text is drawn in its color, the shapes as decoded', [hist.text > 15, hist.shapesPx], [true, [200, 30, 30]], JSON.stringify([hist.text, hist.shapesPx]));
+  check('pict: the QuickTime JPEG is drawn by the platform (quality 95, near the source)', hist.jpegPx && hist.jpegPx.every((v, i) => Math.abs(v - [165, 125, 130][i]) <= 12), true, JSON.stringify(hist.jpegPx)); // jpeg-source.png at (30, 18)
   // DjVu through djvu-rs from the staged runtime: a bundled book with a rotated page and a text layer, shown by Recognize Text.
   const djvuFiles = Object.fromEntries(['book.djvu', 'shared.djvu'].map((n) => [n, readFileSync(`tests/fixtures/djvu/${n}`).toString('base64')]));
   const dj = await p.evaluate(async (files) => {

@@ -17,9 +17,17 @@ export interface Entry {
   read(): Promise<ArrayBuffer>;
 }
 
-const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|rle|ico|cur|tiff?|svgz?|jxl|psd|psb|tga|tpic|icb|vda|vst|pnm|ppm|pgm|pbm|pam|pfm|qoi|pcx|dcx|xpm|xbm|wbmp|icns|dds|iff|ilbm|lbm|ham|ham8|mac|pntg|pnt|pcd|exr|jp2|jpx|jpf|jph|j2k|j2c|jpc|jhc|hdr|pic|rgbe|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|dng|3fr|fff|iiq|x3f|srw|mrw|erf|mef|mos|kdc|dcr|raw|eps|epsf|ai|pdf|djvu|djv|wmf|emf|wmz|emz)$/i;
+const PICTURE_EXT = /\.(jpe?g|jpe|jfif|png|apng|gif|webp|avif|heic|heif|hif|bmp|dib|rle|ico|cur|tiff?|svgz?|jxl|psd|psb|tga|tpic|icb|vda|vst|pnm|ppm|pgm|pbm|pam|pfm|qoi|pcx|dcx|xpm|xbm|wbmp|icns|dds|iff|ilbm|lbm|ham|ham8|mac|pntg|pnt|pcd|exr|jp2|jpx|jpf|jph|j2k|j2c|jpc|jhc|hdr|pic|rgbe|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|dng|3fr|fff|iiq|x3f|srw|mrw|erf|mef|mos|kdc|dcr|raw|eps|epsf|ai|pdf|djvu|djv|pct|pict|ras|sun|im1|im8|im24|im32|sgi|rgb|rgba|bw|urt|pi1|pi2|pi3|pc1|pc2|pc3|neo|spu|koa|kla|art|aas|ximg|msp|wmf|emf|wmz|emz)$/i;
 
 export function isPictureName(name: string): boolean { return PICTURE_EXT.test(name); }
+/**
+ * Extensions that pictures share with other kinds of file (GEM IMG and disk images, Doodle and disk dumps, SGI
+ * .int): left out of folder listings, but a file the user opens or drops with one is read and identified by content.
+ */
+const SHARED_EXT = /\.(img|dd|ddl|int|inta)$/i;
+export const isSharedPictureName = (name: string): boolean => SHARED_EXT.test(name);
+/** The largest such file read to see whether it is a picture (disk images are larger). */
+export const SHARED_MAX_BYTES = 16 * 1024 * 1024;
 
 export function entryFromFile(f: File): Entry {
   return { name: f.name, uri: null, size: f.size, mtime: f.lastModified, read: () => f.arrayBuffer() };

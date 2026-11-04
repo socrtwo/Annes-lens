@@ -31,6 +31,9 @@ import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
 import { isPdf } from './pdf';
 import { isDjvu } from './djvu';
+import { isSunRaster, isSgi, isUtahRle, decodeSun, decodeSgi, decodeUtahRle } from './workstation';
+import { isAtariSt, isC64, isGemImg, isMsp, decodeAtariSt, decodeC64, decodeGemImg, decodeMsp } from './homecomputer';
+import { isPict } from './pict';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -83,6 +86,14 @@ export const FORMATS: FormatInfo[] = [
   { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB, ZSTD, HTJ2K (half channels); half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
+  { id: 'pict', label: 'QuickDraw picture (PICT)', mime: 'image/x-pict', extensions: ['pct', 'pict'], decoder: 'own', save: false, notes: 'versions 1 and 2: bitmaps and pixel maps (1–32 bits, every packing), QuickTime JPEG, shapes with patterns, regions, lines and text; drawn at the bitmap\'s resolution' },
+  { id: 'sun', label: 'Sun raster', mime: 'image/x-sun-raster', extensions: ['ras', 'sun', 'im1', 'im8', 'im24', 'im32', 'rs'], decoder: 'own', save: false, notes: '1, 8, 24 and 32 bits; standard, RLE and RGB types; color maps' },
+  { id: 'sgi', label: 'SGI image', mime: 'image/sgi', extensions: ['sgi', 'rgb', 'rgba', 'bw', 'int', 'inta'], decoder: 'own', save: false, notes: 'verbatim and RLE; 8 and 16 bits; gray, RGB, with alpha' },
+  { id: 'utahrle', label: 'Utah RLE', mime: 'image/x-utah-rle', extensions: ['urt'], decoder: 'own', save: false, notes: 'Utah Raster Toolkit (.rle files are recognized by content): channels, alpha, color maps' },
+  { id: 'atarist', label: 'Atari ST picture', mime: 'image/x-atari-st', extensions: ['pi1', 'pi2', 'pi3', 'pc1', 'pc2', 'pc3', 'neo', 'spu'], decoder: 'own', save: false, notes: 'Degas and Degas Elite (all three resolutions), NEOchrome, Spectrum 512' },
+  { id: 'c64', label: 'Commodore 64 picture', mime: 'image/x-c64', extensions: ['koa', 'kla', 'art', 'aas', 'dd', 'ddl'], decoder: 'own', save: false, notes: 'Koala Painter (multicolor), Art Studio and Doodle (hires), in the Pepto palette' },
+  { id: 'gem', label: 'GEM IMG', mime: 'image/x-gem', extensions: ['img', 'ximg'], decoder: 'own', save: false, notes: '1–8 planes, XIMG palettes' },
+  { id: 'msp', label: 'Microsoft Paint', mime: 'image/x-msp', extensions: ['msp'], decoder: 'own', save: false, notes: 'Paint for Windows 1.x and 2.x' },
   { id: 'djvu', label: 'DjVu', mime: 'image/vnd.djvu', extensions: ['djvu', 'djv'], decoder: 'own', save: false, notes: 'single and bundled multipage documents with their text layer, rendered by djvu-rs (WebAssembly; Options: PDF and DjVu pages)' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
   { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
@@ -110,6 +121,11 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIff(u8)) return formatById('iff')!;
   if (isPcd(u8)) return formatById('pcd')!;
   if (isMacBinaryPaint(u8)) return formatById('macpaint')!;
+  if (isSunRaster(u8)) return formatById('sun')!;
+  if (isSgi(u8)) return formatById('sgi')!;
+  if (isUtahRle(u8)) return formatById('utahrle')!;
+  if (isMsp(u8)) return formatById('msp')!;
+  if (isPict(u8, '')) return formatById('pict')!; // a version 2 picture behind its 512-byte header
   if (isEmf(u8)) return formatById('emf')!;
   if (isWmf(u8)) return formatById('wmf')!;
   if (isHdr(u8)) return formatById('hdr')!;
@@ -140,6 +156,10 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isXpm(u8)) return formatById('xpm')!;
   if (isXbm(u8)) return formatById('xbm')!;
   // Formats without a magic number come last: a plausible header, or the name.
+  if (isAtariSt(u8, name)) return formatById('atarist')!;
+  if (isC64(u8, name)) return formatById('c64')!;
+  if (isGemImg(u8, name)) return formatById('gem')!;
+  if (isPict(u8, name)) return formatById('pict')!;
   if (isTga(u8, name)) return formatById('tga')!;
   if (isWbmp(u8, name)) return formatById('wbmp')!;
   if (/\.(mac|pntg|pnt)$/i.test(name) && u8.length >= 512 + 720 && u8[0] === 0 && u8[1] === 0 && u8[2] === 0 && u8[3] <= 3) return formatById('macpaint')!; // no magic number
@@ -181,6 +201,19 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'iff') decoded = fromOwn(decodeIff(u8), 'iff');
   else if (fmt.id === 'macpaint') decoded = fromOwn(decodeMacPaint(u8), 'macpaint');
   else if (fmt.id === 'pcd') decoded = fromOwn(decodePcd(u8), 'pcd');
+  else if (fmt.id === 'sun') decoded = fromOwn(decodeSun(u8), 'sun');
+  else if (fmt.id === 'sgi') decoded = fromOwn(decodeSgi(u8), 'sgi');
+  else if (fmt.id === 'utahrle') decoded = fromOwn(decodeUtahRle(u8), 'utah rle');
+  else if (fmt.id === 'atarist') decoded = fromOwn(decodeAtariSt(u8, entry.name), 'atari st');
+  else if (fmt.id === 'c64') decoded = fromOwn(decodeC64(u8, entry.name), 'c64');
+  else if (fmt.id === 'gem') decoded = fromOwn(decodeGemImg(u8), 'gem img');
+  else if (fmt.id === 'msp') decoded = fromOwn(decodeMsp(u8), 'msp');
+  else if (fmt.id === 'pict') {
+    const { decodePict } = await import('./pict');
+    const r = decodePict(u8);
+    decoded = fromOwn(r, 'pict');
+    if (r.texts.length || r.jpegs.length) await drawPictExtras(decoded.pages[0], r, decoded.warnings);
+  }
   else if (fmt.id === 'jp2') { const { decodeJpx } = await import('./jpx'); decoded = fromOwn(await decodeJpx(u8), 'openjpeg'); }
   else if (fmt.id === 'emf' || fmt.id === 'wmf') {
     const mf = await import('./metafile');
@@ -243,6 +276,22 @@ function rasterToFrame(r: Raster, delay: number): Frame {
   c.width = r.width; c.height = r.height;
   c.getContext('2d')!.putImageData(new ImageData(r.data, r.width, r.height), 0, 0);
   return { image: c, width: r.width, height: r.height, delay };
+}
+
+/** What a PICT leaves to the platform: QuickTime JPEG pictures and text, drawn onto the decoded page. */
+async function drawPictExtras(page: Page, r: import('./pict').PictResult, warnings: string[]): Promise<void> {
+  const c = page.frames[0].image as HTMLCanvasElement, ctx = c.getContext('2d');
+  if (!ctx) return;
+  for (const j of r.jpegs) {
+    try { const bmp = await createImageBitmap(new Blob([j.bytes as BlobPart], { type: 'image/jpeg' })); ctx.drawImage(bmp, j.x, j.y, j.w, j.h); bmp.close(); }
+    catch (e: any) { warnings.push(`A QuickTime JPEG picture could not be decoded (${e?.message || e})`); }
+  }
+  for (const t of r.texts) {
+    ctx.font = `${t.face & 2 ? 'italic ' : ''}${t.face & 1 ? 'bold ' : ''}${Math.max(1, t.size)}px ${t.font}`;
+    ctx.fillStyle = `rgb(${t.color.join(',')})`; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(t.text, t.x, t.y);
+    if (t.face & 4) { const w = ctx.measureText(t.text).width; ctx.fillRect(t.x, t.y + Math.max(1, t.size / 12), w, Math.max(1, t.size / 14)); }
+  }
 }
 
 function pageFromDecoded(d: DecodedPage): Page {

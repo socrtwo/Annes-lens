@@ -64,20 +64,22 @@ The base app reads every RAW file's TIFF-like structure and metadata and shows t
 
 ## Historical formats
 
+Files with no magic number (Atari ST, Commodore 64) are recognized by their extension, exact size and header values. Extensions shared with other kinds of file (.img disk images, .dd dumps, .int, .rs) are left out of folder listings and file associations, so those files are not read as pictures while browsing; a file with such a name that is opened, dropped or named on the desktop command line (up to 16 MB) is recognized by content.
+
 | Format | Program(s) | Era | Extensions | Planned tier |
 |---|---|---|---|---|
 | MacPaint | MacPaint | 1984– | .mac .pntg .pnt | **Done:** Full (576 × 720, 1 bit; plain or in a MacBinary file) |
-| PICT | QuickDraw | 1984–2009 | .pict .pct | High (bitmap opcodes; vector opcodes rendered) |
+| PICT | QuickDraw | 1984–2009 | .pict .pct | **Done:** High (own QuickDraw interpreter; version 1 and 2, with or without the 512-byte header): BitsRect/PackBitsRect/DirectBitsRect and their region forms (1–8 bits with color tables, 16 and 32 bits in every packing), clip and mask regions, copy/or/xor/bic/transparent modes, drawn at the finest bitmap's resolution; QuickTime JPEG through the platform's decoder; rectangles, rounded rectangles, ovals, arcs, polygons, regions and lines, framed with the pen size, painted, filled, erased and inverted, with 8 × 8 patterns and RGB or old-style colors; text drawn with the platform's fonts (the classic Mac fonts map to serif, sans-serif and monospace). Still to do: color pixel patterns (their 1-bit pattern is used), other QuickTime codecs, PostScript-only pictures |
 | IFF ILBM / PBM (Amiga, Deluxe Paint) | Deluxe Paint | 1985– | .iff .ilbm .lbm .ham | **Done:** Full (1–8 bitplanes, Extra Half-Brite, HAM6/HAM8, 24/32-bit deep ILBM, chunky PBM, ByteRun1, mask planes and transparent colors, 4-bit OCS palettes widened, CRNG/CCRT color cycling played as an animation) |
-| Degas, NEOchrome (Atari ST) | | 1985– | .pi1–.pi3 .neo | Full |
-| Koala, Doodle (Commodore 64) | | 1980s | .koa .dd | Full |
-| GEM IMG | GEM/Ventura | 1985– | .img | Full |
-| Sun Raster, SGI, Utah RLE | Unix workstations | 1980s–90s | .ras .sgi .rgb .rle | Full |
+| Degas, NEOchrome, Spectrum 512 (Atari ST) | | 1985– | .pi1–.pi3 .pc1–.pc3 .neo .spu | **Done:** Full (Degas and Degas Elite in the three resolutions, NEOchrome, Spectrum 512's 48 colors a line; ST and STE palettes; medium resolution kept at 640 × 200 with its pixel aspect noted). Still to do: color cycling, Spectrum's compressed .spc, Tiny, Crack Art |
+| Koala, Art Studio, Doodle (Commodore 64) | | 1980s | .koa .kla .art .aas .dd | **Done:** Full (Koala multicolor shown double-wide at 320 × 200; Art Studio and Doodle hires; Pepto palette). Still to do: the compressed variants (.gg, .jj), FLI and other modes |
+| GEM IMG | GEM/Ventura | 1985– | .img .ximg | **Done:** Full (1–8 planes, vertical replication, pattern and solid runs, XIMG RGB palettes, else the GEM VDI colors; resolution from the pixel size) |
+| Sun Raster, SGI, Utah RLE | Unix workstations | 1980s–90s | .ras .sgi .rgb .rle | **Done:** Full (Sun: 1, 8, 24, 32 bits, standard, RLE and RGB types, color maps, ImageMagick's alpha in the 32-bit pad byte; SGI: verbatim and RLE, 8 and 16 bits, 1–4 channels; Utah RLE: runs and literals, alpha, color maps, background and position) |
 | Kodak Photo CD | Photo CD | 1992–2004 | .pcd | **Done:** High for the Base image (768 × 512, Kodak's Photo YCC conversion, the disc's orientation); 4Base and 16Base (Huffman-coded residuals) still to do |
 | FlashPix | Kodak/Microsoft | 1996– | .fpx | High |
 | Paint Shop Pro | Jasc | 1990s–2000s | .psp .pspimage | Preview (composite) |
 | CorelDRAW / Corel PHOTO-PAINT | Corel | 1990s– | .cdr .cpt | Preview (embedded) |
-| Microsoft Paint (Windows 1–3) | Paintbrush | 1985–92 | .msp | Full |
+| Microsoft Paint (Windows 1–3) | Paintbrush | 1985–92 | .msp | **Done:** Full (versions 1 and 2) |
 | Windows clipboard, cursors and icon libraries | Windows 3.x | 1990s | .clp .icl | Full |
 | Fax formats | fax software | 1990s | .fax .g3 .g4 .tif (Class F) | Full |
 | Autodesk animation | Animator | 1990s | .fli .flc | Full (animation) |

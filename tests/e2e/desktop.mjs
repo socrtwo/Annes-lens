@@ -274,6 +274,15 @@ try {
     const got = ok ? await dw.evaluate(() => [qn.picture.format.id, qn.picture.decoder, qn.picture.pages.length, qn.picture.pages[2].textLayer?.words.map((w) => w.text).join(' ')]) : await dw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a DjVu book opens through djvu-rs, with its text layer', got, ['djvu', 'djvu-rs', 4, 'Parish register 1851 Baptisms and burials']);
   } finally { await dApp.close().catch(() => undefined); }
+  // A GEM IMG named .img (a name folder listings leave out) opened from the command line: identified by content, shown with its folder.
+  const gemPath = join(base, 'scan.img'); writeFileSync(gemPath, readFileSync('tests/fixtures/historic/ximg4.img'));
+  const gApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, gemPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const gw = await gApp.firstWindow();
+    const ok = await gw.waitForFunction(() => window.qn?.picture?.name === 'scan.img', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await gw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height, qn.folder.entries.some((e) => e.name === 'scan.img')]) : await gw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a GEM IMG named .img opens from the command line, in its folder', got, ['gem', 48, 20, true]);
+  } finally { await gApp.close().catch(() => undefined); }
   // An HTJ2K OpenEXR file: OpenJPH's classic script is imported as a module from a Blob under the same policy.
   const htPath = join(base, 'render.exr'); writeFileSync(htPath, readFileSync('tests/fixtures/exr/htj2k32.exr'));
   const hApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, htPath], env: { ...process.env, XDG_CONFIG_HOME: config } });

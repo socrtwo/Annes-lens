@@ -1,7 +1,7 @@
 /** File commands: open (files, folders, recent, dropped, launched), save, reload, print, share, close, options, settings transfer, portable mode. */
 import { def } from './registry';
 import type { App, PictureTab } from '../app';
-import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, type Entry } from '../picture/folder';
+import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, isSharedPictureName, SHARED_MAX_BYTES, type Entry } from '../picture/folder';
 import { canListSubfolders, listing, type FolderEntry } from '../platform/native';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
 import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
@@ -74,6 +74,7 @@ export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow
     const listed = await listFolderOf(files[0].uri);
     if (listed && listed.entries.length) {
       const all = listed.entries.map((e) => (e.uri === files[0].uri ? entries[0] : entryFromUri(e)));
+      if (!all.includes(entries[0])) all.push(entries[0]); // a name the listing leaves out (.img and the like)
       folder = new Folder(all, listed.name);
       folder.uri = listed.uri;
       index = Math.max(0, all.indexOf(entries[0]));
@@ -87,7 +88,14 @@ export async function openFiles(app: App, files: OpenedFile[], opts: { newWindow
 
 export async function openDroppedFiles(app: App, files: File[]): Promise<void> {
   if (files.length === 1 && ARCHIVE_NAME.test(files[0].name)) { const folder = await archiveFolder(files[0].name, await files[0].arrayBuffer()); if (folder) await app.openFolder(folder, 0); return; }
-  const list = files.filter((f) => isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name));
+  const list: File[] = [];
+  for (const f of files) {
+    if (isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name)) list.push(f);
+    else if (isSharedPictureName(f.name) && f.size <= SHARED_MAX_BYTES) { // .img and the like: a picture only if its content says so
+      const { sniff } = await import('../codecs/registry');
+      if (sniff(new Uint8Array(await f.arrayBuffer()), f.name)) list.push(f);
+    }
+  }
   if (!list.length) { toast('None of the dropped files is a picture Anne\'s Lens can open.'); return; }
   const folder = new Folder(list.map(entryFromFile), list.length === 1 ? list[0].name : `${list.length} dropped files`);
   folder.sort(app.prefs.sort, app.prefs.sortDescending);

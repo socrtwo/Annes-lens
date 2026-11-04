@@ -28,9 +28,9 @@ const SCHEME = 'app';
 const ORIGIN = `${SCHEME}://quilllens`;
 const OPENABLE = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'heic', 'heif', 'hif', 'bmp', 'dib', 'rle', 'ico', 'cur', 'tif', 'tiff', 'svg', 'svgz', 'jxl', 'psd', 'psb', 'tga', 'tpic', 'icb', 'vda', 'vst',
   'pnm', 'ppm', 'pgm', 'pbm', 'pam', 'pfm', 'qoi', 'pcx', 'dcx', 'xpm', 'xbm', 'wbmp', 'icns', 'dds', 'hdr', 'pic', 'rgbe',
-  'cr2', 'cr3', 'crw', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'raf', 'orf', 'rw2', 'rwl', 'pef', 'dng', '3fr', 'fff', 'iiq', 'x3f', 'srw', 'mrw', 'erf', 'mef', 'mos', 'kdc', 'dcr', 'raw', 'eps', 'epsf', 'ai', 'djvu', 'djv', 'iff', 'ilbm', 'lbm', 'ham', 'ham8', 'mac', 'pntg', 'pnt', 'pcd', 'exr', 'jp2', 'jpx', 'jpf', 'jph', 'j2k', 'j2c', 'jpc', 'jhc', 'wmf', 'emf', 'wmz', 'emz', 'zip', 'cbz', 'epub', '7z', 'cb7', 'rar', 'cbr', 'tar', 'cbt', 'tgz', 'tbz', 'tbz2', 'txz', 'gz', 'bz2', 'xz', 'pdf'];
+  'cr2', 'cr3', 'crw', 'nef', 'nrw', 'arw', 'srf', 'sr2', 'raf', 'orf', 'rw2', 'rwl', 'pef', 'dng', '3fr', 'fff', 'iiq', 'x3f', 'srw', 'mrw', 'erf', 'mef', 'mos', 'kdc', 'dcr', 'raw', 'eps', 'epsf', 'ai', 'djvu', 'djv', 'pct', 'pict', 'ras', 'sun', 'im1', 'im8', 'im24', 'im32', 'sgi', 'rgb', 'rgba', 'bw', 'urt', 'pi1', 'pi2', 'pi3', 'pc1', 'pc2', 'pc3', 'neo', 'spu', 'koa', 'kla', 'art', 'aas', 'ximg', 'msp', 'iff', 'ilbm', 'lbm', 'ham', 'ham8', 'mac', 'pntg', 'pnt', 'pcd', 'exr', 'jp2', 'jpx', 'jpf', 'jph', 'j2k', 'j2c', 'jpc', 'jhc', 'wmf', 'emf', 'wmz', 'emz', 'zip', 'cbz', 'epub', '7z', 'cb7', 'rar', 'cbr', 'tar', 'cbt', 'tgz', 'tbz', 'tbz2', 'txz', 'gz', 'bz2', 'xz', 'pdf'];
 const MIME = {
-  pdf: 'application/pdf', djvu: 'image/vnd.djvu', djv: 'image/vnd.djvu', iff: 'image/x-ilbm', ilbm: 'image/x-ilbm', lbm: 'image/x-ilbm', ham: 'image/x-ilbm', ham8: 'image/x-ilbm', mac: 'image/x-macpaint', pntg: 'image/x-macpaint', pnt: 'image/x-macpaint', pcd: 'image/x-photo-cd', exr: 'image/x-exr', jp2: 'image/jp2', jpx: 'image/jpx', jpf: 'image/jpx', jph: 'image/jph', j2k: 'image/j2c', j2c: 'image/j2c', jpc: 'image/j2c', jhc: 'image/jhc', wmf: 'image/wmf', emf: 'image/emf', jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', apng: 'image/apng', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif', hif: 'image/heif',
+  pdf: 'application/pdf', djvu: 'image/vnd.djvu', djv: 'image/vnd.djvu', pct: 'image/x-pict', pict: 'image/x-pict', ras: 'image/x-sun-raster', sun: 'image/x-sun-raster', im1: 'image/x-sun-raster', im8: 'image/x-sun-raster', im24: 'image/x-sun-raster', im32: 'image/x-sun-raster', sgi: 'image/sgi', rgb: 'image/sgi', rgba: 'image/sgi', bw: 'image/sgi', urt: 'image/x-utah-rle', msp: 'image/x-msp', iff: 'image/x-ilbm', ilbm: 'image/x-ilbm', lbm: 'image/x-ilbm', ham: 'image/x-ilbm', ham8: 'image/x-ilbm', mac: 'image/x-macpaint', pntg: 'image/x-macpaint', pnt: 'image/x-macpaint', pcd: 'image/x-photo-cd', exr: 'image/x-exr', jp2: 'image/jp2', jpx: 'image/jpx', jpf: 'image/jpx', jph: 'image/jph', j2k: 'image/j2c', j2c: 'image/j2c', jpc: 'image/j2c', jhc: 'image/jhc', wmf: 'image/wmf', emf: 'image/emf', jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', apng: 'image/apng', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif', hif: 'image/heif',
   bmp: 'image/bmp', dib: 'image/bmp', rle: 'image/bmp', ico: 'image/x-icon', cur: 'image/x-icon', tif: 'image/tiff', tiff: 'image/tiff', svg: 'image/svg+xml', svgz: 'image/svg+xml', jxl: 'image/jxl', psd: 'image/vnd.adobe.photoshop', psb: 'image/vnd.adobe.photoshop', tga: 'image/x-tga',
   pnm: 'image/x-portable-anymap', ppm: 'image/x-portable-pixmap', pgm: 'image/x-portable-graymap', pbm: 'image/x-portable-bitmap', pam: 'image/x-portable-anymap', pfm: 'image/x-portable-floatmap', qoi: 'image/qoi', pcx: 'image/x-pcx', dcx: 'image/x-pcx',
   xpm: 'image/x-xpixmap', xbm: 'image/x-xbitmap', wbmp: 'image/vnd.wap.wbmp', icns: 'image/icns', dds: 'image/vnd-ms.dds', hdr: 'image/vnd.radiance', pic: 'image/vnd.radiance', rgbe: 'image/vnd.radiance', dng: 'image/x-adobe-dng', eps: 'application/postscript', epsf: 'application/postscript', ai: 'application/postscript', zip: 'application/zip', cbz: 'application/vnd.comicbook+zip',
@@ -114,6 +114,11 @@ function grantedPath(uri, write = false) {
   throw new Error('Anne\'s Lens has no permission for this file; open it again.');
 }
 const isPictureName = (p) => OPENABLE.includes(path.extname(p).slice(1).toLowerCase());
+// Extensions pictures share with other files (GEM IMG and disk images, Doodle and dumps, SGI .int): not listed in
+// folders, but a file named on the command line or chosen in the open dialog is passed on (up to 16 MB) for the
+// app to identify by content.
+const SHARED = ['img', 'dd', 'ddl', 'int', 'inta'];
+const isSharedName = (p) => SHARED.includes(path.extname(p).slice(1).toLowerCase());
 
 function fileResult(p) {
   const data = fs.readFileSync(p);
@@ -160,7 +165,7 @@ function filesFromArgs(argv) {
   const out = [];
   for (const a of argv.slice(1)) {
     if (!a || a.startsWith('-')) continue;
-    try { if (fs.statSync(a).isFile() && (isPictureName(a) || !path.extname(a))) out.push(path.resolve(a)); else if (fs.statSync(a).isDirectory()) { for (const e of listDir(a)) out.push(fileURLToPath(e.uri)); } } catch { /* not a file */ }
+    try { if (fs.statSync(a).isFile() && (isPictureName(a) || !path.extname(a) || (isSharedName(a) && fs.statSync(a).size <= 16 * 1024 * 1024))) out.push(path.resolve(a)); else if (fs.statSync(a).isDirectory()) { for (const e of listDir(a)) out.push(fileURLToPath(e.uri)); } } catch { /* not a file */ }
   }
   return out;
 }
@@ -191,7 +196,7 @@ function registerIpc() {
   handle('openDocument', async ({ multiple }) => {
     const r = await dialog.showOpenDialog(win, {
       properties: multiple ? ['openFile', 'multiSelections'] : ['openFile'],
-      filters: [{ name: 'Pictures', extensions: OPENABLE }, { name: 'All files', extensions: ['*'] }],
+      filters: [{ name: 'Pictures', extensions: [...OPENABLE, ...SHARED] }, { name: 'All files', extensions: ['*'] }],
     });
     if (r.canceled || !r.filePaths[0]) return { canceled: true };
     for (const p of r.filePaths) { grant(p); grantDir(path.dirname(p)); }
