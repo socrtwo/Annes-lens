@@ -190,3 +190,4 @@ Thumbs.db
 desktop.ini
 .idea/
 *.swp
+__pycache__/
