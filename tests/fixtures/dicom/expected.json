@@ -1,0 +1,285 @@
+{
+ "693_J2KI.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 512,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.91",
+  "what": "JPEG 2000 lossy, 14 bits stored, CT window",
+  "width": 512
+ },
+ "CT_small.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 128,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "explicit VR LE, 16-bit signed CT with a rescale and no window",
+  "width": 128
+ },
+ "ExplVR_BigEnd.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 60,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.2",
+  "what": "explicit VR big endian, RGB",
+  "width": 80
+ },
+ "JPGExtended.dcm": {
+  "comment": "JPEG lossy",
+  "frames": 1,
+  "height": 1024,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.51",
+  "what": "JPEG extended (process 2 and 4), 12 bits",
+  "width": 256
+ },
+ "MR_small.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "explicit VR LE, 16-bit MR with a window",
+  "width": 64
+ },
+ "MR_small_RLE.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.5",
+  "what": "RLE lossless, 16 bits",
+  "width": 64
+ },
+ "MR_small_bigendian.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.2",
+  "what": "explicit VR big endian",
+  "width": 64
+ },
+ "MR_small_implicit.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2",
+  "what": "implicit VR LE",
+  "width": 64
+ },
+ "MR_small_jp2klossless.dcm": {
+  "comment": "Uncompressed",
+  "frames": 1,
+  "height": 64,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.90",
+  "what": "JPEG 2000 lossless, 16 bits",
+  "width": 64
+ },
+ "MR_small_jpeg_ls_lossless.dcm": {
+  "unsupported": "JPEG-LS",
+  "what": "JPEG-LS (not supported: the error names it)"
+ },
+ "SC_rgb_dcmtk_+eb+cr.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 1,
+  "height": 100,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.50",
+  "what": "JPEG baseline, RGB without a color transform",
+  "width": 100
+ },
+ "SC_rgb_dcmtk_+eb+cy+np.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 1,
+  "height": 100,
+  "pi": "YBR_FULL_422",
+  "ts": "1.2.840.10008.1.2.4.50",
+  "what": "JPEG baseline, YBR_FULL_422",
+  "width": 100
+ },
+ "SC_rgb_jpeg.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 256,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.50",
+  "what": "JPEG baseline, labelled RGB but YCbCr-coded with a JFIF header",
+  "width": 256
+ },
+ "SC_rgb_jpeg_gdcm.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 1,
+  "height": 100,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.4.70",
+  "what": "JPEG lossless (process 14, SV1), RGB",
+  "width": 100
+ },
+ "SC_rgb_rle_16bit_2frame.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 2,
+  "height": 100,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.5",
+  "what": "RLE lossless, RGB 16 bits, 2 frames",
+  "width": 100
+ },
+ "SC_rgb_small_odd.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 1,
+  "height": 3,
+  "pi": "RGB",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "RGB with an odd row length (padding)",
+  "width": 3
+ },
+ "SC_ybr_full_422_uncompressed.dcm": {
+  "comment": "Test Image with 10 rows of (255,0,0), 10 rows of (255,128,128), 10 rows of (0,255,0), 10 rows of (128,255,128), 10 rows of (0,0,255), 10 rows of (128,128,255), 10 rows of (0,0,0), 10 rows of (64,64,64), 10 rows of (192,192,192), 10 rows of (255,255,255), uncompressed",
+  "frames": 1,
+  "height": 100,
+  "pi": "YBR_FULL_422",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "uncompressed YBR_FULL_422",
+  "width": 100
+ },
+ "ct-window.dcm": {
+  "comment": "12 bits stored, rescale and a window; two window pairs",
+  "frames": 1,
+  "height": 32,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "12 bits stored, rescale and a window; two window pairs",
+  "width": 48
+ },
+ "examples_palette.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 350,
+  "pi": "PALETTE COLOR",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "PALETTE COLOR, 16-bit lookup tables",
+  "width": 800
+ },
+ "frames-rle.dcm": {
+  "comment": "four 8-bit frames, RLE lossless",
+  "frames": 4,
+  "height": 16,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.5",
+  "what": "four 8-bit frames, RLE lossless",
+  "width": 24
+ },
+ "frames.dcm": {
+  "comment": "four 8-bit frames with a window",
+  "frames": 4,
+  "height": 16,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "four 8-bit frames with a window",
+  "width": 24
+ },
+ "image_dfl.dcm": {
+  "comment": "THE OUTPUT OF THIS SOFTWARE IS FOR INVESTIGATIONAL USE ONLY - NOT TESTED OR APPROVED FOR CLINICAL APPLICATION",
+  "frames": 1,
+  "height": 512,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1.99",
+  "what": "deflated explicit VR LE, 8 bits",
+  "width": 512
+ },
+ "j2k-12bit.dcm": {
+  "comment": "JPEG 2000 lossless, 12 bits stored, with a window",
+  "frames": 1,
+  "height": 24,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.90",
+  "what": "JPEG 2000 lossless, 12 bits stored, with a window",
+  "width": 32
+ },
+ "jpeg-color-frames.dcm": {
+  "comment": "JPEG baseline, two color frames (YBR_FULL_422), with a basic offset table",
+  "frames": 2,
+  "height": 32,
+  "pi": "YBR_FULL_422",
+  "ts": "1.2.840.10008.1.2.4.50",
+  "what": "JPEG baseline, two color frames (YBR_FULL_422), with a basic offset table",
+  "width": 48
+ },
+ "jpeg-gray.dcm": {
+  "comment": "JPEG baseline, one grayscale frame",
+  "frames": 1,
+  "height": 40,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.4.50",
+  "what": "JPEG baseline, one grayscale frame",
+  "width": 56
+ },
+ "liver_1frame.dcm": {
+  "comment": "",
+  "frames": 1,
+  "height": 512,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "1 bit per pixel (a segmentation)",
+  "width": 512
+ },
+ "mono1.dcm": {
+  "comment": "MONOCHROME1, 8 bits, no window (full range, inverted)",
+  "frames": 1,
+  "height": 20,
+  "pi": "MONOCHROME1",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "MONOCHROME1, 8 bits, no window (full range, inverted)",
+  "width": 40
+ },
+ "palette8.dcm": {
+  "comment": "PALETTE COLOR, 8-bit indices, 16-bit lookup tables",
+  "frames": 1,
+  "height": 16,
+  "pi": "PALETTE COLOR",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "PALETTE COLOR, 8-bit indices, 16-bit lookup tables",
+  "width": 64
+ },
+ "raw-noheader.dcm": {
+  "comment": "raw dataset without the Part 10 header",
+  "frames": 1,
+  "height": 10,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2",
+  "what": "raw dataset without the Part 10 header",
+  "width": 12
+ },
+ "rtdose.dcm": {
+  "comment": "",
+  "frames": 15,
+  "height": 10,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2",
+  "what": "32-bit unsigned, 15 frames, implicit VR",
+  "width": 10
+ },
+ "signed16-implicit.dcm": {
+  "comment": "signed 16-bit samples, implicit VR, no window",
+  "frames": 1,
+  "height": 24,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2",
+  "what": "signed 16-bit samples, implicit VR, no window",
+  "width": 36
+ },
+ "signed16-rle.dcm": {
+  "comment": "signed 16-bit samples, RLE lossless",
+  "frames": 1,
+  "height": 24,
+  "pi": "MONOCHROME2",
+  "ts": "1.2.840.10008.1.2.5",
+  "what": "signed 16-bit samples, RLE lossless",
+  "width": 36
+ }
+}

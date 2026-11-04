@@ -30,10 +30,12 @@ export const LOCAL_RUNTIMES: { from: string; to: string; files: string[]; dirs?:
   { from: 'node_modules/@jsquash/avif', to: 'avif', files: ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm', 'LICENSE'] },
   // OpenJPH (HTJ2K) for OpenEXR's HTJ2K compression.
   { from: 'node_modules/@cornerstonejs/codec-openjph', to: 'openjph', files: ['dist/openjphjs.js', 'dist/openjphjs.wasm', 'LICENSE'] },
+  // OpenJPEG (decode-only build) for JPEG 2000 pixel data at full precision in DICOM files.
+  { from: 'node_modules/@cornerstonejs/codec-openjpeg', to: 'openjpeg', files: ['dist/openjpegjs_decode.js', 'dist/openjpegwasm_decode.wasm', 'LICENSE'] },
   // djvu-rs (DjVu): its loader picks the SIMD or the scalar WebAssembly build.
   { from: 'node_modules/djvu-rs', to: 'djvu', files: ['djvu_rs.js', 'scalar/djvu_rs.js', 'scalar/djvu_rs_bg.wasm', 'simd128/djvu_rs.js', 'simd128/djvu_rs_bg.wasm', 'LICENSE', 'THIRD_PARTY_NOTICES'] },
 ];
-export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', djvu: 'djvu/', ocrLangs: ['eng'] };
+export const RUNTIME_MANIFEST = { ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', openjpeg: 'openjpeg/', djvu: 'djvu/', ocrLangs: ['eng'] };
 export function stageRuntimes(dist: string): void {
   for (const r of LOCAL_RUNTIMES) {
     const out = join(dist, r.to); mkdirSync(out, { recursive: true });

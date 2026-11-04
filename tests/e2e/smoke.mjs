@@ -19,6 +19,7 @@ const LOCAL_RUNTIMES = [
   ['node_modules/jxl-oxide-wasm', 'jxl', ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm']],
   ['node_modules/@jsquash/avif', 'avif', ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm']],
   ['node_modules/@cornerstonejs/codec-openjph', 'openjph', ['dist/openjphjs.js', 'dist/openjphjs.wasm']],
+  ['node_modules/@cornerstonejs/codec-openjpeg', 'openjpeg', ['dist/openjpegjs_decode.js', 'dist/openjpegwasm_decode.wasm']],
   ['node_modules/djvu-rs', 'djvu', ['djvu_rs.js', 'scalar/djvu_rs.js', 'scalar/djvu_rs_bg.wasm', 'simd128/djvu_rs.js', 'simd128/djvu_rs_bg.wasm']],
 ];
 if (existsSync('dist')) {
@@ -27,7 +28,7 @@ if (existsSync('dist')) {
     for (const f of files) if (existsSync(`${from}/${f}`)) { mkdirSync(dirname(`dist/${to}/${f}`), { recursive: true }); copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
     for (const d of dirs) if (existsSync(`${from}/${d}`)) cpSync(`${from}/${d}`, `dist/${to}/${d}`, { recursive: true });
   }
-  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', djvu: 'djvu/', ocrLangs: ['eng'] }));
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', openjpeg: 'openjpeg/', djvu: 'djvu/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
   // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
@@ -510,7 +511,7 @@ try {
   check('pict: the text is drawn in its color, the shapes as decoded', [hist.text > 15, hist.shapesPx], [true, [200, 30, 30]], JSON.stringify([hist.text, hist.shapesPx]));
   check('pict: the QuickTime JPEG is drawn by the platform (quality 95, near the source)', hist.jpegPx && hist.jpegPx.every((v, i) => Math.abs(v - [165, 125, 130][i]) <= 12), true, JSON.stringify(hist.jpegPx)); // jpeg-source.png at (30, 18)
   // FlashPix (JPEG tiles through pdf.js), Autodesk FLC, clipboard files (a DIB; metafiles drawn as the files themselves are), JBIG and JBIG2.
-  const moreFiles = { 'view-rot90.fpx': 'flashpix', 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'layers.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile' };
+  const moreFiles = { 'view-rot90.fpx': 'flashpix', 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'layers.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile', 'ct-window.dcm': 'dicom', '693_J2KI.dcm': 'dicom', 'frames.dcm': 'dicom', 'extensions.fits': 'fits', 'int16-bzero.fits.gz': 'fits' };
   const moreB64 = Object.fromEntries(Object.entries(moreFiles).map(([n, d]) => [n, readFileSync(`tests/fixtures/${d}/${n}`).toString('base64')]));
   const more = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {}, pix = {};
@@ -524,12 +525,16 @@ try {
       const c = pic.frameCanvas(); pix[n] = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
       if (n === 'icons64.dll') out.dllPages = pic.pages.map((pg) => [pg.width, pg.height]);
       if (n === 'lib.icl') out.iclPages = pic.pages.map((pg) => [pg.width, pg.height]);
+      if (n === '693_J2KI.dcm') { out.ctNote = pic.pages[0].notes.at(-1); out.ctInfo = [pic.info.modality, pic.info.window, pic.info['transfer syntax']]; out.ctWarn = pic.warnings; }
+      if (n === 'frames.dcm' || n === 'extensions.fits') out[n + ':pages'] = pic.pages.length;
     }
     const same = (a, b) => { if (!a || !b || a.length !== b.length) return -1; let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
     const ps = pix['layers.psp']; out.pspPx = ps ? [ps[(18 * 64 + 42) * 4], ps[(18 * 64 + 42) * 4 + 1], ps[(18 * 64 + 42) * 4 + 2]] : null;
     out.wmfSame = same(pix['wmf31.clp'], pix['shapes.wmf']); out.emfSame = same(pix['emfnt.clp'], pix['shapes.emf']);
     const j = pix['input_jpeg.fpx']; out.fpxPx = j ? [j[(20 * 70 + 30) * 4], j[(20 * 70 + 30) * 4 + 1], j[(20 * 70 + 30) * 4 + 2]] : null;
     const g = pix['page.jb2']; let black = 0; if (g) for (let i = 0; i < g.length; i += 4) if (g[i] === 0) black++; out.jb2Black = black;
+    const dc = pix['693_J2KI.dcm'], cw = pix['ct-window.dcm'], fz = pix['int16-bzero.fits.gz'];
+    out.ctPx = dc ? dc[(256 * 512 + 256) * 4] : null; out.cwPx = cw ? [cw[(16 * 48 + 20) * 4], cw[(31 * 48 + 47) * 4]] : null; out.fitsPx = fz ? [fz[(19 * 30) * 4], fz[29 * 4]] : null;
     return out;
   }, moreB64);
   check('flashpix, flc, clipboard, jbig and jbig2 open', ['input_jpeg.fpx', 'anim.flc', 'dib31.clp', 'wmf31.clp', 'emfnt.clp', 'layers.jbg', 'page.jb2'].map((n) => more[n] && (n === 'layers.jbg' ? more[n] : more[n].slice(0, 1).concat(more[n].slice(3)))), [['fpx', 1], ['flic', 5], ['clp', 1], ['clp', 1], ['clp', 1], ['jbig', 800, 520, 1], ['jbig2', 1]], JSON.stringify(more));
@@ -537,6 +542,10 @@ try {
   check('icons in a 64-bit DLL and a 16-bit icon library: a page each (cursor 3, icon 1, icon 7)', [more['icons64.dll'] && more['icons64.dll'].slice(0, 1).concat(more['icons64.dll'].slice(3)), more['lib.icl'] && more['lib.icl'][0], more.dllPages, more.iclPages], [['winres', 1], 'winres', [[32, 32], [256, 256], [32, 32]], [[32, 32], [256, 256], [32, 32]]], JSON.stringify([more['icons64.dll'], more.dllPages, more.iclPages]));
   check('flashpix: a viewing transform (a quarter turn) is applied on opening', more['view-rot90.fpx'], ['fpx', 46, 70, 1], JSON.stringify(more['view-rot90.fpx']));
   check('clipboard metafiles are drawn as the metafile files themselves', [more.wmfSame, more.emfSame], [0, 0], JSON.stringify([more.wmfSame, more.emfSame]));
+  // DICOM: a CT in JPEG 2000 (OpenJPEG from the local runtime, full precision, the CT window applied), a 12-bit CT with a window, frames as pages; FITS: extensions as pages, a gzipped file shown bottom-up.
+  check('dicom opens: JPEG 2000 at full precision with the window applied, 12-bit with a window, frames as pages', [more['693_J2KI.dcm'], more.ctPx, more['ct-window.dcm'], more.cwPx, more['frames.dcm:pages'], more.ctWarn], [['dicom', 512, 512, 1], 108, ['dicom', 48, 32, 1], [0, 255], 4, []], JSON.stringify([more['693_J2KI.dcm'], more.ctPx, more['ct-window.dcm'], more.cwPx, more['frames.dcm:pages'], more.ctWarn]));
+  check('dicom: the details name the modality, window and transfer syntax, and every page says it is not for diagnosis', [more.ctInfo, /not a medical device/.test(more.ctNote || '')], [['CT', 'center 40, width 100', 'JPEG 2000 (1.2.840.10008.1.2.4.91)'], true], JSON.stringify([more.ctInfo, more.ctNote]));
+  check('fits opens: image extensions as pages; a gzipped file, stretched, the first stored row at the bottom', [more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx], [['fits', 12, 8, 1], 2, ['fits', 30, 20, 1], [0, 255]], JSON.stringify([more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx]));
   check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)
   // A Corel file: recognized, not opened; the toast offers Send a Sample File, whose terms must be agreed to before the mail program opens.
   const sample = await p.evaluate(async () => {

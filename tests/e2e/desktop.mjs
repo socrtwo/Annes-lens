@@ -292,6 +292,15 @@ try {
     const got = ok ? await bw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height]) : await bw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a JBIG2 file opens through pdf.js', got, ['jbig2', 320, 200]);
   } finally { await bApp.close().catch(() => undefined); }
+  // A DICOM CT with JPEG 2000 pixel data: OpenJPEG's decode-only build imported from a Blob under the same policy, at full precision.
+  const dcmPath = join(base, 'ct.dcm'); writeFileSync(dcmPath, readFileSync('tests/fixtures/dicom/693_J2KI.dcm'));
+  const cApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, dcmPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const cw = await cApp.firstWindow();
+    const ok = await cw.waitForFunction(() => window.qn?.picture?.name === 'ct.dcm', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await cw.evaluate(() => { const c = qn.picture.frameCanvas(); return [qn.picture.format.id, qn.picture.width, qn.picture.height, c.getContext('2d').getImageData(256, 256, 1, 1).data[0], qn.picture.warnings, qn.picture.info.modality]; }) : await cw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a DICOM CT with JPEG 2000 pixel data opens through OpenJPEG at full precision', got, ['dicom', 512, 512, 108, [], 'CT']);
+  } finally { await cApp.close().catch(() => undefined); }
   // A DLL named on the command line (programs are not listed in folders): its icons, one page each.
   const dllPath = join(base, 'shell.dll'); writeFileSync(dllPath, readFileSync('tests/fixtures/iconlib/icons32.dll'));
   const lApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, dllPath], env: { ...process.env, XDG_CONFIG_HOME: config } });

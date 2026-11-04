@@ -1,0 +1,76 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { decodeFits, fitsData, fitsHdus, isFits } from '../../src/codecs/fits';
+import { sniff } from '../../src/codecs/registry';
+
+const DIR = 'tests/fixtures/fits/';
+const fx = (n: string) => new Uint8Array(readFileSync(DIR + n));
+const expected: Record<string, any> = JSON.parse(readFileSync(DIR + 'expected.json', 'utf8'));
+const at = (r: { width: number; data: Uint8ClampedArray }, x: number, y: number) => Array.from(r.data.subarray((y * r.width + x) * 4, (y * r.width + x) * 4 + 4));
+
+describe('FITS (files written from the standard with numpy)', () => {
+  it('is recognized, also gzipped by name', () => {
+    expect(isFits(fx('int16-bzero.fits'))).toBe(true);
+    expect(isFits(fx('int16-bzero.fits.gz'))).toBe(false);
+    expect(sniff(fx('float32-star.fits'), 'x')?.id).toBe('fits');
+    expect(sniff(fx('int16-bzero.fits.gz'), 'sky.fits.gz')?.id).toBe('fits');
+    expect(sniff(fx('int16-bzero.fits.gz'), 'sky.svgz')?.id).toBe('svg');
+  });
+  for (const [name, e] of Object.entries(expected)) {
+    it(`${name}: HDUs, planes and values (BZERO/BSCALE applied)`, () => {
+      const { planes, hdus } = fitsData(fx(name));
+      expect(hdus.length).toBe(e.hdus);
+      expect(planes.map((p) => [p.hdu, p.width, p.height])).toEqual(e.planes);
+      for (const [y, x, v] of e.samples) { const got = planes[0].values[y * planes[0].width + x]; if (v === null) expect(got).toBeNaN(); else expect(got).toBeCloseTo(v, 6); }
+      if (e.plane2) { const pl = planes[planes.length - 1]; for (const [y, x, v] of e.plane2) expect(pl.values[y * pl.width + x]).toBeCloseTo(v, 6); }
+      if (e.blank) { const [z, y, x] = e.blank; expect(planes[z].values[y * planes[z].width + x]).toBeNaN(); expect(planes[z].blank![y * planes[z].width + x]).toBe(1); }
+    });
+  }
+  it('shows the first stored row at the bottom, stretched between the 0.5th and 99.5th percentiles', () => {
+    const d = decodeFits(fx('int16-bzero.fits'));
+    const r = d.pages[0].frames[0].raster;
+    expect([r.width, r.height]).toEqual([30, 20]);
+    expect(at(r, 0, 19)).toEqual([0, 0, 0, 255]); // stored row 0, value 0
+    expect(at(r, 29, 0)).toEqual([255, 255, 255, 255]); // the brightest, 38290
+    expect(at(r, 0, 9)[0]).toBeGreaterThan(at(r, 0, 10)[0]); // brighter upwards
+    expect(d.pages[0].notes[1]).toMatch(/^shown stretched linearly from \d+ to \d+ ADU \(the 0.5th and 99.5th percentiles\); the first stored row is at the bottom$/);
+    expect(d.info.object).toBe('Gradient field');
+    expect(d.info.telescope).toBe("Anne's 8-inch");
+    expect(d.info['exposure (s)']).toBe('30.0');
+    expect(d.info.comments).toBe('A test picture written by scripts/gen-fits-fixtures.py');
+    expect(d.info.HDUs).toBe('1');
+    const gz = decodeFits(fx('int16-bzero.fits.gz'), 'sky.fits.gz');
+    expect(gz.pages[0].frames[0].raster.data).toEqual(r.data);
+  });
+  it('a float image: NaN pixels are transparent and the star saturates while the sky stays dark', () => {
+    const d = decodeFits(fx('float32-star.fits'));
+    const r = d.pages[0].frames[0].raster;
+    expect(d.pages[0].hasAlpha).toBe(true);
+    expect(at(r, 4, 39 - 4)[3]).toBe(0); // stored row 4, column 4 is NaN
+    expect(at(r, 30, 39 - 12)).toEqual([255, 255, 255, 255]); // the star's peak
+    expect(at(r, 2, 39 - 30)[0]).toBeLessThan(20); // sky
+    expect(d.pages[0].notes[0]).toBe('FITS primary image, 32-bit floating-point');
+    expect(d.pages[0].bitDepth).toBe(32);
+  });
+  it('a cube becomes pages; extensions become pages (the table is skipped); BLANK pixels are transparent', () => {
+    const c = decodeFits(fx('cube-int64.fits'));
+    expect(c.pages.length).toBe(3);
+    expect(c.pages[1].notes[0]).toBe('FITS primary image, plane 2 of 3, 64-bit integer (BZERO/BSCALE applied)');
+    expect(c.pages[1].notes).toContain('undefined (BLANK) pixels are transparent');
+    expect(at(c.pages[1].frames[0].raster, 3, 11 - 2)[3]).toBe(0);
+    expect(c.pages[0].hasAlpha).toBe(false);
+    const x = decodeFits(fx('extensions.fits'));
+    expect(x.pages.length).toBe(2);
+    expect(x.pages[0].notes[0]).toBe('FITS image extension 1 "SCI", 8-bit integer');
+    expect(x.pages[1].notes[0]).toBe('FITS image extension 3 "ERR", 64-bit floating-point');
+    expect(x.pages[1].notes[1]).toContain(' e- ');
+    expect(x.info.HDUs).toBe('4');
+    expect(x.info.origin).toBe('fixture');
+    expect(fitsHdus(fx('extensions.fits')).map((h) => h.kind)).toEqual(['empty', 'image', 'table', 'image']);
+  });
+  it('refuses files without an image', () => {
+    const hdr = fx('extensions.fits').subarray(0, 2880);
+    expect(() => decodeFits(hdr)).toThrow(/holds no image/);
+    expect(() => decodeFits(new Uint8Array(3000))).toThrow(/not a FITS file/);
+  });
+});

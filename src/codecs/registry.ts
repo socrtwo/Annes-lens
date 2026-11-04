@@ -40,6 +40,8 @@ import { isFlashPix } from './flashpix';
 import { isClp } from './clipboard';
 import { isJbig, isJbig2 } from './jbig';
 import { isPsp } from './psp';
+import { isDicom, isRawDicom } from './dicom';
+import { isFits } from './fits';
 import { winModuleKind } from './winres';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
@@ -107,6 +109,8 @@ export const FORMATS: FormatInfo[] = [
   { id: 'winres', label: 'Icons in a Windows program or icon library', mime: 'application/x-msdownload', extensions: ['icl', 'exe', 'dll', 'ocx', 'cpl', 'scr', 'mun'], decoder: 'own', save: false, notes: 'the icons and cursors inside 32/64-bit and 16-bit (NE) programs, DLLs and .icl libraries, one page each (its largest size)' },
   { id: 'corel', label: 'CorelDRAW / Corel PHOTO-PAINT', mime: 'application/vnd.corel-draw', extensions: ['cdr', 'cpt'], decoder: 'own', save: false, sample: true, notes: 'recognized, not opened yet: no file was available to build the reader from (Help ▸ Send a Sample File)' },
   { id: 'psp', label: 'Paint Shop Pro', mime: 'image/x-paintshoppro', extensions: ['psp', 'pspimage', 'tub'], decoder: 'own', save: false, notes: 'Paint Shop Pro 5 to 9 and later (format versions 3–6+): the raster layers merged with their masks, opacity and blend modes' },
+  { id: 'dicom', label: 'DICOM', mime: 'application/dicom', extensions: ['dcm', 'dicom'], decoder: 'own', save: false, notes: 'medical pictures: every frame as a page, window/level, rescale, palettes; implicit/explicit VR, big endian, deflated, RLE, JPEG (baseline, 12-bit extended, lossless), JPEG 2000 and HTJ2K pixel data; for viewing only, not diagnosis' },
+  { id: 'fits', label: 'FITS', mime: 'image/fits', extensions: ['fits', 'fit', 'fts'], decoder: 'own', save: false, notes: 'astronomy: the primary array and image extensions as pages, data cubes, BZERO/BSCALE, BLANK; stretched between the 0.5th and 99.5th percentiles for display; gzipped files too' },
   { id: 'jbig', label: 'JBIG', mime: 'image/jbig', extensions: ['jbg', 'jbig', 'bie'], decoder: 'own', save: false, notes: 'T.82 bilevel and bit-plane pictures (the lowest layer of multi-layer files)' },
   { id: 'jbig2', label: 'JBIG2', mime: 'image/x-jbig2', extensions: ['jb2', 'jbig2'], decoder: 'own', save: false, notes: 'T.88 files, every page, through pdf.js (PDFium\'s JBIG2 decoder, WebAssembly)' },
   { id: 'clp', label: 'Windows clipboard file', mime: 'application/x-ms-clipboard', extensions: ['clp'], decoder: 'own', save: false, notes: 'Windows 3.x and NT: the bitmap (DIB or device-dependent) or metafile it holds' },
@@ -142,6 +146,8 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isClp(u8)) return formatById('clp')!;
   if (isJbig2(u8)) return formatById('jbig2')!;
   if (isPsp(u8)) return formatById('psp')!;
+  if (isDicom(u8)) return formatById('dicom')!;
+  if (isFits(u8)) return formatById('fits')!;
   if (isCorel(u8)) return formatById('corel')!;
   if (winModuleKind(u8)) return formatById('winres')!;
   if (isCfb(u8) && isFlashPix(u8)) return formatById('fpx')!;
@@ -173,7 +179,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIco(u8)) return (u8[2] | (u8[3] << 8)) === 2 ? formatById('cur')! : formatById('ico')!;
   if (isTiff(u8)) return identifyRaw(u8, name) ? formatById('raw')! : formatById('tiff')!;
   if (identifyRaw(u8, name)) return formatById('raw')!;
-  if (u8[0] === 0x1f && u8[1] === 0x8b) return /\.emz$/i.test(name) ? formatById('emf')! : /\.wmz$/i.test(name) ? formatById('wmf')! : formatById('svg')!; // gzip: emz, wmz or svgz
+  if (u8[0] === 0x1f && u8[1] === 0x8b) return /\.emz$/i.test(name) ? formatById('emf')! : /\.wmz$/i.test(name) ? formatById('wmf')! : /\.(fits?|fts)\.gz$/i.test(name) ? formatById('fits')! : formatById('svg')!; // gzip: emz, wmz, fits.gz or svgz
   if (isPcx(u8)) return formatById('pcx')!;
   const head = new TextDecoder('utf-8', { fatal: false }).decode(u8.subarray(0, Math.min(u8.length, 2048)));
   if (/<svg[\s>]/i.test(head) && !/<script/i.test(head.slice(0, 200))) return formatById('svg')!;
@@ -181,6 +187,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isXbm(u8)) return formatById('xbm')!;
   // Formats without a magic number come last: a plausible header, or the name.
   if (/\.(jbg|jbig|bie)$/i.test(name) && isJbig(u8)) return formatById('jbig')!; // no magic number
+  if (/\.(dcm|dicom)$/i.test(name) && isRawDicom(u8)) return formatById('dicom')!; // a data set without the Part 10 header
   if (isAtariSt(u8, name)) return formatById('atarist')!;
   if (isC64(u8, name)) return formatById('c64')!;
   if (isGemImg(u8, name)) return formatById('gem')!;
@@ -248,6 +255,15 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   }
   else if (fmt.id === 'psp') { const { decodePsp } = await import('./psp'); decoded = fromOwn(decodePsp(u8), 'psp'); }
   else if (fmt.id === 'jbig') { const { decodeJbig } = await import('./jbig'); decoded = fromOwn(decodeJbig(u8), 'jbig'); }
+  else if (fmt.id === 'dicom') {
+    const [{ decodeDicom, dicomTransferSyntax, isJ2kTransferSyntax }, { imageDecoders }] = await Promise.all([import('./dicom'), import('./jpx')]);
+    const dec = await imageDecoders().catch(() => null);
+    let fallback = '';
+    if (isJ2kTransferSyntax(dicomTransferSyntax(u8))) { try { await (await import('./openjpeg16')).loadOpenJpeg(); } catch (e) { fallback = (e as Error).message; } }
+    decoded = fromOwn(await decodeDicom(u8, dec), 'dicom');
+    if (fallback) decoded.warnings.push(fallback);
+  }
+  else if (fmt.id === 'fits') { const { decodeFits } = await import('./fits'); decoded = fromOwn(decodeFits(u8, entry.name), 'fits'); }
   else if (fmt.id === 'jbig2') {
     const [{ decodeJbig2 }, { imageDecoders }] = await Promise.all([import('./jbig'), import('./jpx')]);
     decoded = fromOwn(await decodeJbig2(u8, await imageDecoders()), 'jbig2 (pdf.js)');

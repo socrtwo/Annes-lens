@@ -67,6 +67,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | fzstd (Zstandard decoding in TIFF) | MIT |
 | jxl-oxide (JPEG XL decoding where the platform has none) | MIT or Apache 2.0 |
 | OpenJPH, as Cornerstone's codec-openjph build (OpenEXR HTJ2K compression) | BSD-2-Clause; MIT |
+| OpenJPEG, as Cornerstone's codec-openjpeg build (JPEG 2000 pixel data in DICOM files at full precision) | BSD-2-Clause; MIT |
 | djvu-rs (DjVu; written from the public DjVu v3 specification, no DjVuLibre code), with the Rust crates linked into its WebAssembly (listed with their licenses in the third-party notices) | MIT; MIT, and the Unicode License v3 (unicode-ident) |
 | jSquash AVIF decoder (from Squoosh): libavif, libaom's AV1 decoder, libyuv | Apache 2.0; BSD-2-Clause; BSD-2-Clause with the AOMedia Patent License 1.0; BSD-3-Clause |
 | world-atlas (Natural Earth country outlines for the offline map) | ISC; Natural Earth data public domain |
@@ -90,6 +91,10 @@ Some formats (CorelDRAW and Corel PHOTO-PAINT today) are recognized but cannot b
 
 Files kept in the test suite under that permission are listed in this section with the sender's consent noted; none has been received yet. The message also records the sender's program name, notes, and the permissions given.
 
+## Medical pictures
+
+Anne's Lens opens DICOM files so that people can look at their own scans. It is not a medical device, has not been assessed as one, and shows every DICOM page with the notice that it is for viewing only, not for diagnosis or treatment decisions. The window, rescale and palette are applied as the standard describes (PS3.3 C.11.2 and C.7.6.3), and lossy pixel data is marked as such in the details; nothing is calibrated, and no measurement in the app is a clinical measurement. The patient details the file carries are shown to its holder in the details pane and are never sent anywhere.
+
 ## Online services
 
 Anne's Lens works offline. Online services are called only when the user invokes the matching command (sending a sample file goes through the user's own mail program, see above): the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline outline or another tile server selectable), Open URL, and update checks (desktop and APK builds, opt-in). The phone remote (desktop) is a server on the local network only, reachable through a random address, and stops when turned off or when the app quits. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
@@ -111,5 +116,9 @@ The Paint Shop Pro test files are written by `scripts/gen-psp-fixtures.py` from 
 The icon-library test files are made by `scripts/gen-iconlib-fixtures.py`: resource-only DLLs built with MinGW's binutils (windres, ld; GPL) from icons made with icoutils' icotool (GPL), and a 16-bit icon library written by the script; icoutils' wrestool provides the expected icon files. These tools run only on the developer's machine; nothing from them ships in the app.
 
 The test files for the workstation and home-computer formats and PICT are made by `scripts/gen-historic-fixtures.py`: written by the script from the formats' descriptions, or by ImageMagick, netpbm and Pillow, which also provide the expected pictures (each decodes with its own code: ImageMagick's PICT, Sun and SGI readers, netpbm's rasttopnm, rletopnm, gemtopnm, pi1toppm, pi3topbm, neotoppm and sputoppm, Pillow's MSP reader). These tools run only on the developer's machine; nothing from them ships in the app, whose readers are its own code.
+
+The DICOM test files are, in part, pydicom's test files (MIT; `tests/fixtures/dicom/LICENSE-pydicom`, copied by `scripts/gen-dicom-fixtures.py` from the installed package), which pydicom's authors downsized and cleaned of anything that looks like a real patient name, and in part files the same script writes with pydicom (window/level, MONOCHROME1, signed samples, frames, JPEG and JPEG 2000 made with Pillow, a palette, a raw data set). The expected pictures come from pydicom's pixel decoding (through Pillow, GDCM (BSD) and pylibjpeg-libjpeg (GPL; used only as a reference decoder on the developer's machine for the 12-bit JPEG) with the standard's display rules applied in the script. The reader was written from the DICOM standard (PS3.5 and PS3.3), not from any decoder's code.
+
+The FITS test files are written by `scripts/gen-fits-fixtures.py` with numpy from the FITS standard, with ImageMagick confirming the display orientation. The reader was written from the standard.
 
 PPMd (used by 7z and by RAR's text compression) is the app's own implementation of Dmitry Shkarin's PPMd variant H, an algorithm he placed in the public domain. The 7z PPMd test archives are made with py7zr and pyppmd on the developer's machine; nothing from them ships in the app.
