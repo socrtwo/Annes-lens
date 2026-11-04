@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { decodeFlashPix, isFlashPix } from '../../src/codecs/flashpix';
+import { decodeFlashPix, isFlashPix, readView } from '../../src/codecs/flashpix';
 import { Cfb, propertySet } from '../../src/codecs/cfb';
 import { decodePngTolerant } from '../../src/codecs/png';
 import type { Raster } from '../../src/codecs/raster';
@@ -35,6 +35,9 @@ describe('FlashPix (ImageMagick\'s samples, made by Kodak\'s toolkit)', () => {
       expect(diff(d.pages[0].frames[0].raster, ref(`${n}.pillow.png`), 0, 64).max).toBe(0);
     });
   }
+  it('the whole picture, edge tiles included, as the raw tiles hold it', () => {
+    expect(diff(decodeFlashPix(fx('input_truecolor.fpx')).pages[0].frames[0].raster, ref('input_truecolor.decoded.png')).max).toBe(0);
+  });
   it('the edge tiles too: the whole picture is the rose', () => {
     const d = decodeFlashPix(fx('input_truecolor.fpx')), a = d.pages[0].frames[0].raster, rose = ref('rose.png');
     const left = diff(a, rose, 0, 64), right = diff(a, rose, 64, 70);
@@ -50,4 +53,22 @@ describe('FlashPix (ImageMagick\'s samples, made by Kodak\'s toolkit)', () => {
     expect(d.pages[0].notes[0]).toMatch(/2 JPEG-compressed/);
     expect(() => decodeFlashPix(fx('input_jpeg.fpx'))).toThrow(/JPEG decoder/);
   });
+});
+
+describe('FlashPix viewing transforms (files written from the specification; pixel-exact cases checked against numpy)', () => {
+  const page = (n: string) => decodeFlashPix(fx(n)).pages[0];
+  const rgba = (a: Raster, b: Raster) => { expect([a.width, a.height]).toEqual([b.width, b.height]); let max = 0; for (let i = 0; i < a.data.length; i++) max = Math.max(max, Math.abs(a.data[i] - b.data[i])); return max; };
+  it('the transform property set is read', () => {
+    const v = readView(new Cfb(fx('view-crop.fpx')), 1)!;
+    expect(v.roi!.map((x) => +x.toFixed(4))).toEqual([0.3043, 0.2174, 0.8696, 0.5217]); expect(v.aspect).toBeCloseTo(40 / 24, 5); expect(v.affine!.length).toBe(16); expect(v.contrast).toBe(1);
+    expect(readView(new Cfb(fx('input_truecolor.fpx')), 1)).toBeNull();
+  });
+  it('a rectangle of interest alone leaves the rest transparent', () => { const p = page('view-roi.fpx'); expect(rgba(p.frames[0].raster, ref('view-roi.png'))).toBe(0); expect(p.hasAlpha).toBe(true); expect(p.notes[1]).toBe("seen through the file's viewing transform: rectangle of interest"); });
+  it('a crop: the rectangle mapped onto the result rectangle', () => { const p = page('view-crop.fpx'); expect([p.width, p.height]).toEqual([40, 24]); expect(diff(p.frames[0].raster, ref('view-crop.png')).max).toBe(0); });
+  it('a quarter turn and a flip are pixel-exact', () => {
+    const t = page('view-rot90.fpx'); expect([t.width, t.height]).toEqual([46, 70]); expect(diff(t.frames[0].raster, ref('view-rot90.png')).max).toBe(0); expect(t.notes[1]).toMatch(/a quarter turn, result aspect ratio 0.657/);
+    const f = page('view-flip.fpx'); expect([f.width, f.height]).toEqual([70, 46]); expect(diff(f.frames[0].raster, ref('view-flip.png')).max).toBe(0); expect(f.notes[1]).toMatch(/a flip$/);
+  });
+  it('colortwist and contrast (against this script\'s reading of the specification)', () => { const p = page('view-color.fpx'); expect(diff(p.frames[0].raster, ref('view-color.png')).max).toBeLessThanOrEqual(1); expect(p.notes[1]).toBe("seen through the file's viewing transform: colortwist, contrast 1.20"); });
+  it('a cached result image is shown as it is, the transform left alone', () => { const p = page('view-cached.fpx'); expect(diff(p.frames[0].raster, ref('input_grayscale.pillow.png'), 0, 64).max).toBe(0); expect(p.notes[1]).toMatch(/cached result/); });
 });
