@@ -10,7 +10,12 @@ Writes to tests/fixtures/jbig/ (expected pictures <name>.png next to each):
     newlen.jbg    a larger height announced, then NEWLEN (-Y; VLENGTH)
     fax.jbg       the T.85 fax profile (-f)
     gray.jbg      4 bit planes (Gray code), interleaved stripes;   gray-planes.jbg: planes one after another (-o 0)
-    layers.jbg    two differential layers: expected layers.png is the lowest layer (jbgtopbm -x)
+    layers.jbg    two differential (resolution) layers, default options; layers-plain (no prediction), layers-tp (TPDON
+                  only, 3-line stripes), layers-two (two-line template), layers-d3 (three layers), layers-reset (SDRST
+                  after each stripe), layers-newlen (NEWLEN), order-<n> (every stripe order of Table 11, including the
+                  SEQ and HITOLO ones jbgtopbm cannot read); the coding is lossless, so layers.png (jbgtopbm's decoding
+                  of layers.jbg, checked to be the page) is expected of all of them
+    gray-layers.jbg   8 bit planes with a differential layer                        expected: gray-layers.png
   JBIG2, written here (a page and an MMR generic region; the MMR data is libtiff's Group 4 stream through Pillow),
   expected: jbig2dec
     page.jb2      sequential organization;  random.jb2: the same page, random-access organization
@@ -66,12 +71,26 @@ def main():
         run(['pbmtojbg', '-q', '-s', '32'] + extra + [pgm, os.path.join(OUT, name + '.jbg')])
         run(['jbgtopbm', os.path.join(OUT, name + '.jbg'), os.path.join(TMP, name + '.pnm')])
         Image.open(os.path.join(TMP, name + '.pnm')).convert('RGB').save(os.path.join(OUT, name + '.png'))
-    # Differential layers: the lowest layer only is expected.
+    # Resolution (differential) layers, decoded to the full picture: every option, stripe order, SDRST and NEWLEN.
     big = os.path.join(TMP, 'big.pbm')
     page(800, 520, 2).save(big)
-    run(['pbmtojbg', '-d', '2', big, os.path.join(OUT, 'layers.jbg')])
-    run(['jbgtopbm', '-x', '200', os.path.join(OUT, 'layers.jbg'), os.path.join(TMP, 'layers.pnm')])
+    layered = {'layers': ['-d', '2'], 'layers-plain': ['-d', '2', '-p', '0', '-s', '2'], 'layers-tp': ['-d', '1', '-p', '16', '-s', '3'],
+               'layers-two': ['-d', '2', '-p', '92'], 'layers-d3': ['-d', '3'], 'layers-reset': ['-d', '2', '-r', '-s', '30'], 'layers-newlen': ['-d', '2', '-Y', '1000']}
+    for o in (0, 2, 4, 5, 6, 8, 10, 11, 12, 13, 14):
+        layered['order-%d' % o] = ['-d', '2', '-o', str(o), '-s', '20']
+    for name, args in layered.items():
+        run(['pbmtojbg'] + args + [big, os.path.join(OUT, name + '.jbg')])
+    # jbgtopbm reads the ILEAVE orders (0, 2, 3) and not SEQ or HITOLO; the coding is lossless, so one expected
+    # picture serves every file: jbgtopbm's full decoding of layers.jbg, checked here to be the page itself.
+    run(['jbgtopbm', os.path.join(OUT, 'layers.jbg'), os.path.join(TMP, 'layers.pnm')])
+    assert (np.asarray(Image.open(os.path.join(TMP, 'layers.pnm')).convert('1')) == np.asarray(Image.open(big).convert('1'))).all()
     Image.open(os.path.join(TMP, 'layers.pnm')).convert('RGB').save(os.path.join(OUT, 'layers.png'))
+    for name in ('layers-plain', 'layers-tp', 'layers-two', 'layers-d3', 'layers-reset', 'layers-newlen', 'order-0', 'order-2'):
+        run(['jbgtopbm', os.path.join(OUT, name + '.jbg'), os.path.join(TMP, 'chk.pnm')])
+        assert (np.asarray(Image.open(os.path.join(TMP, 'chk.pnm')).convert('1')) == np.asarray(Image.open(big).convert('1'))).all(), name
+    run(['pbmtojbg', '-d', '1', '-s', '16', pgm, os.path.join(OUT, 'gray-layers.jbg')])
+    run(['jbgtopbm', os.path.join(OUT, 'gray-layers.jbg'), os.path.join(TMP, 'gray-layers.pnm')])
+    Image.open(os.path.join(TMP, 'gray-layers.pnm')).convert('RGB').save(os.path.join(OUT, 'gray-layers.png'))
     jbig2()
 
 

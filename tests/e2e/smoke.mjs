@@ -510,7 +510,7 @@ try {
   check('pict: the text is drawn in its color, the shapes as decoded', [hist.text > 15, hist.shapesPx], [true, [200, 30, 30]], JSON.stringify([hist.text, hist.shapesPx]));
   check('pict: the QuickTime JPEG is drawn by the platform (quality 95, near the source)', hist.jpegPx && hist.jpegPx.every((v, i) => Math.abs(v - [165, 125, 130][i]) <= 12), true, JSON.stringify(hist.jpegPx)); // jpeg-source.png at (30, 18)
   // FlashPix (JPEG tiles through pdf.js), Autodesk FLC, clipboard files (a DIB; metafiles drawn as the files themselves are), JBIG and JBIG2.
-  const moreFiles = { 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'seq.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile' };
+  const moreFiles = { 'icons64.dll': 'iconlib', 'lib.icl': 'iconlib', 'layers.psp': 'psp', 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'layers.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile' };
   const moreB64 = Object.fromEntries(Object.entries(moreFiles).map(([n, d]) => [n, readFileSync(`tests/fixtures/${d}/${n}`).toString('base64')]));
   const more = await p.evaluate(async (files) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {}, pix = {};
@@ -532,7 +532,7 @@ try {
     const g = pix['page.jb2']; let black = 0; if (g) for (let i = 0; i < g.length; i += 4) if (g[i] === 0) black++; out.jb2Black = black;
     return out;
   }, moreB64);
-  check('flashpix, flc, clipboard, jbig and jbig2 open', ['input_jpeg.fpx', 'anim.flc', 'dib31.clp', 'wmf31.clp', 'emfnt.clp', 'seq.jbg', 'page.jb2'].map((n) => more[n] && more[n].slice(0, 1).concat(more[n].slice(3))), [['fpx', 1], ['flic', 5], ['clp', 1], ['clp', 1], ['clp', 1], ['jbig', 1], ['jbig2', 1]], JSON.stringify(more));
+  check('flashpix, flc, clipboard, jbig and jbig2 open', ['input_jpeg.fpx', 'anim.flc', 'dib31.clp', 'wmf31.clp', 'emfnt.clp', 'layers.jbg', 'page.jb2'].map((n) => more[n] && (n === 'layers.jbg' ? more[n] : more[n].slice(0, 1).concat(more[n].slice(3)))), [['fpx', 1], ['flic', 5], ['clp', 1], ['clp', 1], ['clp', 1], ['jbig', 800, 520, 1], ['jbig2', 1]], JSON.stringify(more));
   check('paint shop pro: two layers merged (the sun at half opacity over the gradient)', [more['layers.psp'] && more['layers.psp'].slice(0, 3), more.pspPx && more.pspPx.every((v, i) => Math.abs(v - [209, 154, 53][i]) <= 1)], [['psp', 64, 40], true], JSON.stringify([more['layers.psp'], more.pspPx])); // GIMP's layers.png at (42, 18)
   check('icons in a 64-bit DLL and a 16-bit icon library: a page each (cursor 3, icon 1, icon 7)', [more['icons64.dll'] && more['icons64.dll'].slice(0, 1).concat(more['icons64.dll'].slice(3)), more['lib.icl'] && more['lib.icl'][0], more.dllPages, more.iclPages], [['winres', 1], 'winres', [[32, 32], [256, 256], [32, 32]], [[32, 32], [256, 256], [32, 32]]], JSON.stringify([more['icons64.dll'], more.dllPages, more.iclPages]));
   check('clipboard metafiles are drawn as the metafile files themselves', [more.wmfSame, more.emfSame], [0, 0], JSON.stringify([more.wmfSame, more.emfSame]));

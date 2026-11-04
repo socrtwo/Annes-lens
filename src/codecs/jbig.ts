@@ -3,12 +3,14 @@
  * (ITU T.88, .jb2/.jbig2) files through pdf.js's JBIG2 decoder (PDFium's, WebAssembly).
  * JBIG: the lowest-resolution layer with the three- and two-line templates, the adaptive template pixel and its
  * moves, typical prediction, stripes (SDNORM and SDRST), NEWLEN with a variable length, comments, and several bit
- * planes (Gray-coded, as jbigkit writes them). Files with differential (higher-resolution) layers are shown at their
- * lowest layer, with a note: deterministic prediction for those layers is not decoded yet.
+ * planes (Gray-coded, as jbigkit writes them); the differential (higher-resolution) layers with their templates,
+ * typical and deterministic prediction (the default tables of T.82, or a private one from the header), in every
+ * stripe order of Table 11, decoded to the full resolution.
  * JBIG2: the file header, sequential or random-access organization, split into each page's segments and the
  * global ones (symbol dictionaries shared by pages), every page decoded.
  */
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
+import { DP_TABLES } from './jbigdp';
 
 const be32 = (u: Uint8Array, o: number) => ((u[o] << 24) | (u[o + 1] << 16) | (u[o + 2] << 8) | u[o + 3]) >>> 0;
 
@@ -55,22 +57,29 @@ export const isJbig = (u8: Uint8Array): boolean => u8.length >= 20 && u8[3] === 
 export const jbigOptions = { maxPixels: 200e6 };
 
 interface Sde { start: number; end: number; reset: boolean; moves: { y: number; tx: number; ty: number }[] }
+/** One bit plane of one resolution layer: its lines, adaptive states, AT pixel and typical-prediction state. */
+interface Plane { rows: Uint8Array[]; st: Uint8Array; lntp: number; tx: number; ty: number; top: number }
+
+/** A private DP table (1728 bytes, four entries a byte, the earlier entries in the higher bits) as the four tables. */
+function unpackDpTable(u8: Uint8Array, at: number): Uint8Array[] {
+  const sizes = [256, 512, 2048, 4096], out: Uint8Array[] = []; let i = 0;
+  for (const n of sizes) { const t = new Uint8Array(n); for (let k = 0; k < n; k++, i++) t[k] = (u8[at + (i >> 2)] >> (6 - 2 * (i & 3))) & 3; out.push(t); }
+  return out;
+}
 
 export function decodeJbig(u8: Uint8Array, o = jbigOptions): DecodeResult {
   const DL = u8[0], D = u8[1], P = u8[2];
-  let XD = be32(u8, 4), YD = be32(u8, 8);
+  const XD = be32(u8, 4);
+  let YD = be32(u8, 8);
   const L0 = be32(u8, 12), MX = u8[16], order = u8[18], opts = u8[19];
   const warnings: string[] = [], notes: string[] = [];
   if (DL !== 0) throw new Error('This JBIG file starts above the lowest resolution layer (it continues another file)');
-  const vlength = !!(opts & 0x20), tpbon = !!(opts & 0x08), lrltwo = !!(opts & 0x40);
-  let p = 20;
-  if (opts & 0x04 && opts & 0x02 && !(opts & 0x01)) p += 1728; // a private deterministic-prediction table
-  // The lowest layer's size: each layer halves the width and height (rounding up).
-  const sh = (v: number) => Math.ceil(v / 2 ** D);
-  const w = sh(XD);
-  let h = vlength && YD === 0xffffffff ? 0 : sh(YD);
-  const lines0 = Math.max(1, L0); // lines per stripe at the lowest layer
-  if (!(w > 0) || w * Math.max(h, 1) * P > o.maxPixels) throw new Error(`This JBIG picture is too large (${XD} × ${YD})`);
+  const vlength = !!(opts & 0x20), tpdon = !!(opts & 0x10), tpbon = !!(opts & 0x08), dpon = !!(opts & 0x04), dppriv = !!(opts & 0x02), dplast = !!(opts & 0x01), lrltwo = !!(opts & 0x40);
+  let p = 20, dpTables: Uint8Array[] | null = null;
+  if (dpon && dppriv && !dplast) { dpTables = unpackDpTable(u8, p); p += 1728; } // a private deterministic-prediction table
+  else if (dpon) dpTables = DP_TABLES;
+  const lines0 = Math.max(1, L0);
+  if (!(XD > 0) || XD * Math.max(vlength && YD === 0xffffffff ? 1 : YD, 1) * P > o.maxPixels) throw new Error(`This JBIG picture is too large (${XD} × ${YD})`);
   // Split the data into stripe data entities and floating markers.
   const sdes: Sde[] = []; let moves: Sde['moves'] = [], comment = '', aborted = false;
   let start = p;
@@ -86,64 +95,131 @@ export function decodeJbig(u8: Uint8Array, o = jbigOptions): DecodeResult {
     p++; // a reserved or damaged marker: skip the byte
   }
   if (start < u8.length && !aborted) sdes.push({ start, end: u8.length, reset: false, moves }); // a last stripe without its marker
-  h = sh(YD);
-  if (!(h > 0)) throw new Error('This JBIG file gives no height');
-  const stripes = Math.ceil(h / lines0);
-  // Stripe and plane order: planes inside each stripe (ILEAVE) or each plane's stripes in turn.
-  const ileave = !!(order & 0x02);
-  const planes = Array.from({ length: P }, () => ({ rows: [] as Uint8Array[], st: new Uint8Array(1024), lntp: 1, tx: 0, ty: 0, top: 0 }));
-  const zero = new Uint8Array(w);
-  const TPB = lrltwo ? 0x195 : 0x0e5;
-  let k = 0, decodedLines = 0;
-  const units: [number, number][] = [];
-  if (ileave) { for (let s = 0; s < stripes; s++) for (let q = 0; q < P; q++) units.push([s, q]); }
-  else { for (let q = 0; q < P; q++) for (let s = 0; s < stripes; s++) units.push([s, q]); }
-  for (const [s, q] of units) {
-    const sde = sdes[k++]; if (!sde) break;
-    const pl = planes[q], dec = new QmDecoder(u8, sde.start, sde.end);
-    for (const mv of sde.moves) if (mv.y === 0 || mv.y === s * lines0) { pl.tx = mv.tx; pl.ty = mv.ty; }
-    const y0 = s * lines0, y1 = Math.min(h, y0 + lines0);
-    const row = (y: number) => (y >= pl.top && y >= 0 ? pl.rows[y] || zero : zero);
-    for (let y = y0; y < y1; y++) {
-      for (const mv of sde.moves) if (mv.y === y - y0 && mv.y !== 0) { pl.tx = mv.tx; pl.ty = mv.ty; }
-      const cur = new Uint8Array(w); pl.rows[y] = cur;
-      if (tpbon) {
-        pl.lntp = pl.lntp ^ dec.decode(pl.st, TPB) ^ 1; // LNTP: "line not typical", 1 before the first line
-        if (!pl.lntp) { cur.set(row(y - 1)); continue; } // a typical line: the same as the one above
-      }
-      const r1 = row(y - 1), r2 = row(y - 2), tx = pl.tx, ty = pl.ty, at = tx ? row(y - ty) : zero;
-      const g = (r: Uint8Array, x: number) => (x >= 0 && x < w ? r[x] : 0);
-      for (let x = 0; x < w; x++) {
-        let cx: number;
-        const a = tx ? (ty === 0 ? (x - tx >= 0 ? cur[x - tx] : 0) : g(at, x - tx)) : -1;
-        if (lrltwo) {
-          cx = (g(r1, x - 3) << 9) | (g(r1, x - 2) << 8) | (g(r1, x - 1) << 7) | (g(r1, x) << 6) | (g(r1, x + 1) << 5) | ((a < 0 ? g(r1, x + 2) : a) << 4)
-            | (g(cur, x - 4) << 3) | (g(cur, x - 3) << 2) | (g(cur, x - 2) << 1) | g(cur, x - 1);
-        } else {
-          cx = (g(r2, x - 1) << 9) | (g(r2, x) << 8) | (g(r2, x + 1) << 7) | (g(r1, x - 2) << 6) | (g(r1, x - 1) << 5) | (g(r1, x) << 4) | (g(r1, x + 1) << 3)
-            | ((a < 0 ? g(r1, x + 2) : a) << 2) | (g(cur, x - 2) << 1) | g(cur, x - 1);
+  if (!(YD > 0) || YD === 0xffffffff) throw new Error('This JBIG file gives no height');
+  if (XD * YD * P > o.maxPixels) throw new Error(`This JBIG picture is too large (${XD} × ${YD})`);
+  // The layers: layer d is the full size halved D − d times (rounding up); a stripe has L0 · 2^d lines in it.
+  const layers = Array.from({ length: D + 1 }, (_, d) => ({ w: Math.ceil(XD / 2 ** (D - d)), h: Math.ceil(YD / 2 ** (D - d)), lines: lines0 * 2 ** d }));
+  const stripes = Math.ceil(YD / (lines0 * 2 ** D));
+  // The order of stripe data entities in the file (Table 11): the loops over stripes s, layers d and planes p.
+  const seq = !!(order & 0x04), ileave = !!(order & 0x02), smid = !!(order & 0x01), hitolo = !!(order & 0x08);
+  const loops = !seq && !ileave ? 'pds' : !seq && ileave && !smid ? 'dps' : !seq && ileave && smid ? 'dsp' : seq && !ileave && !smid ? 'spd' : seq && !ileave && smid ? 'psd' : 'sdp';
+  const ranges: Record<string, number[]> = { s: Array.from({ length: stripes }, (_, i) => i), d: Array.from({ length: D + 1 }, (_, i) => (hitolo ? D - i : i)), p: Array.from({ length: P }, (_, i) => P - 1 - i) };
+  const units: { s: number; d: number; p: number; k: number }[] = []; let k = 0;
+  for (const a of ranges[loops[0]]) for (const b of ranges[loops[1]]) for (const c of ranges[loops[2]]) { const u: any = { [loops[0]]: a, [loops[1]]: b, [loops[2]]: c }; units.push({ s: u.s, d: u.d, p: u.p, k: k++ }); }
+  // Decoded in dependency order: every layer needs the one below it, stripe by stripe.
+  units.sort((a, b) => a.d - b.d || a.s - b.s || b.p - a.p);
+  const planes: Plane[][] = layers.map((L) => Array.from({ length: P }, () => ({ rows: Array.from({ length: L.h }, () => new Uint8Array(L.w)), st: new Uint8Array(L === layers[0] ? 1024 : 4096), lntp: 1, tx: 0, ty: 0, top: 0 })));
+  const TPB = lrltwo ? 0x195 : 0x0e5; // the lowest layer's TP pseudo-pixel context (Figures 11 and 12)
+  const TPD = (3 << 10) | (63 << 4); // the differential layers' (Figure 8: phase 3, every template pixel foreground, every low-resolution pixel background)
+  let decoded = 0;
+  for (const u of units) {
+    const sde = sdes[u.k]; if (!sde) continue;
+    const L = layers[u.d], pl = planes[u.d][u.p], dec = new QmDecoder(u8, sde.start, sde.end), w = L.w;
+    for (const mv of sde.moves) if (mv.y === 0) { pl.tx = mv.tx; pl.ty = mv.ty; }
+    const y0 = u.s * L.lines, y1 = Math.min(L.h, y0 + L.lines);
+    const zero = new Uint8Array(w);
+    const row = (y: number) => (y >= pl.top && y >= 0 && y < L.h ? pl.rows[y] : zero);
+    const g = (r: Uint8Array, x: number) => (x >= 0 && x < w ? r[x] : 0);
+    if (u.d === 0) {
+      for (let y = y0; y < y1; y++) {
+        for (const mv of sde.moves) if (mv.y === y - y0 && mv.y !== 0) { pl.tx = mv.tx; pl.ty = mv.ty; }
+        const cur = pl.rows[y];
+        if (tpbon) {
+          pl.lntp = pl.lntp ^ dec.decode(pl.st, TPB) ^ 1; // LNTP: "line not typical", 1 before the first line
+          if (!pl.lntp) { cur.set(row(y - 1)); continue; } // a typical line: the same as the one above
         }
-        cur[x] = dec.decode(pl.st, cx);
+        const r1 = row(y - 1), r2 = row(y - 2), tx = pl.tx, ty = pl.ty, at = tx ? row(y - ty) : zero;
+        for (let x = 0; x < w; x++) {
+          let cx: number;
+          const a = tx ? (ty === 0 ? (x - tx >= 0 ? cur[x - tx] : 0) : g(at, x - tx)) : -1;
+          if (lrltwo) {
+            cx = (g(r1, x - 3) << 9) | (g(r1, x - 2) << 8) | (g(r1, x - 1) << 7) | (g(r1, x) << 6) | (g(r1, x + 1) << 5) | ((a < 0 ? g(r1, x + 2) : a) << 4)
+              | (g(cur, x - 4) << 3) | (g(cur, x - 3) << 2) | (g(cur, x - 2) << 1) | g(cur, x - 1);
+          } else {
+            cx = (g(r2, x - 1) << 9) | (g(r2, x) << 8) | (g(r2, x + 1) << 7) | (g(r1, x - 2) << 6) | (g(r1, x - 1) << 5) | (g(r1, x) << 4) | (g(r1, x + 1) << 3)
+              | ((a < 0 ? g(r1, x + 2) : a) << 2) | (g(cur, x - 2) << 1) | g(cur, x - 1);
+          }
+          cur[x] = dec.decode(pl.st, cx);
+        }
+      }
+    } else {
+      // A differential layer: each pixel from its neighbors here and the pixels of the layer below (Figure 16), after
+      // typical prediction (6.4) and deterministic prediction (6.6).
+      const lo = planes[u.d - 1][u.p], LL = layers[u.d - 1], lw = LL.w;
+      const loEnd = Math.min(LL.h, (u.s + 1) * LL.lines); // below the current stripe, the last line of it stands in
+      const lzero = new Uint8Array(lw);
+      // After an SDRST the stripe starts as at the top of the image: the rows above it, in this layer and the one below, read as background.
+      const loStart = u.s * LL.lines, loTop = pl.top >= y0 && y0 > 0 ? loStart : 0;
+      const lrow = (ly: number) => (ly < loTop ? lzero : lo.rows[Math.min(ly, loEnd - 1)]);
+      const lpx = (lx: number, ly: number) => (lx >= 0 && lx < lw ? lrow(ly)[lx] : 0);
+      const lg = (r: Uint8Array, lx: number) => (lx >= 0 && lx < lw ? r[lx] : 0); // low-resolution rows have their own width
+      const dp = dpTables, tpLine = new Int8Array(lw);
+      let lntp = 1;
+      for (let y = y0; y < y1; y++) {
+        for (const mv of sde.moves) if (mv.y === y - y0 && mv.y !== 0) { pl.tx = mv.tx; pl.ty = mv.ty; }
+        const cur = pl.rows[y], ly = y >> 1, phaseY = (y & 1) << 1;
+        if ((y & 1) === 0) {
+          if (tpdon) {
+            lntp = dec.decode(pl.st, TPD);
+            // A low-resolution pixel whose 8 neighbors share its color predicts its four pixels (when the line pair is typical).
+            if (!lntp) {
+              const a = lrow(ly - 1), b = lrow(ly), c = lrow(ly + 1);
+              for (let lx = 0; lx < lw; lx++) {
+                const v = b[lx];
+                const same = lg(a, lx - 1) === v && lg(a, lx) === v && lg(a, lx + 1) === v && lg(b, lx - 1) === v && lg(b, lx + 1) === v && lg(c, lx - 1) === v && lg(c, lx) === v && lg(c, lx + 1) === v;
+                tpLine[lx] = same ? v : 2;
+              }
+            } else tpLine.fill(2);
+          } else tpLine.fill(2);
+        }
+        const r1 = row(y - 1), r2 = row(y - 2), tx = pl.tx, ty = pl.ty, at = tx || ty ? row(y - ty) : r1;
+        const lcur = lrow(ly), lnext = lrow(ly + 1);
+        for (let x = 0; x < w; x++) {
+          const lx = x >> 1, phase = phaseY | (x & 1);
+          const tp = tpLine[lx];
+          if (tp !== 2) { cur[x] = tp; continue; }
+          if (dp) {
+            // The reference pixels of Figure 13: low-resolution 0–3, then the high-resolution pixels around the 2 × 2 block.
+            const bx = lx * 2, by = ly * 2;
+            const hp = (hx: number, hy: number) => (hy === y ? g(cur, hx) : hy === y - 1 ? g(r1, hx) : hy === y - 2 ? g(r2, hx) : 0);
+            let idx = lpx(lx - 1, ly - 1) | (lpx(lx, ly - 1) << 1) | (lpx(lx - 1, ly) << 2) | (lpx(lx, ly) << 3)
+              | (hp(bx - 1, by - 1) << 4) | (hp(bx, by - 1) << 5) | (hp(bx + 1, by - 1) << 6) | (hp(bx - 1, by) << 7);
+            if (phase >= 1) idx |= hp(bx, by) << 8;
+            if (phase >= 2) idx |= (hp(bx + 1, by) << 9) | (hp(bx - 1, by + 1) << 10);
+            if (phase === 3) idx |= hp(bx, by + 1) << 11;
+            const v = dp[phase][idx];
+            if (v !== 2) { cur[x] = v; continue; }
+          }
+          const a = tx || ty ? (ty === 0 ? g(cur, x - tx) : g(at, x - tx)) : g(r1, x - 1);
+          const hi = (g(r2, x) << 5) | (a << 4) | (g(r1, x) << 3) | (g(r1, x + 1) << 2) | (g(cur, x - 2) << 1) | g(cur, x - 1);
+          const l0 = x & 1 ? lx : lx - 1, l1 = l0 + 1; // the current low-resolution pixel and its neighbor, and the row below
+          const low = (lg(lcur, l0) << 3) | (lg(lcur, l1) << 2) | (lg(lnext, l0) << 1) | lg(lnext, l1);
+          cur[x] = dec.decode(pl.st, (phase << 10) | (hi << 4) | low);
+        }
       }
     }
-    decodedLines = Math.max(decodedLines, y1);
-    if (sde.reset) { pl.st.fill(0); pl.lntp = 1; pl.top = y1; }
+    decoded++;
+    if (sde.reset) { pl.st.fill(0); pl.lntp = 1; pl.tx = 0; pl.ty = 0; pl.top = y1; }
   }
-  if (k < units.length) warnings.push(`The picture data is cut short (${k} of ${units.length} stripes)`);
+  if (decoded < units.length) warnings.push(`The picture data is cut short (${decoded} of ${units.length} stripes)`);
   if (aborted) warnings.push('The file was aborted by its writer (ABORT marker)');
+  const top = layers[D], w = top.w, h = top.h, out = planes[D];
   const r = makeRaster(w, h), d = r.data;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let v: number;
-    if (P === 1) v = (planes[0].rows[y]?.[x] ?? 0) ? 0 : 255;
+    if (P === 1) v = out[0].rows[y][x] ? 0 : 255;
     else { // Gray code, the first plane the most significant
-      let g = 0, b = 0;
-      for (let q = 0; q < P; q++) { b ^= planes[q].rows[y]?.[x] ?? 0; g = (g << 1) | b; }
-      v = Math.round(g * 255 / (2 ** P - 1));
+      let gc = 0, bit = 0;
+      for (let q = P - 1; q >= 0; q--) { bit ^= out[q].rows[y][x]; gc = (gc << 1) | bit; }
+      v = Math.round(gc * 255 / (2 ** P - 1));
     }
     const i = (y * w + x) * 4; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
   }
-  notes.push(`JBIG (T.82), ${P === 1 ? 'bilevel' : `${P} bit planes (Gray code)`}, ${stripes} stripe${stripes === 1 ? '' : 's'} of ${lines0} line${lines0 === 1 ? '' : 's'}, ${lrltwo ? 'two-line' : 'three-line'} template${tpbon ? ', typical prediction' : ''}${MX ? ', adaptive template' : ''}`);
-  if (D > 0) { notes.push(`the lowest of ${D + 1} resolution layers (${w} × ${h} of ${XD} × ${YD})`); warnings.push(`Shown at the lowest resolution layer (${w} × ${h}); the file's ${D} higher layer${D === 1 ? ' is' : 's are'} not decoded yet`); }
+  notes.push(`JBIG (T.82), ${P === 1 ? 'bilevel' : `${P} bit planes (Gray code)`}, ${stripes} stripe${stripes === 1 ? '' : 's'} of ${lines0} line${lines0 === 1 ? '' : 's'}${D ? ` (${lines0 * 2 ** D} at full resolution)` : ''}, ${lrltwo ? 'two-line' : 'three-line'} template${tpbon ? ', typical prediction' : ''}${MX ? ', adaptive template' : ''}`);
+  if (D > 0) {
+    const pred = [...(tpdon ? ['typical'] : []), ...(dpon ? ['deterministic'] : [])];
+    notes.push(`${D + 1} resolution layers (${layers.map((L) => `${L.w} × ${L.h}`).join(', ')}), decoded to the full resolution${pred.length ? ` with ${pred.join(' and ')} prediction` : ''}${dpon && dppriv ? ' (a private DP table)' : ''}`);
+  }
   const info: Record<string, string> = {}; if (comment) info.comment = comment;
   const page: DecodedPage = { width: w, height: h, frames: [{ raster: r, delay: 0 }], loops: 0, bitDepth: P, hasAlpha: false, notes };
   return { pages: [page], info, warnings };

@@ -31,10 +31,19 @@ describe('JBIG (T.82; files from jbigkit)', () => {
     expect(decodeJbig(fx('newlen.jbg')).pages[0].height).toBe(380);
     expect(decodeJbig(fx('gray.jbg')).pages[0].notes[0]).toMatch(/8 bit planes \(Gray code\)/);
   });
-  it('differential layers: the lowest layer, with a note', () => {
-    const d = decodeJbig(fx('layers.jbg'));
-    expect(bad(d.pages[0].frames[0].raster, ref('layers.png'))).toBe(0);
-    expect(d.warnings[0]).toMatch(/lowest resolution layer \(200 × 130\)/);
+  it('resolution layers are decoded to the full picture: every option, stripe order, SDRST and NEWLEN', () => {
+    const page = ref('layers.png');
+    for (const n of ['layers', 'layers-plain', 'layers-tp', 'layers-two', 'layers-d3', 'layers-reset', 'layers-newlen', ...[0, 2, 4, 5, 6, 8, 10, 11, 12, 13, 14].map((o) => `order-${o}`)]) {
+      const d = decodeJbig(fx(`${n}.jbg`));
+      expect(bad(d.pages[0].frames[0].raster, page), n).toBe(0);
+      expect(d.warnings, n).toEqual([]);
+    }
+    expect(decodeJbig(fx('layers.jbg')).pages[0].notes[1]).toBe('3 resolution layers (200 × 130, 400 × 260, 800 × 520), decoded to the full resolution with typical and deterministic prediction');
+    expect(decodeJbig(fx('layers-tp.jbg')).pages[0].notes[1]).toBe('2 resolution layers (400 × 260, 800 × 520), decoded to the full resolution with typical prediction');
+    expect(decodeJbig(fx('layers-plain.jbg')).pages[0].notes[1]).toBe('3 resolution layers (200 × 130, 400 × 260, 800 × 520), decoded to the full resolution');
+  });
+  it('8 bit planes with a resolution layer', () => {
+    expect(bad(decodeJbig(fx('gray-layers.jbg')).pages[0].frames[0].raster, ref('gray-layers.png'))).toBe(0);
   });
 });
 
