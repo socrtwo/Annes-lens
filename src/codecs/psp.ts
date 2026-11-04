@@ -2,8 +2,8 @@
  * Paint Shop Pro pictures (.psp, .pspimage, .tub; Jasc's file format versions 3 to 6+, Paint Shop Pro 5 to 9 and
  * later), read by the app's own code from the format's description: the raster layers merged as Paint Shop Pro
  * shows them, each at its place, with its transparency mask, opacity, visibility and blend mode (Normal,
- * Multiply, Screen, Darken, Lighten, Difference, Overlay, Hard Light, Soft Light, Dodge, Burn, Exclusion; the
- * hue and saturation modes as Normal, with a note). Channels uncompressed, RLE or LZ77 (zlib); 24-bit, 8-bit
+ * Multiply, Screen, Darken, Lighten, Difference, Overlay, Hard Light, Soft Light, Dodge, Burn, Exclusion, and
+ * Hue, Saturation, Color and Luminosity as GIMP's reader does them; Dissolve as Normal, with a note). Channels uncompressed, RLE or LZ77 (zlib); 24-bit, 8-bit
  * gray and 8-, 4- and 1-bit palette pictures. Vector and adjustment layers are not drawn (noted).
  */
 import { makeRaster, type DecodeResult } from './raster';
@@ -40,6 +40,38 @@ function unRle(src: Uint8Array, n: number): Uint8Array {
 }
 
 const BLEND = ['Normal', 'Darken', 'Lighten', 'Hue', 'Saturation', 'Color', 'Luminosity', 'Multiply', 'Screen', 'Dissolve', 'Overlay', 'Hard Light', 'Soft Light', 'Difference', 'Dodge', 'Burn', 'Exclusion'];
+function hsv(r: number, g: number, b: number): [number, number, number] {
+  const v = Math.max(r, g, b), d = v - Math.min(r, g, b), sat = v ? d / v : 0;
+  let h = 0;
+  if (sat) { h = r === v ? 60 * (g - b) / d : g === v ? 120 + 60 * (b - r) / d : 240 + 60 * (r - g) / d; if (h < 0) h += 360; }
+  return [h, sat, v];
+}
+function fromHsv(h: number, s: number, v: number): [number, number, number] {
+  if (!s) return [v, v, v];
+  const t = (h % 360) / 60, i = Math.floor(t), f = t - i, p = v * (1 - s), q = v * (1 - s * f), u = v * (1 - s * (1 - f));
+  return ([[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]] as [number, number, number][])[i];
+}
+function hsl(r: number, g: number, b: number): [number, number, number] {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = l <= 0.5 ? d / (mx + mn) : d / (2 - mx - mn);
+  let h = r === mx ? (g - b) / d : g === mx ? 2 + (b - r) / d : 4 + (r - g) / d; h *= 60; if (h < 0) h += 360;
+  return [h, s, l];
+}
+function fromHsl(h: number, s: number, l: number): [number, number, number] {
+  if (!s) return [l, l, l];
+  const m2 = l <= 0.5 ? l * (1 + s) : l + s - l * s, m1 = 2 * l - m2;
+  const ch = (hh: number) => { hh = ((hh % 360) + 360) % 360; return hh < 60 ? m1 + (m2 - m1) * hh / 60 : hh < 180 ? m2 : hh < 240 ? m1 + (m2 - m1) * (240 - hh) / 60 : m1; };
+  return [ch(h + 120), ch(h), ch(h - 120)];
+}
+/** Hue, Saturation and Luminosity in HSV, Color in HSL, on 0–1 values (as GIMP reads these PSP modes). */
+function blendHsx(mode: number, b: [number, number, number], s: [number, number, number]): [number, number, number] {
+  if (mode === 5) { const L = hsl(...s), Bh = hsl(...b); return fromHsl(L[0], L[1], Bh[2]); }
+  const L = hsv(...s), Bv = hsv(...b);
+  if (mode === 3) return fromHsv(L[1] ? L[0] : Bv[0], Bv[1], Bv[2]);
+  if (mode === 4) return fromHsv(Bv[0], L[1], Bv[2]);
+  return fromHsv(Bv[0], Bv[1], L[2]);
+}
 function blend(mode: number, b: number, s: number): number {
   switch (mode) {
     case 1: return Math.min(b, s);
@@ -48,7 +80,7 @@ function blend(mode: number, b: number, s: number): number {
     case 8: return 255 - ((255 - b) * (255 - s)) / 255;
     case 10: return b < 128 ? (2 * b * s) / 255 : 255 - (2 * (255 - b) * (255 - s)) / 255;
     case 11: return s < 128 ? (2 * b * s) / 255 : 255 - (2 * (255 - b) * (255 - s)) / 255;
-    case 12: { const B = b / 255, S = s / 255; return 255 * (S <= 0.5 ? B - (1 - 2 * S) * B * (1 - B) : B + (2 * S - 1) * ((B <= 0.25 ? ((16 * B - 12) * B + 4) * B : Math.sqrt(B)) - B)); }
+    case 12: { const B = b / 255, S = s / 255; return 255 * ((1 - B) * B * S + B * (1 - (1 - B) * (1 - S))); } // the multiply/screen mix (as GIMP reads PSP Soft Light)
     case 13: return Math.abs(b - s);
     case 14: return s >= 255 ? 255 : Math.min(255, (b * 255) / (255 - s));
     case 15: return s <= 0 ? 0 : 255 - Math.min(255, ((255 - b) * 255) / s);
@@ -115,7 +147,7 @@ export function decodePsp(u8: Uint8Array): DecodeResult {
       const per = 8 / bits, byte = pl[y * stride + Math.floor(x / per)] ?? 0;
       return (byte >> (8 - bits * ((x % per) + 1))) & ((1 << bits) - 1);
     };
-    if (!BLEND[mode] || [3, 4, 5, 6, 9].includes(mode)) approx.add(BLEND[mode] || `mode ${mode}`);
+    if (!BLEND[mode] || mode === 9) approx.add(BLEND[mode] || `mode ${mode}`);
     const op = opacity / 255;
     for (let y = 0; y < lh; y++) {
       const ty = oy + y; if (ty < 0 || ty >= H) continue;
@@ -127,11 +159,13 @@ export function decodePsp(u8: Uint8Array): DecodeResult {
         const as = (planes.alpha ? sample(planes.alpha, x, y) / 255 : 1) * op;
         if (as <= 0) continue;
         const i = ty * W + tx, ab = A[i];
-        const mix = (cb: number, cs: number) => (1 - ab) * cs + ab * blend(mode, cb, cs);
+        let bl: [number, number, number] | null = null;
+        if (mode >= 3 && mode <= 6) { const o = blendHsx(mode, [R[i] / 255, G[i] / 255, B[i] / 255], [r / 255, g / 255, b / 255]); bl = [o[0] * 255, o[1] * 255, o[2] * 255]; }
+        const mix = (cb: number, cs: number, k: number) => (1 - ab) * cs + ab * (bl ? bl[k] : blend(mode, cb, cs));
         const ao = as + ab * (1 - as);
-        R[i] = (as * mix(R[i], r) + (1 - as) * ab * R[i]) / ao;
-        G[i] = (as * mix(G[i], g) + (1 - as) * ab * G[i]) / ao;
-        B[i] = (as * mix(B[i], b) + (1 - as) * ab * B[i]) / ao;
+        R[i] = (as * mix(R[i], r, 0) + (1 - as) * ab * R[i]) / ao;
+        G[i] = (as * mix(G[i], g, 1) + (1 - as) * ab * G[i]) / ao;
+        B[i] = (as * mix(B[i], b, 2) + (1 - as) * ab * B[i]) / ao;
         A[i] = ao;
       }
     }

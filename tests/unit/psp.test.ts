@@ -15,7 +15,7 @@ describe('Paint Shop Pro (files written from the format description; GIMP\'s rea
   for (const n of ['rgb-none', 'rgb-rle', 'rgb-lz77', 'pal8', 'gray', 'odd', 'pal4', 'hidden']) {
     it(`${n}: as GIMP reads it`, () => { const d = decodePsp(fx(`${n}.psp`)); expect(d.warnings).toEqual([]); expect(maxDiff(d.pages[0].frames[0].raster, ref(`${n}.png`))).toBe(0); });
   }
-  for (const n of ['layers', 'multiply', 'screen', 'darken', 'lighten', 'difference', 'psp5', 'psp3']) {
+  for (const n of ['layers', 'multiply', 'screen', 'darken', 'lighten', 'difference', 'hue', 'saturation', 'color', 'luminosity', 'overlay', 'hardlight', 'softlight', 'dodge', 'burn', 'exclusion', 'psp5', 'psp3']) {
     it(`${n}: layers merged as GIMP merges them`, () => { const d = decodePsp(fx(`${n}.psp`)); expect(d.warnings).toEqual([]); expect(maxDiff(d.pages[0].frames[0].raster, ref(`${n}.png`))).toBeLessThanOrEqual(1); });
   }
   it('1 bit (checked against the written picture only)', () => { expect(maxDiff(decodePsp(fx('mono.psp')).pages[0].frames[0].raster, ref('mono.png'))).toBe(0); });

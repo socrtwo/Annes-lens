@@ -6,7 +6,8 @@ Writes to tests/fixtures/psp/ (expected: <name>.png, GIMP's merge of the visible
   rgb-none.psp rgb-rle.psp rgb-lz77.psp   one 24-bit raster layer, uncompressed, RLE and LZ77 (zlib)
   layers.psp     a background layer and a smaller layer placed at an offset, with a transparency mask and 50%
                  opacity
-  multiply.psp   a second layer in Multiply blend mode; screen, darken, lighten, difference.psp: those modes;
+  multiply.psp   a second layer in Multiply blend mode; screen, darken, lighten, difference, hue, saturation, color,
+                 luminosity, overlay, hardlight, softlight, dodge, burn, exclusion.psp: those modes;
   hidden.psp     an invisible layer
   pal8.psp       8 bits with a 256-color palette;  gray.psp: 8-bit grayscale
   odd.psp        a width that is not a multiple of four (8-bit rows are not padded)
@@ -151,7 +152,7 @@ def main():
     top = np.zeros((16, 24, 3), np.uint8); top[..., 0] = 250; top[..., 1] = 200; top[..., 2] = 20
     mask = np.where((xx - 12) ** 2 + (yy - 8) ** 2 < 49, 255, np.where(xx < 4, 0, 128)).astype(np.uint8)
     image(os.path.join(OUT, 'layers.psp'), 64, 40, [layer('Background', (0, 0), rgb), layer('Sun', (30, 10), top, alpha=mask, opacity=128)])
-    for n, mode in (('multiply', 7), ('screen', 8), ('darken', 1), ('lighten', 2), ('difference', 13)):
+    for n, mode in (('multiply', 7), ('screen', 8), ('darken', 1), ('lighten', 2), ('difference', 13), ('hue', 3), ('saturation', 4), ('color', 5), ('luminosity', 6), ('overlay', 10), ('hardlight', 11), ('softlight', 12), ('dodge', 14), ('burn', 15), ('exclusion', 16)):
         image(os.path.join(OUT, n + '.psp'), 64, 40, [layer('Background', (0, 0), rgb), layer('Tint', (8, 4), top, blend=mode)])
     image(os.path.join(OUT, 'hidden.psp'), 64, 40, [layer('Background', (0, 0), rgb), layer('Hidden', (8, 4), top, visible=0)])
     pal = [((i * 7) % 256, i, 255 - i) for i in range(256)]
@@ -171,7 +172,7 @@ def main():
     image_v3(os.path.join(OUT, 'psp3.psp'))
     # GIMP reads the 1-bit file with each row after the first shifted by two pixels (no padding rule explains it),
     # so its expected picture is the one written, not GIMP's: 1-bit pictures are checked against this script only.
-    gimp_flatten(['rgb-none', 'rgb-rle', 'rgb-lz77', 'layers', 'multiply', 'screen', 'darken', 'lighten', 'difference', 'hidden', 'pal8', 'gray', 'odd', 'pal4', 'psp5', 'psp3'])
+    gimp_flatten(['rgb-none', 'rgb-rle', 'rgb-lz77', 'layers', 'multiply', 'screen', 'darken', 'lighten', 'difference', 'hue', 'saturation', 'color', 'luminosity', 'overlay', 'hardlight', 'softlight', 'dodge', 'burn', 'exclusion', 'hidden', 'pal8', 'gray', 'odd', 'pal4', 'psp5', 'psp3'])
     Image.fromarray(np.array([(255, 255, 255), (0, 0, 128)], np.uint8)[i1]).save(os.path.join(OUT, 'mono.png'))
 
 
