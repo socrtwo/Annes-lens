@@ -20,6 +20,15 @@ export interface DecodedPage {
   hasAlpha: boolean;
   dpi?: [number, number];
   notes: string[];
+  /** Text stored in the file with word positions (DjVu's text layer). */
+  textLayer?: TextLayer;
+}
+
+/** Text that comes with a page (not recognized by OCR): its words with boxes in page pixels. */
+export interface TextLayer {
+  source: string;
+  text: string;
+  words: { text: string; conf: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[];
 }
 
 export interface DecodeResult {

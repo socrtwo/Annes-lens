@@ -406,7 +406,7 @@ def([
         { key: 'background', label: 'Window background (empty: theme)', type: 'text', value: p.background, half: true, placeholder: '#202020' },
         { key: 'fullScreenBackground', label: 'Full-screen background', type: 'color', value: p.fullScreenBackground, half: true },
         { key: 'pdfDpi', label: 'PDF pages: resolution (dpi)', type: 'number', min: 36, max: 600, value: p.pdf.dpi, half: true },
-        { key: 'pdfPages', label: 'PDF pages: how many open', type: 'number', min: 1, max: 2000, value: p.pdf.maxPages, half: true },
+        { key: 'pdfPages', label: 'PDF and DjVu pages: how many open', type: 'number', min: 1, max: 2000, value: p.pdf.maxPages, half: true },
         { key: 'h2', type: 'heading', label: 'Folder' },
         { key: 'sort', label: 'Sort pictures by', type: 'select', options: [{ value: 'natural', label: 'Name (natural: 2 before 10)' }, { value: 'name', label: 'Name (plain)' }, { value: 'date', label: 'File date' }, { value: 'size', label: 'Size' }, { value: 'type', label: 'Type' }], value: p.sort, half: true },
         { key: 'sortDescending', label: 'Descending', type: 'checkbox', value: p.sortDescending, half: true },

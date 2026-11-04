@@ -30,6 +30,7 @@ import { isEmf, isWmf } from './metafile';
 import { identifyRaw, findEmbeddedJpegs, RAW_EXTENSIONS } from './rawpreview';
 import { isDng } from '../raw/dng';
 import { isPdf } from './pdf';
+import { isDjvu } from './djvu';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -82,6 +83,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'exr', label: 'OpenEXR', mime: 'image/x-exr', extensions: ['exr'], decoder: 'own', save: false, notes: 'scanline, tiled and multi-part; none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA, DWAB, ZSTD, HTJ2K (half channels); half, float and uint channels; tone-mapped for display' },
   { id: 'hdr', label: 'Radiance HDR', mime: 'image/vnd.radiance', extensions: ['hdr', 'pic', 'rgbe'], decoder: 'own', save: false, notes: 'RGBE, tone-mapped for display' },
   { id: 'raw', label: 'Camera RAW', mime: 'image/x-raw', extensions: RAW_EXTENSIONS, decoder: 'platform+own', save: false, notes: 'the largest embedded JPEG preview, with the file\'s EXIF; DNG files also develop (Develop RAW); other families need the RAW module' },
+  { id: 'djvu', label: 'DjVu', mime: 'image/vnd.djvu', extensions: ['djvu', 'djv'], decoder: 'own', save: false, notes: 'single and bundled multipage documents with their text layer, rendered by djvu-rs (WebAssembly; Options: PDF and DjVu pages)' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
   { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
   { id: 'zip', label: 'ZIP archive / comic book', mime: 'application/zip', extensions: ['zip', 'cbz', 'epub'], decoder: 'own', save: false, notes: 'opened as a folder of the pictures inside (stored and deflate entries)' },
@@ -104,6 +106,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isDds(u8)) return formatById('dds')!;
   if (isExr(u8)) return formatById('exr')!;
   if (isJp2(u8) || isJ2k(u8)) return formatById('jp2')!;
+  if (isDjvu(u8)) return formatById('djvu')!;
   if (isIff(u8)) return formatById('iff')!;
   if (isPcd(u8)) return formatById('pcd')!;
   if (isMacBinaryPaint(u8)) return formatById('macpaint')!;
@@ -202,6 +205,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
     }
     decoded = { ...r, decoder: 'pdf.js' };
   }
+  else if (fmt.id === 'djvu') { const { decodeDjvu, djvuOptions } = await import('./djvu'); decoded = fromOwn(await decodeDjvu(u8, djvuOptions), 'djvu-rs'); }
   else if (fmt.id === 'eps') decoded = await decodeEpsFile(u8);
   else if (fmt.id === 'zip') throw new Error('This is an archive: open it to browse the pictures inside (File ▸ Open)');
   else if (fmt.id === 'bmp') {
@@ -242,7 +246,7 @@ function rasterToFrame(r: Raster, delay: number): Frame {
 }
 
 function pageFromDecoded(d: DecodedPage): Page {
-  return { width: d.width, height: d.height, frames: d.frames.map((f) => rasterToFrame(f.raster, f.delay)), loops: d.loops, bitDepth: d.bitDepth, paletteSize: d.paletteSize, hasAlpha: d.hasAlpha, dpi: d.dpi, notes: d.notes };
+  return { width: d.width, height: d.height, frames: d.frames.map((f) => rasterToFrame(f.raster, f.delay)), loops: d.loops, bitDepth: d.bitDepth, paletteSize: d.paletteSize, hasAlpha: d.hasAlpha, dpi: d.dpi, notes: d.notes, ...(d.textLayer ? { textLayer: d.textLayer } : {}) };
 }
 
 function fromOwn(r: { pages: DecodedPage[]; info: Record<string, string>; warnings: string[] }, decoder: string) {

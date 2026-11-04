@@ -58,11 +58,19 @@ async function sendToPen(app: App, text: string): Promise<void> {
   if (save) { const s = await saveAs(new Blob([text], { type: 'text/plain' }), name); toast(s ? `Saved ${s.name}.` : 'Not saved.'); }
 }
 
-async function ocrResultDialog(app: App, res: OcrResult): Promise<void> {
+/** The page's own text (DjVu's text layer) as a result, or null when it has none. */
+export function textLayerResult(app: App): OcrResult | null {
+  const tl = app.picture?.current.textLayer;
+  if (!tl || !tl.text) return null;
+  return { text: tl.text, confidence: 100, words: tl.words, lines: tl.text.split('\n').filter((l) => l.trim()).length, langs: tl.source, ms: 0 };
+}
+
+async function ocrResultDialog(app: App, res: OcrResult, stored = false): Promise<void> {
   viewState.ocr = { show: true, words: res.words, query: '' }; redraw(app);
   let keep = false;
   const low = res.words.filter((w) => w.conf < 60).length;
-  await openDialog({ title: 'Recognized Text', wide: true, ok: 'Close', cancel: false, help: `${res.words.length} word${res.words.length === 1 ? '' : 's'} in ${res.lines} line${res.lines === 1 ? '' : 's'}, ${res.confidence}% confidence (${res.langs}, ${(res.ms / 1000).toFixed(1)} s). Boxes on the picture: blue words are confident, orange ones (${low}) are worth checking.`, fields: [
+  const counts = `${res.words.length} word${res.words.length === 1 ? '' : 's'} in ${res.lines} line${res.lines === 1 ? '' : 's'}`;
+  await openDialog({ title: stored ? 'Text Layer' : 'Recognized Text', wide: true, ok: 'Close', cancel: false, help: stored ? `${counts}, stored in the file (${res.langs}). Boxes on the picture show where each word is.` : `${counts}, ${res.confidence}% confidence (${res.langs}, ${(res.ms / 1000).toFixed(1)} s). Boxes on the picture: blue words are confident, orange ones (${low}) are worth checking.`, fields: [
     { key: 'text', label: 'Text (you can correct it here)', type: 'textarea', rows: Math.min(16, Math.max(5, res.text.split('\n').length + 1)), value: res.text },
     { key: 'q', label: 'Find on the picture', type: 'text', value: '', half: true, placeholder: 'a word or name' },
     { key: 'show', label: 'Show the word boxes', type: 'checkbox', value: true, half: true },
@@ -81,8 +89,10 @@ async function ocrResultDialog(app: App, res: OcrResult): Promise<void> {
 
 def([
   {
-    id: 'tools.ocr', icon: 'document_scanner', noRecord: true, popular: true, isEnabled: has, tip: 'Recognizes text in the picture or the selection, on the device: find words on the picture, copy, save as a caption or a text file, send to Anne\'s Pen',
+    id: 'tools.ocr', icon: 'document_scanner', noRecord: true, popular: true, isEnabled: has, tip: 'Recognizes text in the picture or the selection, on the device (or shows a DjVu page\'s stored text layer): find words on the picture, copy, save as a caption or a text file, send to Anne\'s Pen',
     run: async (app) => {
+      const stored = textLayerResult(app);
+      if (stored && await confirmDialog('Recognize Text', `This page has a text layer stored in the file (${stored.words.length} word${stored.words.length === 1 ? '' : 's'}). Show it, or recognize the text again with OCR?`, 'Show the text layer', 'Recognize again')) { await ocrResultDialog(app, stored, true); return; }
       const v = await openDialog({ title: 'Recognize Text (OCR)', ok: 'Recognize', help: `${app.tab.selection ? 'The selection is read.' : 'The whole picture is read; select an area to read only that.'} Runs on this device; each language downloads once (English is about 3 MB).`, fields: ocrFields(app) });
       if (!v) return;
       const res = await runOcr(app, v);
@@ -92,8 +102,10 @@ def([
     },
   },
   {
-    id: 'tools.ocrToPen', icon: 'edit_note', noRecord: true, isEnabled: has, tip: 'Recognizes the text (with the last OCR settings) and sends it to Anne\'s Pen, or puts it on the clipboard',
+    id: 'tools.ocrToPen', icon: 'edit_note', noRecord: true, isEnabled: has, tip: 'Recognizes the text (with the last OCR settings; a DjVu page\'s stored text is used as it is) and sends it to Anne\'s Pen, or puts it on the clipboard',
     run: async (app) => {
+      const stored = textLayerResult(app);
+      if (stored) { await sendToPen(app, stored.text); return; }
       const res = await runOcr(app, { lang: app.prefs.ocrLangs[0] || 'eng', lang2: app.prefs.ocrLangs[1] || '', layout: app.prefs.ocrLayout, enhance: true });
       if (!res) return;
       if (!res.text) { toast('No text was found.'); return; }

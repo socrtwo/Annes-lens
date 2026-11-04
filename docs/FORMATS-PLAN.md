@@ -43,7 +43,7 @@ Fidelity tiers:
 | PCX / DCX | .pcx .dcx | `0A` + version | Full | Yes | |
 | XPM / XBM | .xpm .xbm | C source patterns | Full | Yes | |
 | WBMP | .wbmp | heuristics | Full | Yes | |
-| DjVu | .djvu .djv | `AT&TFORM` | High | No | multipage; text layer for search |
+| DjVu | .djvu .djv | `AT&TFORM` + `DJVU`/`DJVM` | Full (djvu-rs) | No | djvu-rs (MIT WebAssembly, written from the DjVu v3 specification; no DjVuLibre code): single pages and bundled multipage documents; IW44 color and gray, JB2 bitonal with shared dictionaries (INCL/DJVI), FGbz foreground colors, the page rotation; rendered at the scanned resolution within the PDF page limit and a pixel budget (not below 72 dpi); the text layer (TXTz/TXTa) with word boxes, shown and searched through Recognize Text and sent to Anne's Pen as it is; a file cut short shows the pages and refinement chunks that arrived; indirect documents (an index file, each page in a file of its own) are reported, their pages open one by one |
 | DICOM | .dcm | `DICM` at offset 128 | High | No | window/level, multiframe; *not for diagnosis* notice |
 | FITS | .fits .fit .fts | `SIMPLE  =` | High | No | astronomy; stretch for display |
 | CBZ / CB7 / CBT, EPUB pictures | .cbz .cb7 .cbt .epub | ZIP/7z/TAR | Full (as a folder) | CBZ | comics and books in two-page and right-to-left views |

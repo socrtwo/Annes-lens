@@ -314,7 +314,7 @@ public class QuillNativePlugin extends Plugin {
         "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "avif", "heic", "heif", "hif", "bmp", "dib", "ico", "cur", "tif", "tiff",
         "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
         "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr",
-        "pdf", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
+        "pdf", "djvu", "djv", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
     };
 
     private static boolean isPictureName(String name) {
@@ -1361,6 +1361,7 @@ public class QuillNativePlugin extends Plugin {
             case "psd": return "image/vnd.adobe.photoshop";
             case "tga": return "image/x-tga";
             case "pdf": return "application/pdf";
+            case "djvu": case "djv": return "image/vnd.djvu";
             case "txt": return "text/plain";
             case "zip": case "cbz": return "application/zip";
             case "rar": case "cbr": return "application/vnd.rar";

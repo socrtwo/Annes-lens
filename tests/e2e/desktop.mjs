@@ -265,6 +265,15 @@ try {
     const got = ok ? await xw.evaluate(() => [qn.picture.format.id, qn.picture.decoder, qn.picture.width, qn.picture.height]) : await xw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a JPEG XL file opens through jxl-oxide', got, ['jxl', 'jxl-oxide', 53, 37]);
   } finally { await xApp.close().catch(() => undefined); }
+  // A DjVu book: djvu-rs's loader picks its SIMD or scalar WebAssembly build from the local runtime under the same policy.
+  const djPath = join(base, 'register.djvu'); writeFileSync(djPath, readFileSync('tests/fixtures/djvu/book.djvu'));
+  const dApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, djPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const dw = await dApp.firstWindow();
+    const ok = await dw.waitForFunction(() => window.qn?.picture?.name === 'register.djvu', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await dw.evaluate(() => [qn.picture.format.id, qn.picture.decoder, qn.picture.pages.length, qn.picture.pages[2].textLayer?.words.map((w) => w.text).join(' ')]) : await dw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a DjVu book opens through djvu-rs, with its text layer', got, ['djvu', 'djvu-rs', 4, 'Parish register 1851 Baptisms and burials']);
+  } finally { await dApp.close().catch(() => undefined); }
   // An HTJ2K OpenEXR file: OpenJPH's classic script is imported as a module from a Blob under the same policy.
   const htPath = join(base, 'render.exr'); writeFileSync(htPath, readFileSync('tests/fixtures/exr/htj2k32.exr'));
   const hApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, htPath], env: { ...process.env, XDG_CONFIG_HOME: config } });

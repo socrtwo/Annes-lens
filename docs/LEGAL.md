@@ -67,6 +67,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | fzstd (Zstandard decoding in TIFF) | MIT |
 | jxl-oxide (JPEG XL decoding where the platform has none) | MIT or Apache 2.0 |
 | OpenJPH, as Cornerstone's codec-openjph build (OpenEXR HTJ2K compression) | BSD-2-Clause; MIT |
+| djvu-rs (DjVu; written from the public DjVu v3 specification, no DjVuLibre code), with the Rust crates linked into its WebAssembly (listed with their licenses in the third-party notices) | MIT; MIT, and the Unicode License v3 (unicode-ident) |
 | jSquash AVIF decoder (from Squoosh): libavif, libaom's AV1 decoder, libyuv | Apache 2.0; BSD-2-Clause; BSD-2-Clause with the AOMedia Patent License 1.0; BSD-3-Clause |
 | world-atlas (Natural Earth country outlines for the offline map) | ISC; Natural Earth data public domain |
 | OpenStreetMap map tiles (online, Browse ▸ Map) | map data © OpenStreetMap contributors, ODbL; credited on the map; tile usage policy followed (identifying User-Agent on the desktop, no bulk downloading) |
@@ -76,7 +77,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 
 **Optional modules** (separate downloads, dynamically loaded, license shown first, never required): RAW development (LibRaw, LGPL-2.1 or CDDL-1.0), HEIC decoding where the platform lacks it (libheif LGPL-3.0 with an HEVC decoder; patent notice). Their source and license texts are linked from Help ▸ About, and they can be replaced by the user, as the LGPL requires.
 
-**Not used:** Ghostscript (AGPL), G'MIC and GIMP code (GPL), dcraw-derived GPL code, RARLAB's unRAR code (RAR and CBR archives are read by the app's own decoder, which contains none of it; Anne's Lens does not create RAR archives), non-commercial-only model weights.
+**Not used:** DjVuLibre and djvu.js (GPL; DjVu is read by djvu-rs, MIT), Ghostscript (AGPL), G'MIC and GIMP code (GPL), dcraw-derived GPL code, RARLAB's unRAR code (RAR and CBR archives are read by the app's own decoder, which contains none of it; Anne's Lens does not create RAR archives), non-commercial-only model weights.
 
 ## Online services
 
@@ -89,5 +90,7 @@ The People tests use five official White House portraits from Wikimedia Commons 
 The WMF and EMF test files are made by `scripts/gen-metafile-fixtures.py`: two written record by record by the script, and LibreOffice's own exports of a drawing made for the tests (`drawing.svg`). LibreOffice (MPL 2.0) is used only on the developer's machine to export those files and render the reference pictures; nothing from it ships in the app, whose metafile interpreter is its own code.
 
 The RAR tests use archives from libarchive's test suite (BSD-2-Clause; `tests/fixtures/rar/LICENSE-libarchive`), fetched at a pinned commit by `scripts/gen-rar-fixtures.py`, which also fetches archives made with RAR 1.54 and RAR 2.50 by the rars project (Apache-2.0; `LICENSE-rars`) and one from Python rarfile's tests (ISC; `LICENSE-rarfile`), and writes two stored comic archives of its own. No RAR compressor was used to make any test file.
+
+The DjVu test files are made by `scripts/gen-djvu-fixtures.py` with DjVuLibre's encoders (c44, cjb2, djvumake, djvm, djvused; GPL) and minidjvu (GPL) from pictures the script draws, and the expected pictures are DjVuLibre's own renderings (ddjvu). Those tools run only on the developer's machine; nothing from them ships in the app.
 
 PPMd (used by 7z and by RAR's text compression) is the app's own implementation of Dmitry Shkarin's PPMd variant H, an algorithm he placed in the public domain. The 7z PPMd test archives are made with py7zr and pyppmd on the developer's machine; nothing from them ships in the app.

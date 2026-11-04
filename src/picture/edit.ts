@@ -23,7 +23,9 @@ export function rasterFrame(r: Raster, delay: number): Frame {
 /** The page with every frame replaced by `fn(raster)`. */
 export function mapPageRaster(page: Page, fn: (r: Raster, index: number) => Raster, patch: Partial<Page> = {}): Page {
   const frames = page.frames.map((f, i) => rasterFrame(fn(frameRaster(f), i), f.delay));
-  return { ...page, width: frames[0].width, height: frames[0].height, frames, ...patch };
+  const out: Page = { ...page, width: frames[0].width, height: frames[0].height, frames, ...patch };
+  if (out.width !== page.width || out.height !== page.height) delete out.textLayer; // the word boxes no longer match
+  return out;
 }
 
 /** One undoable edit of the current page (or all pages). Clears the selection when the size changes unless `keepSelection`. */

@@ -5,6 +5,7 @@
 import type { Entry } from './folder';
 import type { FormatInfo } from '../codecs/registry';
 import type { ExifData } from '../meta/exif';
+import type { TextLayer } from '../codecs/raster';
 
 /** One decoded frame. `image` is drawable by drawImage; `raster` keeps the bytes when a decoder produced them. */
 export interface Frame {
@@ -32,6 +33,8 @@ export interface Page {
   notes: string[];
   /** The ICC profile the pixel values are in (embedded, assigned or converted to); absent means sRGB. */
   icc?: Uint8Array;
+  /** Text stored in the file (DjVu's text layer); dropped when the page is rotated, flipped or resized. */
+  textLayer?: TextLayer;
 }
 
 export class Picture {
@@ -92,7 +95,8 @@ export function mapPage(page: Page, size: (w: number, h: number) => [number, num
     return { image: c, width: w, height: h, delay: f.delay };
   });
   const [w, h] = size(page.width, page.height);
-  return { ...page, width: w, height: h, frames };
+  const { textLayer: _, ...rest } = page; // the word boxes no longer match
+  return { ...rest, width: w, height: h, frames };
 }
 
 /** Rotates by 90° steps (positive = clockwise) or flips a page. */

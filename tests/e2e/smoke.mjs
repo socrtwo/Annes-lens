@@ -19,6 +19,7 @@ const LOCAL_RUNTIMES = [
   ['node_modules/jxl-oxide-wasm', 'jxl', ['jxl_oxide_wasm.js', 'jxl_oxide_wasm_bg.wasm']],
   ['node_modules/@jsquash/avif', 'avif', ['decode.js', 'utils.js', 'codec/dec/avif_dec.js', 'codec/dec/avif_dec.wasm']],
   ['node_modules/@cornerstonejs/codec-openjph', 'openjph', ['dist/openjphjs.js', 'dist/openjphjs.wasm']],
+  ['node_modules/djvu-rs', 'djvu', ['djvu_rs.js', 'scalar/djvu_rs.js', 'scalar/djvu_rs_bg.wasm', 'simd128/djvu_rs.js', 'simd128/djvu_rs_bg.wasm']],
 ];
 if (existsSync('dist')) {
   for (const [from, to, files, dirs = []] of LOCAL_RUNTIMES) {
@@ -26,7 +27,7 @@ if (existsSync('dist')) {
     for (const f of files) if (existsSync(`${from}/${f}`)) { mkdirSync(dirname(`dist/${to}/${f}`), { recursive: true }); copyFileSync(`${from}/${f}`, `dist/${to}/${f}`); }
     for (const d of dirs) if (existsSync(`${from}/${d}`)) cpSync(`${from}/${d}`, `dist/${to}/${d}`, { recursive: true });
   }
-  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', ocrLangs: ['eng'] }));
+  writeFileSync('dist/runtimes.json', JSON.stringify({ ort: 'ort/', ocr: 'ocr/', zxing: 'zxing/', pdf: 'pdf/', jxl: 'jxl/', avif: 'avif/', openjph: 'openjph/', djvu: 'djvu/', ocrLangs: ['eng'] }));
   mkdirSync('dist/ai-fixtures', { recursive: true });
   for (const f of readdirSync('tests/fixtures/ai')) copyFileSync(`tests/fixtures/ai/${f}`, `dist/ai-fixtures/${f}`);
   // People runs the real face models: YuNet is a fixture; SFace (9.9 MB) comes from the download cache.
@@ -487,6 +488,47 @@ try {
   check('jpeg xl: opens through jxl-oxide where the platform cannot', mo['lossless.jxl'] && mo['lossless.jxl'].slice(0, 5).concat([mo['lossless.jxl'][6]]), ['jxl', 'jxl-oxide', 53, 37, 1, [250, 20, 40]], JSON.stringify(mo['lossless.jxl']));
   check('jpeg xl: an animation, every frame with its time', mo['anim.jxl'] && [mo['anim.jxl'][4], mo['anim.jxl'][5]], [3, [100, 100, 100]], JSON.stringify(mo['anim.jxl']));
   check('avif: the app\'s own decoder (libavif with libaom) from the staged runtime', mo.avif, [53, 37, true, 'AVIF, decoded by libavif with libaom (8 bits per sample)'], JSON.stringify(mo.avif));
+  // DjVu through djvu-rs from the staged runtime: a bundled book with a rotated page and a text layer, shown by Recognize Text.
+  const djvuFiles = Object.fromEntries(['book.djvu', 'shared.djvu'].map((n) => [n, readFileSync(`tests/fixtures/djvu/${n}`).toString('base64')]));
+  const dj = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), bytes = (n) => Uint8Array.from(atob(files[n]), (c) => c.charCodeAt(0));
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop(), title = (d) => d?.querySelector('h2')?.textContent || '';
+    const waitFor = async (pred, ms = 20000) => { for (let i = 0; i < ms / 100; i++) { const d = top(); if (d && pred(d)) return d; await wait(100); } throw new Error('dialog not found; top is ' + title(top())); };
+    const noDialog = async () => { for (let i = 0; i < 80 && document.querySelector('.ql-dialog'); i++) await wait(50); };
+    const open = async (n) => {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([bytes(n)], n)]);
+      for (let i = 0; i < 100 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      return qn.picture !== before ? qn.picture : [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | ');
+    };
+    const out = {};
+    qn.prefs.confirmClose = false;
+    let pic = await open('book.djvu');
+    if (typeof pic === 'string') return { error: pic };
+    out.book = [pic.format.id, pic.decoder, pic.pages.length, pic.pages.map((pg) => [pg.width, pg.height]), pic.info.pages, [...pic.frameCanvas().getContext('2d').getImageData(200, 100, 1, 1).data].slice(0, 3)];
+    await qn.exec('pages.next'); await qn.exec('pages.next'); await wait(100);
+    out.page = [qn.picture.page, qn.picture.current.textLayer?.words.length];
+    const O = await window.__qnOcr();
+    const run = qn.exec('tools.ocr');
+    let d = await waitFor((x) => title(x) === 'Recognize Text');
+    out.ask = [/text layer stored in the file \(6 words\)/.test(d.textContent), d.querySelector('.ql-primary')?.textContent];
+    d.querySelector('.ql-primary').click();
+    d = await waitFor((x) => title(x) === 'Text Layer');
+    out.text = d.querySelector('[id^="f_text_"]').value;
+    out.help = /6 words in 2 lines, stored in the file \(DjVu text layer\)/.test(d.textContent);
+    const qf = d.querySelector('[id^="f_q_"]'); qf.value = '1851'; qf.dispatchEvent(new Event('input', { bubbles: true })); qf.dispatchEvent(new Event('change', { bubbles: true })); await wait(100);
+    out.match = O.viewState.ocr.words.filter((w) => O.ocrMatch(w.text, O.viewState.ocr.query)).map((w) => w.bbox);
+    d.querySelector('.ql-primary').click(); await run; await noDialog();
+    // Turning the page makes the word boxes wrong: the text layer goes.
+    await qn.exec('image.rotateRight'); await wait(100);
+    out.rotated = [qn.picture.current.width, qn.picture.current.height, qn.picture.current.textLayer === undefined];
+    pic = await open('shared.djvu');
+    out.shared = typeof pic === 'string' ? pic : [pic.pages.length, pic.pages[0].width, pic.pages[0].height, pic.warnings.length];
+    return out;
+  }, djvuFiles);
+  check('djvu: a bundled book opens through djvu-rs with every page and its rotation', dj.book, ['djvu', 'djvu-rs', 4, [[320, 240], [150, 200], [600, 260], [600, 260]], '4', [240, 220, 39]], JSON.stringify(dj)); // ddjvu's value there (IW44 is lossy)
+  check('djvu: Recognize Text offers the page\'s stored text layer and finds words on it', [dj.page, dj.ask, dj.text, dj.help, dj.match], [[2, 6], [true, 'Show the text layer'], 'Parish register 1851\nBaptisms and burials', true, [{ x0: 295, y0: 40, x1: 387, y1: 70 }]], JSON.stringify(dj));
+  check('djvu: rotating a page drops its text layer; shared JB2 dictionaries', [dj.rotated, dj.shared], [[260, 600, true], [3, 600, 200, 0]], JSON.stringify(dj));
 
   // M3: selection, crop, resize, grayscale, canvas size and undo through the real commands.
   const editOps = await p.evaluate(async () => {

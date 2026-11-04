@@ -69,6 +69,9 @@ const sorted = [...seen.entries()].sort((a, b) => a[1].name.localeCompare(b[1].n
 for (const [dir, pkg] of sorted) {
   const lic = typeof pkg.license === 'string' ? pkg.license : pkg.license?.type || (pkg.licenses || []).map((l) => l.type || l).join(' OR ') || 'see below';
   parts.push(rule, `${pkg.name} ${pkg.version} - ${lic}`, repoUrl(pkg), rule, '', licenseText(dir) || `License: ${lic} (no license file in the package).`, '');
+  // A package's own notices for what it bundles (djvu-rs: the Rust crates linked into its WebAssembly).
+  const notices = readdirSync(dir).find((n) => /^(third[_-]party[_-]notices|notices?)(\.(md|txt))?$/i.test(n));
+  if (notices) parts.push(readFileSync(join(dir, notices), 'utf8').trim(), '');
 }
 mkdirSync(join(root, 'public'), { recursive: true });
 writeFileSync(join(root, 'public', 'third-party-notices.txt'), parts.join('\n'));
