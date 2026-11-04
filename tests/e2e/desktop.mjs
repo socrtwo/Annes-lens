@@ -283,6 +283,15 @@ try {
     const got = ok ? await gw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height, qn.folder.entries.some((e) => e.name === 'scan.img')]) : await gw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a GEM IMG named .img opens from the command line, in its folder', got, ['gem', 48, 20, true]);
   } finally { await gApp.close().catch(() => undefined); }
+  // A JBIG2 page: pdf.js's JBIG2 WebAssembly decoder from the local runtime under the same policy.
+  const jb2Path = join(base, 'scan.jb2'); writeFileSync(jb2Path, readFileSync('tests/fixtures/jbig/page.jb2'));
+  const bApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, jb2Path], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const bw = await bApp.firstWindow();
+    const ok = await bw.waitForFunction(() => window.qn?.picture?.name === 'scan.jb2', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await bw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height]) : await bw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: a JBIG2 file opens through pdf.js', got, ['jbig2', 320, 200]);
+  } finally { await bApp.close().catch(() => undefined); }
   // An HTJ2K OpenEXR file: OpenJPH's classic script is imported as a module from a Blob under the same policy.
   const htPath = join(base, 'render.exr'); writeFileSync(htPath, readFileSync('tests/fixtures/exr/htj2k32.exr'));
   const hApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, htPath], env: { ...process.env, XDG_CONFIG_HOME: config } });

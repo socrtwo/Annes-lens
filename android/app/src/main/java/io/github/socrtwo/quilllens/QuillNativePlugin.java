@@ -314,7 +314,7 @@ public class QuillNativePlugin extends Plugin {
         "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "avif", "heic", "heif", "hif", "bmp", "dib", "ico", "cur", "tif", "tiff",
         "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
         "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr",
-        "pdf", "djvu", "djv", "pct", "pict", "ras", "sun", "im1", "im8", "im24", "im32", "sgi", "rgb", "rgba", "bw", "urt", "pi1", "pi2", "pi3", "pc1", "pc2", "pc3", "neo", "spu", "koa", "kla", "art", "aas", "ximg", "msp", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
+        "pdf", "djvu", "djv", "pct", "pict", "ras", "sun", "im1", "im8", "im24", "im32", "sgi", "rgb", "rgba", "bw", "urt", "pi1", "pi2", "pi3", "pc1", "pc2", "pc3", "neo", "spu", "koa", "kla", "art", "aas", "ximg", "msp", "fpx", "fli", "flc", "flx", "clp", "jbg", "jbig", "bie", "jb2", "jbig2", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
     };
 
     private static boolean isPictureName(String name) {
@@ -1363,6 +1363,8 @@ public class QuillNativePlugin extends Plugin {
             case "pdf": return "application/pdf";
             case "djvu": case "djv": return "image/vnd.djvu";
             case "pct": case "pict": return "image/x-pict";
+            case "fpx": return "image/vnd.fpx";
+            case "jbg": case "jbig": case "bie": return "image/jbig";
             case "ras": case "sun": case "im1": case "im8": case "im24": case "im32": return "image/x-sun-raster";
             case "sgi": case "rgb": case "rgba": case "bw": return "image/sgi";
             case "txt": return "text/plain";

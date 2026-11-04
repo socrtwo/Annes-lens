@@ -76,14 +76,14 @@ Files with no magic number (Atari ST, Commodore 64) are recognized by their exte
 | GEM IMG | GEM/Ventura | 1985– | .img .ximg | **Done:** Full (1–8 planes, vertical replication, pattern and solid runs, XIMG RGB palettes, else the GEM VDI colors; resolution from the pixel size) |
 | Sun Raster, SGI, Utah RLE | Unix workstations | 1980s–90s | .ras .sgi .rgb .rle | **Done:** Full (Sun: 1, 8, 24, 32 bits, standard, RLE and RGB types, color maps, ImageMagick's alpha in the 32-bit pad byte; SGI: verbatim and RLE, 8 and 16 bits, 1–4 channels; Utah RLE: runs and literals, alpha, color maps, background and position) |
 | Kodak Photo CD | Photo CD | 1992–2004 | .pcd | **Done:** High for the Base image (768 × 512, Kodak's Photo YCC conversion, the disc's orientation); 4Base and 16Base (Huffman-coded residuals) still to do |
-| FlashPix | Kodak/Microsoft | 1996– | .fpx | High |
+| FlashPix | Kodak/Microsoft | 1996– | .fpx | **Done:** High (own compound-file reader; the full resolution from its 64 × 64 tiles: uncompressed, single-color and JPEG with shared tables, decoded by pdf.js's JPEG decoder; monochrome, NIF RGB, Photo YCC with Kodak's conversion, opacity). Tested on Kodak-toolkit files from ImageMagick's suite; the Photo YCC and opacity paths have no test file yet. Still to do: the view's transforms (crop, rotation, color twist) |
 | Paint Shop Pro | Jasc | 1990s–2000s | .psp .pspimage | Preview (composite) |
 | CorelDRAW / Corel PHOTO-PAINT | Corel | 1990s– | .cdr .cpt | Preview (embedded) |
 | Microsoft Paint (Windows 1–3) | Paintbrush | 1985–92 | .msp | **Done:** Full (versions 1 and 2) |
-| Windows clipboard, cursors and icon libraries | Windows 3.x | 1990s | .clp .icl | Full |
+| Windows clipboard, cursors and icon libraries | Windows 3.x | 1990s | .clp .icl | **Done** for .clp: Full (Windows 3.x and NT files: CF_DIB/CF_DIBV5 as a BMP, CF_ENHMETAFILE and CF_METAFILEPICT drawn at their intended size, CF_BITMAP 1/24/32 bits, 4/8 bits in the standard VGA colors). Still to do: .icl icon libraries |
 | Fax formats | fax software | 1990s | .fax .g3 .g4 .tif (Class F) | Full |
-| Autodesk animation | Animator | 1990s | .fli .flc | Full (animation) |
-| JBIG / JBIG2 bilevel | scanners, PDF | 1990s– | .jbg .jb2 | High |
+| Autodesk animation | Animator | 1990s | .fli .flc .flx | **Done:** Full (every frame with its time; COLOR_64 widened to the full range and COLOR_256, palette changes, BYTE_RUN, LC and SS2 deltas with line skips and the odd width's last byte, BLACK, COPY; the same as ffmpeg's decoding on real files). Still to do: the rare FLX/Huffman variants (0xAF30, 0xAF31, 0xAF44) |
+| JBIG / JBIG2 bilevel | scanners, PDF | 1990s– | .jbg .jbig .bie .jb2 .jbig2 | **Done:** JBIG (own T.82 decoder): the lowest-resolution layer with both templates, adaptive template moves, typical prediction, stripes, SDRST, NEWLEN, comments and Gray-coded bit planes, the same as jbigkit's decoding; files with differential layers are shown at their lowest layer with a note (still to do: their deterministic prediction). JBIG2 files (sequential or random-access, every page, shared dictionaries) through pdf.js's JBIG2 decoder (PDFium's, WebAssembly) |
 | Wavelet and fractal oddities | various | 1990s | .wi .fif | Identify |
 
 Formats that are proprietary and undocumented are attempted only clean-room from public information; where that is not enough, Anne's Lens identifies the file, shows any embedded preview, and explains why it cannot open the rest.

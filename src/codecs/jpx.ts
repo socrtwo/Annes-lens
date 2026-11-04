@@ -100,6 +100,9 @@ async function openjpeg(): Promise<any> {
   })().catch((e) => { mod = null; throw new Error(`The JPEG 2000 decoder (OpenJPEG) could not be loaded: ${(e as Error).message}`); }));
 }
 
+/** pdf.js's image decoders (OpenJPEG, and the JPEG decoder FlashPix tiles use), loaded once. */
+export const imageDecoders = (): Promise<any> => openjpeg();
+
 export const jpxOptions = { maxPixels: 120e6, maxSide: 16384 };
 
 export async function decodeJpx(u8: Uint8Array, o = jpxOptions): Promise<DecodeResult> {

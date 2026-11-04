@@ -59,7 +59,7 @@ The final list will be generated from `package.json` and the WASM build manifest
 | libpng, zlib | libpng / zlib |
 | libwebp, libjxl, dav1d, OpenJPEG | BSD |
 | UTIF-style TIFF code and pako | MIT |
-| pdf.js (PDF pages, and its image decoders for JPEG 2000 files), with its WebAssembly decoders: OpenJPEG (JPEG 2000), PDFium's JBIG2, qcms, QuickJS | Apache 2.0; BSD-2-Clause; BSD-3-Clause; MIT; MIT |
+| pdf.js (PDF pages, and its image decoders for JPEG 2000 and JBIG2 files and FlashPix's JPEG tiles), with its WebAssembly decoders: OpenJPEG (JPEG 2000), PDFium's JBIG2, qcms, QuickJS | Apache 2.0; BSD-2-Clause; BSD-3-Clause; MIT; MIT |
 | ONNX Runtime Web, Transformers.js | MIT, Apache 2.0 |
 | tesseract.js and Tesseract | Apache 2.0 |
 | SQLite (WASM) | public domain |
@@ -92,6 +92,8 @@ The WMF and EMF test files are made by `scripts/gen-metafile-fixtures.py`: two w
 The RAR tests use archives from libarchive's test suite (BSD-2-Clause; `tests/fixtures/rar/LICENSE-libarchive`), fetched at a pinned commit by `scripts/gen-rar-fixtures.py`, which also fetches archives made with RAR 1.54 and RAR 2.50 by the rars project (Apache-2.0; `LICENSE-rars`) and one from Python rarfile's tests (ISC; `LICENSE-rarfile`), and writes two stored comic archives of its own. No RAR compressor was used to make any test file.
 
 The DjVu test files are made by `scripts/gen-djvu-fixtures.py` with DjVuLibre's encoders (c44, cjb2, djvumake, djvm, djvused; GPL) and minidjvu (GPL) from pictures the script draws, and the expected pictures are DjVuLibre's own renderings (ddjvu). Those tools run only on the developer's machine; nothing from them ships in the app.
+
+The FlashPix tests use ImageMagick's PerlMagick sample files (ImageMagick License; `tests/fixtures/flashpix/LICENSE-ImageMagick`), made with Kodak's FlashPix toolkit, fetched at a pinned commit by `scripts/gen-flashpix-fixtures.py`; Pillow (with olefile) and libjpeg provide the expected pictures. The FLI/FLC, clipboard, JBIG and JBIG2 test files are written by `scripts/gen-flic-fixtures.py`, `scripts/gen-clipboard-fixtures.py` and `scripts/gen-jbig-fixtures.py` (the JBIG files with jbigkit's pbmtojbg, GPL), with expected pictures from Pillow, ffmpeg (LGPL/GPL), jbigkit's jbgtopbm and jbig2dec (AGPL). These tools run only on the developer's machine; nothing from them ships in the app. The QM-coder probability table in the JBIG decoder is the one ITU-T T.82 and T.81 publish.
 
 The test files for the workstation and home-computer formats and PICT are made by `scripts/gen-historic-fixtures.py`: written by the script from the formats' descriptions, or by ImageMagick, netpbm and Pillow, which also provide the expected pictures (each decodes with its own code: ImageMagick's PICT, Sun and SGI readers, netpbm's rasttopnm, rletopnm, gemtopnm, pi1toppm, pi3topbm, neotoppm and sputoppm, Pillow's MSP reader). These tools run only on the developer's machine; nothing from them ships in the app, whose readers are its own code.
 

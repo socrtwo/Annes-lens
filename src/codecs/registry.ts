@@ -34,6 +34,11 @@ import { isDjvu } from './djvu';
 import { isSunRaster, isSgi, isUtahRle, decodeSun, decodeSgi, decodeUtahRle } from './workstation';
 import { isAtariSt, isC64, isGemImg, isMsp, decodeAtariSt, decodeC64, decodeGemImg, decodeMsp } from './homecomputer';
 import { isPict } from './pict';
+import { isFlic, decodeFlic } from './flic';
+import { isCfb } from './cfb';
+import { isFlashPix } from './flashpix';
+import { isClp } from './clipboard';
+import { isJbig, isJbig2 } from './jbig';
 import { decodePngTolerant } from './png';
 import { repairJpeg } from './jpegLossless';
 import { isEps, epsPreview } from './eps';
@@ -94,6 +99,11 @@ export const FORMATS: FormatInfo[] = [
   { id: 'c64', label: 'Commodore 64 picture', mime: 'image/x-c64', extensions: ['koa', 'kla', 'art', 'aas', 'dd', 'ddl'], decoder: 'own', save: false, notes: 'Koala Painter (multicolor), Art Studio and Doodle (hires), in the Pepto palette' },
   { id: 'gem', label: 'GEM IMG', mime: 'image/x-gem', extensions: ['img', 'ximg'], decoder: 'own', save: false, notes: '1–8 planes, XIMG palettes' },
   { id: 'msp', label: 'Microsoft Paint', mime: 'image/x-msp', extensions: ['msp'], decoder: 'own', save: false, notes: 'Paint for Windows 1.x and 2.x' },
+  { id: 'fpx', label: 'FlashPix', mime: 'image/vnd.fpx', extensions: ['fpx'], decoder: 'own', save: false, notes: 'the full resolution: uncompressed, single-color and JPEG tiles; monochrome, NIF RGB, Photo YCC, opacity' },
+  { id: 'jbig', label: 'JBIG', mime: 'image/jbig', extensions: ['jbg', 'jbig', 'bie'], decoder: 'own', save: false, notes: 'T.82 bilevel and bit-plane pictures (the lowest layer of multi-layer files)' },
+  { id: 'jbig2', label: 'JBIG2', mime: 'image/x-jbig2', extensions: ['jb2', 'jbig2'], decoder: 'own', save: false, notes: 'T.88 files, every page, through pdf.js (PDFium\'s JBIG2 decoder, WebAssembly)' },
+  { id: 'clp', label: 'Windows clipboard file', mime: 'application/x-ms-clipboard', extensions: ['clp'], decoder: 'own', save: false, notes: 'Windows 3.x and NT: the bitmap (DIB or device-dependent) or metafile it holds' },
+  { id: 'flic', label: 'Autodesk FLI/FLC', mime: 'video/x-flic', extensions: ['fli', 'flc', 'flx'], decoder: 'own', save: false, notes: 'Animator and Animator Pro animations: every frame with its time, palette changes' },
   { id: 'djvu', label: 'DjVu', mime: 'image/vnd.djvu', extensions: ['djvu', 'djv'], decoder: 'own', save: false, notes: 'single and bundled multipage documents with their text layer, rendered by djvu-rs (WebAssembly; Options: PDF and DjVu pages)' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
   { id: 'eps', label: 'Encapsulated PostScript', mime: 'application/postscript', extensions: ['eps', 'epsf', 'ps', 'ai'], decoder: 'own', save: false, notes: 'the embedded preview only (DOS EPS TIFF preview or %%BeginPreview bitmap); PostScript is not interpreted' },
@@ -121,6 +131,10 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isIff(u8)) return formatById('iff')!;
   if (isPcd(u8)) return formatById('pcd')!;
   if (isMacBinaryPaint(u8)) return formatById('macpaint')!;
+  if (isFlic(u8)) return formatById('flic')!;
+  if (isClp(u8)) return formatById('clp')!;
+  if (isJbig2(u8)) return formatById('jbig2')!;
+  if (isCfb(u8) && isFlashPix(u8)) return formatById('fpx')!;
   if (isSunRaster(u8)) return formatById('sun')!;
   if (isSgi(u8)) return formatById('sgi')!;
   if (isUtahRle(u8)) return formatById('utahrle')!;
@@ -156,6 +170,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isXpm(u8)) return formatById('xpm')!;
   if (isXbm(u8)) return formatById('xbm')!;
   // Formats without a magic number come last: a plausible header, or the name.
+  if (/\.(jbg|jbig|bie)$/i.test(name) && isJbig(u8)) return formatById('jbig')!; // no magic number
   if (isAtariSt(u8, name)) return formatById('atarist')!;
   if (isC64(u8, name)) return formatById('c64')!;
   if (isGemImg(u8, name)) return formatById('gem')!;
@@ -202,6 +217,31 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'macpaint') decoded = fromOwn(decodeMacPaint(u8), 'macpaint');
   else if (fmt.id === 'pcd') decoded = fromOwn(decodePcd(u8), 'pcd');
   else if (fmt.id === 'sun') decoded = fromOwn(decodeSun(u8), 'sun');
+  else if (fmt.id === 'flic') decoded = fromOwn(decodeFlic(u8), 'flic');
+  else if (fmt.id === 'jbig') { const { decodeJbig } = await import('./jbig'); decoded = fromOwn(decodeJbig(u8), 'jbig'); }
+  else if (fmt.id === 'jbig2') {
+    const [{ decodeJbig2 }, { imageDecoders }] = await Promise.all([import('./jbig'), import('./jpx')]);
+    decoded = fromOwn(await decodeJbig2(u8, await imageDecoders()), 'jbig2 (pdf.js)');
+  }
+  else if (fmt.id === 'clp') {
+    const { clpPicture, decodeDdb } = await import('./clipboard');
+    const c = clpPicture(u8), formats = c.entries.map((e) => e.name).join(', ');
+    if (!c.picture) throw new Error(`This clipboard file holds no picture (it has: ${formats})`);
+    const from = `from its ${c.picture.entry.name} (${c.nt ? 'Windows NT' : 'Windows 3.x'} clipboard file)`;
+    if (c.picture.kind === 'bmp') decoded = fromOwn(decodeBmp(c.picture.bytes), 'clipboard');
+    else if (c.picture.kind === 'ddb') decoded = fromOwn(decodeDdb(c.picture.entry.data, c.nt), 'clipboard');
+    else {
+      const mf = await import('./metafile');
+      const r = c.picture.kind === 'emf' ? await mf.renderEmf(c.picture.bytes) : await mf.renderWmf(c.picture.bytes), cv = r.canvas;
+      decoded = { pages: [{ width: cv.width, height: cv.height, frames: [{ image: cv, width: cv.width, height: cv.height, delay: 0 }], loops: 0, bitDepth: 32, hasAlpha: true, dpi: [96, 96], notes: r.notes }], info: {}, warnings: r.warnings, decoder: 'clipboard (metafile)' };
+    }
+    decoded.pages[0].notes.unshift(`Clipboard picture ${from}`);
+    decoded.info = { ...decoded.info, 'clipboard formats': formats };
+  }
+  else if (fmt.id === 'fpx') {
+    const [{ decodeFlashPix }, { imageDecoders }] = await Promise.all([import('./flashpix'), import('./jpx')]);
+    decoded = fromOwn(decodeFlashPix(u8, await imageDecoders()), 'flashpix');
+  }
   else if (fmt.id === 'sgi') decoded = fromOwn(decodeSgi(u8), 'sgi');
   else if (fmt.id === 'utahrle') decoded = fromOwn(decodeUtahRle(u8), 'utah rle');
   else if (fmt.id === 'atarist') decoded = fromOwn(decodeAtariSt(u8, entry.name), 'atari st');

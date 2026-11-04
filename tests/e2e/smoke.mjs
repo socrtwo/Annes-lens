@@ -509,6 +509,29 @@ try {
   check('historic formats open by content and name', histNames.map((n) => hist[n]), [['pict', 120, 80], ['pict', 61, 37], ['pict', 100, 60], ['sun', 61, 37], ['sgi', 61, 37], ['utahrle', 61, 37], ['atarist', 320, 200], ['atarist', 320, 200], ['c64', 320, 200], ['gem', 48, 20], ['msp', 75, 30]], JSON.stringify(hist));
   check('pict: the text is drawn in its color, the shapes as decoded', [hist.text > 15, hist.shapesPx], [true, [200, 30, 30]], JSON.stringify([hist.text, hist.shapesPx]));
   check('pict: the QuickTime JPEG is drawn by the platform (quality 95, near the source)', hist.jpegPx && hist.jpegPx.every((v, i) => Math.abs(v - [165, 125, 130][i]) <= 12), true, JSON.stringify(hist.jpegPx)); // jpeg-source.png at (30, 18)
+  // FlashPix (JPEG tiles through pdf.js), Autodesk FLC, clipboard files (a DIB; metafiles drawn as the files themselves are), JBIG and JBIG2.
+  const moreFiles = { 'input_jpeg.fpx': 'flashpix', 'anim.flc': 'flic', 'dib31.clp': 'clipboard', 'wmf31.clp': 'clipboard', 'emfnt.clp': 'clipboard', 'seq.jbg': 'jbig', 'page.jb2': 'jbig', 'shapes.wmf': 'metafile', 'shapes.emf': 'metafile' };
+  const moreB64 = Object.fromEntries(Object.entries(moreFiles).map(([n, d]) => [n, readFileSync(`tests/fixtures/${d}/${n}`).toString('base64')]));
+  const more = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms)), out = {}, pix = {};
+    for (const [n, b64] of Object.entries(files)) {
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n)]);
+      for (let i = 0; i < 200 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const pic = qn.picture;
+      if (!pic || pic === before) { out[n] = [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).join(' | '); document.querySelectorAll('.ql-toast').forEach((t) => t.remove()); continue; }
+      out[n] = [pic.format.id, pic.width, pic.height, pic.current.frames.length];
+      const c = pic.frameCanvas(); pix[n] = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    }
+    const same = (a, b) => { if (!a || !b || a.length !== b.length) return -1; let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
+    out.wmfSame = same(pix['wmf31.clp'], pix['shapes.wmf']); out.emfSame = same(pix['emfnt.clp'], pix['shapes.emf']);
+    const j = pix['input_jpeg.fpx']; out.fpxPx = j ? [j[(20 * 70 + 30) * 4], j[(20 * 70 + 30) * 4 + 1], j[(20 * 70 + 30) * 4 + 2]] : null;
+    const g = pix['page.jb2']; let black = 0; if (g) for (let i = 0; i < g.length; i += 4) if (g[i] === 0) black++; out.jb2Black = black;
+    return out;
+  }, moreB64);
+  check('flashpix, flc, clipboard, jbig and jbig2 open', ['input_jpeg.fpx', 'anim.flc', 'dib31.clp', 'wmf31.clp', 'emfnt.clp', 'seq.jbg', 'page.jb2'].map((n) => more[n] && more[n].slice(0, 1).concat(more[n].slice(3))), [['fpx', 1], ['flic', 5], ['clp', 1], ['clp', 1], ['clp', 1], ['jbig', 1], ['jbig2', 1]], JSON.stringify(more));
+  check('clipboard metafiles are drawn as the metafile files themselves', [more.wmfSame, more.emfSame], [0, 0], JSON.stringify([more.wmfSame, more.emfSame]));
+  check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)
   // DjVu through djvu-rs from the staged runtime: a bundled book with a rotated page and a text layer, shown by Recognize Text.
   const djvuFiles = Object.fromEntries(['book.djvu', 'shared.djvu'].map((n) => [n, readFileSync(`tests/fixtures/djvu/${n}`).toString('base64')]));
   const dj = await p.evaluate(async (files) => {
