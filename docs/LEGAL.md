@@ -97,6 +97,8 @@ The FlashPix tests use ImageMagick's PerlMagick sample files (ImageMagick Licens
 
 The Paint Shop Pro test files are written by `scripts/gen-psp-fixtures.py` from the PSP file format description (Jasc's specification grants a license to develop software that reads the format), and GIMP's PSP reader (GPL) provides the expected pictures; GIMP runs only on the developer's machine and nothing from it ships in the app.
 
+The icon-library test files are made by `scripts/gen-iconlib-fixtures.py`: resource-only DLLs built with MinGW's binutils (windres, ld; GPL) from icons made with icoutils' icotool (GPL), and a 16-bit icon library written by the script; icoutils' wrestool provides the expected icon files. These tools run only on the developer's machine; nothing from them ships in the app.
+
 The test files for the workstation and home-computer formats and PICT are made by `scripts/gen-historic-fixtures.py`: written by the script from the formats' descriptions, or by ImageMagick, netpbm and Pillow, which also provide the expected pictures (each decodes with its own code: ImageMagick's PICT, Sun and SGI readers, netpbm's rasttopnm, rletopnm, gemtopnm, pi1toppm, pi3topbm, neotoppm and sputoppm, Pillow's MSP reader). These tools run only on the developer's machine; nothing from them ships in the app, whose readers are its own code.
 
 PPMd (used by 7z and by RAR's text compression) is the app's own implementation of Dmitry Shkarin's PPMd variant H, an algorithm he placed in the public domain. The 7z PPMd test archives are made with py7zr and pyppmd on the developer's machine; nothing from them ships in the app.

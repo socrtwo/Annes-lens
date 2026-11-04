@@ -1,7 +1,7 @@
 /** File commands: open (files, folders, recent, dropped, launched), save, reload, print, share, close, options, settings transfer, portable mode. */
 import { def } from './registry';
 import type { App, PictureTab } from '../app';
-import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, isSharedPictureName, SHARED_MAX_BYTES, type Entry } from '../picture/folder';
+import { Folder, entryFromFile, entryFromBytes, entryFromUri, entryFromHandle, isPictureName, isSharedPictureName, sharedMaxBytes, type Entry } from '../picture/folder';
 import { canListSubfolders, listing, type FolderEntry } from '../platform/native';
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
 import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
@@ -91,7 +91,7 @@ export async function openDroppedFiles(app: App, files: File[]): Promise<void> {
   const list: File[] = [];
   for (const f of files) {
     if (isPictureName(f.name) || f.type.startsWith('image/') || !/\./.test(f.name)) list.push(f);
-    else if (isSharedPictureName(f.name) && f.size <= SHARED_MAX_BYTES) { // .img and the like: a picture only if its content says so
+    else if (isSharedPictureName(f.name) && f.size <= sharedMaxBytes(f.name)) { // .img and the like: a picture only if its content says so
       const { sniff } = await import('../codecs/registry');
       if (sniff(new Uint8Array(await f.arrayBuffer()), f.name)) list.push(f);
     }

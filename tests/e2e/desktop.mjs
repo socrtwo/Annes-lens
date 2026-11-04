@@ -292,6 +292,15 @@ try {
     const got = ok ? await bw.evaluate(() => [qn.picture.format.id, qn.picture.width, qn.picture.height]) : await bw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
     check('desktop: a JBIG2 file opens through pdf.js', got, ['jbig2', 320, 200]);
   } finally { await bApp.close().catch(() => undefined); }
+  // A DLL named on the command line (programs are not listed in folders): its icons, one page each.
+  const dllPath = join(base, 'shell.dll'); writeFileSync(dllPath, readFileSync('tests/fixtures/iconlib/icons32.dll'));
+  const lApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, dllPath], env: { ...process.env, XDG_CONFIG_HOME: config } });
+  try {
+    const lw = await lApp.firstWindow();
+    const ok = await lw.waitForFunction(() => window.qn?.picture?.name === 'shell.dll', null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const got = ok ? await lw.evaluate(() => [qn.picture.format.id, qn.picture.pages.length, qn.picture.pages[1].width]) : await lw.evaluate(() => [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent));
+    check('desktop: the icons in a DLL from the command line', got, ['winres', 3, 256]);
+  } finally { await lApp.close().catch(() => undefined); }
   // An HTJ2K OpenEXR file: OpenJPH's classic script is imported as a module from a Blob under the same policy.
   const htPath = join(base, 'render.exr'); writeFileSync(htPath, readFileSync('tests/fixtures/exr/htj2k32.exr'));
   const hApp = await electron.launch({ executablePath: ELECTRON, args: ['--no-sandbox', APPDIR, htPath], env: { ...process.env, XDG_CONFIG_HOME: config } });

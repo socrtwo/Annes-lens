@@ -477,6 +477,12 @@
                 <data android:pathPattern=".*\\.TUB" />
                 <data android:pathPattern=".*\\..*\\.TUB" />
                 <data android:pathPattern=".*\\..*\\..*\\.TUB" />
+                <data android:pathPattern=".*\\.icl" />
+                <data android:pathPattern=".*\\..*\\.icl" />
+                <data android:pathPattern=".*\\..*\\..*\\.icl" />
+                <data android:pathPattern=".*\\.ICL" />
+                <data android:pathPattern=".*\\..*\\.ICL" />
+                <data android:pathPattern=".*\\..*\\..*\\.ICL" />
                 <data android:pathPattern=".*\\.pntg" />
                 <data android:pathPattern=".*\\..*\\.pntg" />
                 <data android:pathPattern=".*\\..*\\..*\\.pntg" />
