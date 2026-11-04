@@ -158,7 +158,8 @@ export class PictureTab {
       if (this.folder.current !== e) return;
       this.picture = null; this.loading = null; this.error = err?.message || String(err);
       this.ui.pictureChanged(true);
-      toast(`Could not open ${e.name}: ${this.error}`, { ms: 8000, action: 'Repair…', onAction: () => this.app.exec('file.openRepair') });
+      const sample = err?.sample ? String(err.sample) : ''; // a recognized format with no reader yet: offer to send the file
+      toast(`Could not open ${e.name}: ${this.error}`, { ms: sample ? 12000 : 8000, action: sample ? 'Send a sample…' : 'Repair…', onAction: () => void this.app.exec(sample ? 'help.sendSample' : 'file.openRepair', sample ? e : undefined) });
     }
     this.app.ui.tabsChanged();
     this.app.refresh();

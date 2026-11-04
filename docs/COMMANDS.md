@@ -1,6 +1,6 @@
 # Anne's Lens Command Reference
 
-Anne's Lens has **556 commands** built, out of the **557** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
+Anne's Lens has **557 commands** built, out of the **558** in the plan ([COMMANDS-PLAN.md](COMMANDS-PLAN.md)). Every built command can be placed on the Quick Access Bar, added to a custom tab, found in the classic menus, bound to a keyboard shortcut, recorded in a macro, or found with command search (Alt+Q). A command is registered only when it works; the rest of the plan is listed at the end of this file.
 
 25 of the built commands are "Commands Not in the Tabs" (reachable through the Quick Access Bar chooser, Customize Tabs, the classic menus and command search), so nothing the app can do is hidden.
 
@@ -27,23 +27,23 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 - **Tools**: Text and codes (4) · Documents and print (4) · Color and vector (2) · Organize (2) · Extend (2)
 - **AI**: Generate (10) · Edit (20) · Select (3) · Understand (12) · Provenance (2) · Providers (9)
 - **Developer**: Developer (7)
-- **Help**: Help (8)
+- **Help**: Help (9)
 
 ## Classic menu layouts
 
 | Layout | Modeled on | Built commands on the bar |
 |---|---|---|
-| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 200 |
+| IrfanView style (`irfanview`) | IrfanView 4.x main window (File, Edit, Image, Options, View, Help) | 201 |
 | IrfanView Thumbnails style (`irfanview-thumbs`) | IrfanView 4.x thumbnail window | 89 |
-| XnView style (`xnview`) | XnView MP browser and viewer | 176 |
+| XnView style (`xnview`) | XnView MP browser and viewer | 177 |
 | FastStone style (`faststone`) | FastStone Image Viewer | 139 |
 | ACDSee style (`acdsee`) | ACDSee (Manage, View and Edit modes) | 121 |
 | Windows Photo Viewer style (`photoviewer`) | Windows Photo Viewer and Microsoft Photos (toolbar commands as menus) | 95 |
 | Picasa style (`picasa`) | Picasa 3 | 116 |
 | Preview style (`preview`) | macOS Preview | 104 |
 | digiKam style (`digikam`) | digiKam albums and image editor | 111 |
-| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 338 |
-| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 556 |
+| All viewers combined (`all`) | the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options) | 339 |
+| Anne's Lens complete (`complete`) | the ribbon itself: one menu per tab, one submenu per group, every command | 557 |
 
 ## File (82 of 82)
 
@@ -673,7 +673,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Script Console | Developer |  | `dev.console` | from new in Anne's Lens |
 | Stop Recording | Developer |  | `dev.stopRecording` | from the Anne's Office suite |
 
-## Help (8 of 8)
+## Help (9 of 9)
 
 | Command | Group | Shortcut | ID | Notes |
 |---|---|---|---|---|
@@ -683,6 +683,7 @@ The ribbon mirrors the plan: one tab per plan tab and one group per plan group, 
 | Keyboard Shortcuts | Help | Ctrl+/ | `help.shortcuts` | from IrfanView |
 | Menu Map | Help |  | `help.menuMap` | from the Anne's Office suite |
 | Report a Problem | Help |  | `help.reportIssue` |  |
+| Send a Sample File… | Help |  | `help.sendSample` | from new in Anne's Lens |
 | Supported Formats | Help |  | `help.formats` | from IrfanView, XnView Classic and XnView MP |
 | What's New | Help |  | `help.whatsNew` |  |
 

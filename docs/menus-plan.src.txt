@@ -187,6 +187,7 @@ meta.exif
 help.contents
 help.shortcuts
 help.formats
+help.sendSample
 help.checkUpdates
 help.about
 
@@ -381,6 +382,7 @@ view.alwaysOnTop
 help.contents
 help.shortcuts
 help.formats
+help.sendSample
 help.about
 
 @layout faststone | FastStone style | FastStone Image Viewer

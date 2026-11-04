@@ -721,6 +721,7 @@ Menu Map | help.menuMap | | SUITE | where each command is in every menu layout a
 Supported Formats | help.formats | | IV,XN |
 What's New | help.whatsNew | | |
 Report a Problem | help.reportIssue | | |
+Send a Sample File… | help.sendSample | | NEW | a file Anne's Lens recognizes but cannot open yet, emailed to the developer from your own mail program, with your permission
 Check for Updates | help.checkUpdates | | IV | desktop and APK builds; opens the release page
 About Anne's Lens | help.about | | IV |
 

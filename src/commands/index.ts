@@ -31,6 +31,7 @@ import './pagesEdit';
 import './meta';
 import './dev';
 import './help';
+import './sendSample';
 import './aiProviders';
 import './aiUnderstand';
 import './aiEdit';

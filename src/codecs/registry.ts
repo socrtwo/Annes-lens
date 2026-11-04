@@ -58,6 +58,8 @@ export interface FormatInfo {
   /** Writable by Save As (through the canvas encoders or the app's own writers). */
   save: boolean;
   notes?: string;
+  /** Recognized by content but not opened yet, for want of a file to build the reader from: the app asks for a sample. */
+  sample?: boolean;
 }
 
 export const FORMATS: FormatInfo[] = [
@@ -103,6 +105,7 @@ export const FORMATS: FormatInfo[] = [
   { id: 'msp', label: 'Microsoft Paint', mime: 'image/x-msp', extensions: ['msp'], decoder: 'own', save: false, notes: 'Paint for Windows 1.x and 2.x' },
   { id: 'fpx', label: 'FlashPix', mime: 'image/vnd.fpx', extensions: ['fpx'], decoder: 'own', save: false, notes: 'the full resolution: uncompressed, single-color and JPEG tiles; monochrome, NIF RGB, Photo YCC, opacity' },
   { id: 'winres', label: 'Icons in a Windows program or icon library', mime: 'application/x-msdownload', extensions: ['icl', 'exe', 'dll', 'ocx', 'cpl', 'scr', 'mun'], decoder: 'own', save: false, notes: 'the icons and cursors inside 32/64-bit and 16-bit (NE) programs, DLLs and .icl libraries, one page each (its largest size)' },
+  { id: 'corel', label: 'CorelDRAW / Corel PHOTO-PAINT', mime: 'application/vnd.corel-draw', extensions: ['cdr', 'cpt'], decoder: 'own', save: false, sample: true, notes: 'recognized, not opened yet: no file was available to build the reader from (Help ▸ Send a Sample File)' },
   { id: 'psp', label: 'Paint Shop Pro', mime: 'image/x-paintshoppro', extensions: ['psp', 'pspimage', 'tub'], decoder: 'own', save: false, notes: 'Paint Shop Pro 5 to 9 and later (format versions 3–6+): the raster layers merged with their masks, opacity and blend modes' },
   { id: 'jbig', label: 'JBIG', mime: 'image/jbig', extensions: ['jbg', 'jbig', 'bie'], decoder: 'own', save: false, notes: 'T.82 bilevel and bit-plane pictures (the lowest layer of multi-layer files)' },
   { id: 'jbig2', label: 'JBIG2', mime: 'image/x-jbig2', extensions: ['jb2', 'jbig2'], decoder: 'own', save: false, notes: 'T.88 files, every page, through pdf.js (PDFium\'s JBIG2 decoder, WebAssembly)' },
@@ -139,6 +142,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isClp(u8)) return formatById('clp')!;
   if (isJbig2(u8)) return formatById('jbig2')!;
   if (isPsp(u8)) return formatById('psp')!;
+  if (isCorel(u8)) return formatById('corel')!;
   if (winModuleKind(u8)) return formatById('winres')!;
   if (isCfb(u8) && isFlashPix(u8)) return formatById('fpx')!;
   if (isSunRaster(u8)) return formatById('sun')!;
@@ -200,6 +204,7 @@ export const decodeOptions = {
 /** Decodes bytes into a Picture. Throws with a readable message when nothing can be shown. */
 export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Picture> {
   const fmt = sniff(u8, entry.name) || formatFromName(entry.name);
+  if (fmt?.sample) throw Object.assign(new Error(`${fmt.label} files are recognized but not opened yet: no file was available to build the reader from. If you have one you may share, Help ▸ Send a Sample File sends it to the developer`), { sample: fmt.id });
   if (!fmt) throw new Error('Not a picture format Anne\'s Lens can open');
   const exif = safe(() => readExif(u8));
   let decoded: { pages: Page[]; info: Record<string, string>; warnings: string[]; decoder: string };
@@ -332,6 +337,9 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   if (ops.length && typeof document !== 'undefined') { pic.pages = pic.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); pic.orientationApplied = true; }
   return pic;
 }
+
+/** CorelDRAW (a RIFF file whose form is CDR plus a version letter, or cdr for the newer ones) and Corel PHOTO-PAINT (CPT<version>FILE). */
+export const isCorel = (u8: Uint8Array): boolean => (u8.length >= 12 && at(u8, 0, 'RIFF') && /^(CDR|cdr)/.test(String.fromCharCode(u8[8], u8[9], u8[10]))) || (u8.length >= 8 && /^CPT[0-9A-Z]FILE$/.test(String.fromCharCode(...u8.subarray(0, 8))));
 
 function safe<T>(fn: () => T): T | null { try { return fn(); } catch { return null; } }
 

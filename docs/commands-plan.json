@@ -1130,6 +1130,7 @@
       "help.formats",
       "help.whatsNew",
       "help.reportIssue",
+      "help.sendSample",
       "help.checkUpdates",
       "help.about"
      ]
@@ -8349,6 +8350,18 @@
    "tab": "Help",
    "group": "Help"
   },
+  "help.sendSample": {
+   "label": "Send a Sample File…",
+   "id": "help.sendSample",
+   "shortcuts": [],
+   "origins": [
+    "NEW"
+   ],
+   "notes": "a file Anne's Lens recognizes but cannot open yet, emailed to the developer from your own mail program, with your permission",
+   "notInTabs": false,
+   "tab": "Help",
+   "group": "Help"
+  },
   "help.checkUpdates": {
    "label": "Check for Updates",
    "id": "help.checkUpdates",
@@ -8683,6 +8696,7 @@
       "help.contents",
       "help.shortcuts",
       "help.formats",
+      "help.sendSample",
       "help.checkUpdates",
       "help.about"
      ]
@@ -9119,6 +9133,7 @@
       "help.contents",
       "help.shortcuts",
       "help.formats",
+      "help.sendSample",
       "help.about"
      ]
     }
@@ -10860,6 +10875,7 @@
       "help.contents",
       "help.shortcuts",
       "help.formats",
+      "help.sendSample",
       "help.checkUpdates",
       "help.about"
      ]
@@ -11808,6 +11824,7 @@
       "help.formats",
       "help.whatsNew",
       "help.reportIssue",
+      "help.sendSample",
       "help.checkUpdates",
       "help.about"
      ]

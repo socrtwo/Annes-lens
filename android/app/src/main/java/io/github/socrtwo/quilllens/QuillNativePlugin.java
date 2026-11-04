@@ -62,7 +62,7 @@ import java.util.concurrent.Executors;
  *   <li>writeUri({uri, data}) -> {ok: true}</li>
  *   <li>readUri({uri}) -> {uri, name, mime, data}</li>
  *   <li>print({jobName}) -> void</li>
- *   <li>share({name, mime, data, title}) -> void</li>
+ *   <li>share({name, mime, data, title, subject?, text?, to?}) -> void</li>
  *   <li>getLaunchFile() -> {uri?, name, mime, data, files?: [...]} | {} (consumed once; "Share" of several pictures lists them all)</li>
  *   <li>keepAwake({on: boolean}) -> void</li>
  *   <li>event "fileOpened" -> same payload as getLaunchFile, for files opened while running</li>
@@ -314,7 +314,7 @@ public class QuillNativePlugin extends Plugin {
         "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "avif", "heic", "heif", "hif", "bmp", "dib", "ico", "cur", "tif", "tiff",
         "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
         "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr",
-        "pdf", "djvu", "djv", "pct", "pict", "ras", "sun", "im1", "im8", "im24", "im32", "sgi", "rgb", "rgba", "bw", "urt", "pi1", "pi2", "pi3", "pc1", "pc2", "pc3", "neo", "spu", "koa", "kla", "art", "aas", "ximg", "msp", "fpx", "fli", "flc", "flx", "clp", "jbg", "jbig", "bie", "jb2", "jbig2", "psp", "pspimage", "tub", "icl", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
+        "pdf", "djvu", "djv", "pct", "pict", "ras", "sun", "im1", "im8", "im24", "im32", "sgi", "rgb", "rgba", "bw", "urt", "pi1", "pi2", "pi3", "pc1", "pc2", "pc3", "neo", "spu", "koa", "kla", "art", "aas", "ximg", "msp", "fpx", "fli", "flc", "flx", "clp", "jbg", "jbig", "bie", "jb2", "jbig2", "psp", "pspimage", "tub", "icl", "cdr", "cpt", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz"
     };
 
     private static boolean isPictureName(String name) {
@@ -627,6 +627,9 @@ public class QuillNativePlugin extends Plugin {
         final String mime = call.getString("mime", "application/octet-stream");
         final String data = call.getString("data");
         final String title = call.getString("title", name);
+        final String subject = call.getString("subject");
+        final String text = call.getString("text");
+        final String to = call.getString("to");
         if (data == null) {
             call.reject("share requires 'data'");
             return;
@@ -649,6 +652,9 @@ public class QuillNativePlugin extends Plugin {
                 send.setType(mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
                 send.putExtra(Intent.EXTRA_STREAM, uri);
                 send.putExtra(Intent.EXTRA_TITLE, name);
+                if (subject != null) send.putExtra(Intent.EXTRA_SUBJECT, subject);
+                if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
+                if (to != null) send.putExtra(Intent.EXTRA_EMAIL, new String[] { to });
                 send.setClipData(ClipData.newRawUri(name, uri));
                 send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
@@ -1365,6 +1371,7 @@ public class QuillNativePlugin extends Plugin {
             case "pct": case "pict": return "image/x-pict";
             case "fpx": return "image/vnd.fpx";
             case "psp": case "pspimage": case "tub": return "image/x-paintshoppro";
+            case "cdr": return "application/vnd.corel-draw";
             case "jbg": case "jbig": case "bie": return "image/jbig";
             case "ras": case "sun": case "im1": case "im8": case "im24": case "im32": return "image/x-sun-raster";
             case "sgi": case "rgb": case "rgba": case "bw": return "image/sgi";

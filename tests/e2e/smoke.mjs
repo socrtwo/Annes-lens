@@ -537,6 +537,40 @@ try {
   check('icons in a 64-bit DLL and a 16-bit icon library: a page each (cursor 3, icon 1, icon 7)', [more['icons64.dll'] && more['icons64.dll'].slice(0, 1).concat(more['icons64.dll'].slice(3)), more['lib.icl'] && more['lib.icl'][0], more.dllPages, more.iclPages], [['winres', 1], 'winres', [[32, 32], [256, 256], [32, 32]], [[32, 32], [256, 256], [32, 32]]], JSON.stringify([more['icons64.dll'], more.dllPages, more.iclPages]));
   check('clipboard metafiles are drawn as the metafile files themselves', [more.wmfSame, more.emfSame], [0, 0], JSON.stringify([more.wmfSame, more.emfSame]));
   check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)
+  // A Corel file: recognized, not opened; the toast offers Send a Sample File, whose terms must be agreed to before the mail program opens.
+  const sample = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const top = () => [...document.querySelectorAll('.ql-dialog')].pop(), title = (d) => d?.querySelector('h2')?.textContent || '';
+    const waitFor = async (pred, ms = 20000) => { for (let i = 0; i < ms / 100; i++) { const d = top(); if (d && pred(d)) return d; await wait(100); } throw new Error('dialog not found; top is ' + title(top())); };
+    const field = (d, key) => d.querySelector(`[id^="f_${key}_"]`);
+    const out = { opened: [] };
+    const realOpen = window.open; window.open = (u) => { out.opened.push(String(u)); return null; };
+    try {
+      const cdr = new Uint8Array([...'RIFF'].map((c) => c.charCodeAt(0)).concat([200, 0, 0, 0], [...'CDRBvrsn'].map((c) => c.charCodeAt(0)), new Array(190).fill(7)));
+      document.querySelectorAll('.ql-toast').forEach((t) => t.remove());
+      const before = qn.picture;
+      await qn.exec('file.openDropped', [new File([cdr], 'parish-map.cdr')]);
+      for (let i = 0; i < 100 && !document.querySelector('.ql-toast'); i++) await wait(50);
+      const t = document.querySelector('.ql-toast');
+      out.toast = t?.textContent || ''; out.pictureUnchanged = qn.picture === before || !qn.picture;
+      const btn = t?.querySelector('button'); out.action = btn?.textContent || ''; btn?.click();
+      let d = await waitFor((x) => title(x) === 'Send a Sample File');
+      out.terms = /uploads nothing/.test(d.textContent) && /MIT license/.test(d.textContent) && /parish-map\.cdr/.test(d.textContent);
+      d.querySelector('.ql-primary').click(); await wait(300); // without the agreement: refused, the dialog returns
+      out.refused = [...document.querySelectorAll('.ql-toast')].some((x) => /Tick the agreement/.test(x.textContent));
+      d = await waitFor((x) => title(x) === 'Send a Sample File');
+      field(d, 'program').value = 'CorelDRAW 9'; field(d, 'program').dispatchEvent(new Event('input', { bubbles: true }));
+      for (const k of ['publish', 'agree']) { const c = field(d, k); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }
+      d.querySelector('.ql-primary').click();
+      for (let i = 0; i < 100 && !out.opened.length; i++) await wait(50);
+      for (let i = 0; i < 40 && document.querySelector('.ql-dialog'); i++) await wait(50);
+    } finally { window.open = realOpen; }
+    const u = out.opened[0] || '', q = new URLSearchParams(u.slice(u.indexOf('?') + 1));
+    out.mailto = u.split('?')[0]; out.subject = q.get('subject'); out.body = q.get('body') || '';
+    return out;
+  });
+  check('corel: recognized, not opened, and the toast offers a sample', [/Could not open parish-map\.cdr: CorelDRAW/.test(sample.toast), sample.action, sample.pictureUnchanged], [true, 'Send a sample…', true], JSON.stringify(sample));
+  check('send a sample: terms shown, agreement required, then the mail program opens with the message', [sample.terms, sample.refused, sample.mailto, sample.subject, /parish-map\.cdr \(1 KB\), recognized as CorelDRAW/.test(sample.body), /Made by: CorelDRAW 9/.test(sample.body), /public test suite: yes/.test(sample.body)], [true, true, 'mailto:socrtwo@gmail.com', "Anne's Lens sample file: parish-map.cdr", true, true, true], JSON.stringify(sample));
   // DjVu through djvu-rs from the staged runtime: a bundled book with a rotated page and a text layer, shown by Recognize Text.
   const djvuFiles = Object.fromEntries(['book.djvu', 'shared.djvu'].map((n) => [n, readFileSync(`tests/fixtures/djvu/${n}`).toString('base64')]));
   const dj = await p.evaluate(async (files) => {

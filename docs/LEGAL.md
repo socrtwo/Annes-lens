@@ -79,9 +79,20 @@ The final list will be generated from `package.json` and the WASM build manifest
 
 **Not used:** DjVuLibre and djvu.js (GPL; DjVu is read by djvu-rs, MIT), Ghostscript (AGPL), G'MIC and GIMP code (GPL), dcraw-derived GPL code, RARLAB's unRAR code (RAR and CBR archives are read by the app's own decoder, which contains none of it; Anne's Lens does not create RAR archives), non-commercial-only model weights.
 
+## Sample files sent by users
+
+Some formats (CorelDRAW and Corel PHOTO-PAINT today) are recognized but cannot be opened, because no file of the kind was available to build a reader from. When such a file is opened, Anne's Lens offers **Help ▸ Send a Sample File**. The app uploads nothing and has no server: the file leaves the device only through the user's own mail program (the share sheet on phones, otherwise a prepared message the user attaches the file to), addressed to the developer at socrtwo@gmail.com. Before that, the user must tick an agreement to these terms, shown in full in the dialog:
+
+- The sender confirms owning the file, or having the right to share it for this purpose, and that it holds nothing confidential, private or personal they would not want a stranger to see.
+- The file is used only to make Anne's Lens read files of its kind (it may be opened with other software and examined byte by byte), kept only as long as that work takes, and never sold, passed on or used for anything else.
+- Only if the sender also ticks the public-test-suite permission may the file, or a reduced copy, be published in this repository under the MIT license, where anyone can see, copy and use it; otherwise it stays private and is deleted when the work is done.
+- No payment, credit or reply is owed; permission can be withdrawn and deletion asked for at any time by writing to the address above, except for copies already published.
+
+Files kept in the test suite under that permission are listed in this section with the sender's consent noted; none has been received yet. The message also records the sender's program name, notes, and the permissions given.
+
 ## Online services
 
-Anne's Lens works offline. Online services are called only when the user invokes the matching command: the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline outline or another tile server selectable), Open URL, and update checks (desktop and APK builds, opt-in). The phone remote (desktop) is a server on the local network only, reachable through a random address, and stops when turned off or when the app quits. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
+Anne's Lens works offline. Online services are called only when the user invokes the matching command (sending a sample file goes through the user's own mail program, see above): the chosen AI services (AI tab), model and format-module downloads, map tiles (Browse ▸ Map; OpenStreetMap tile usage policy respected, offline outline or another tile server selectable), Open URL, and update checks (desktop and APK builds, opt-in). The phone remote (desktop) is a server on the local network only, reachable through a random address, and stops when turned off or when the app quits. Picture metadata, including location, is stripped from anything sent to an AI service unless the command needs it.
 
 ## Test pictures
 

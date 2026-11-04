@@ -27,7 +27,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## IrfanView style
 
-*Modeled on IrfanView 4.x main window (File, Edit, Image, Options, View, Help). 201 commands.*
+*Modeled on IrfanView 4.x main window (File, Edit, Image, Options, View, Help). 202 commands.*
 
 ### File
 
@@ -280,6 +280,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Help — `help.contents`
 - Keyboard Shortcuts — `help.shortcuts`
 - Supported Formats — `help.formats`
+- Send a Sample File… — `help.sendSample`
 - Check for Updates — `help.checkUpdates`
 - About Anne's Lens — `help.about`
 
@@ -412,7 +413,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## XnView style
 
-*Modeled on XnView MP browser and viewer. 177 commands.*
+*Modeled on XnView MP browser and viewer. 178 commands.*
 
 ### File
 
@@ -646,6 +647,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Help — `help.contents`
 - Keyboard Shortcuts — `help.shortcuts`
 - Supported Formats — `help.formats`
+- Send a Sample File… — `help.sendSample`
 - About Anne's Lens — `help.about`
 
 ## FastStone style
@@ -1603,7 +1605,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## All viewers combined
 
-*Modeled on the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options). 339 commands.*
+*Modeled on the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options). 340 commands.*
 
 ### File
 
@@ -2123,12 +2125,13 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Help — `help.contents`
 - Keyboard Shortcuts — `help.shortcuts`
 - Supported Formats — `help.formats`
+- Send a Sample File… — `help.sendSample`
 - Check for Updates — `help.checkUpdates`
 - About Anne's Lens — `help.about`
 
 ## Anne's Lens complete
 
-*Modeled on the ribbon itself: one menu per tab, one submenu per group, every command. 557 commands.*
+*Modeled on the ribbon itself: one menu per tab, one submenu per group, every command. 558 commands.*
 
 <details><summary><b>File</b></summary>
 
@@ -2827,6 +2830,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Supported Formats — `help.formats`
 - What's New — `help.whatsNew`
 - Report a Problem — `help.reportIssue`
+- Send a Sample File… — `help.sendSample`
 - Check for Updates — `help.checkUpdates`
 - About Anne's Lens — `help.about`
 

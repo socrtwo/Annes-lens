@@ -30,7 +30,7 @@ interface QuillNativePlugin {
   /** Print the current WebView through PrintManager. */
   print(opts: { jobName: string }): Promise<void>;
   /** Share a file through ACTION_SEND. */
-  share(opts: { name: string; mime: string; data: string; title?: string }): Promise<void>;
+  share(opts: { name: string; mime: string; data: string; title?: string; subject?: string; text?: string; to?: string }): Promise<void>;
   /** File(s) the app was launched with (ACTION_VIEW / ACTION_SEND / ACTION_SEND_MULTIPLE), consumed once. */
   getLaunchFile(): Promise<NativeFile>;
   keepAwake(opts: { on: boolean }): Promise<void>;
@@ -482,21 +482,28 @@ export async function printDocument(jobName: string): Promise<void> {
   window.print();
 }
 
-export async function shareFile(blob: Blob, name: string, title?: string): Promise<void> {
+/** Whether the share sheet can take a file here (the app's native plugin, iOS, or a browser with file sharing). */
+export async function canShareFiles(blob: Blob, name: string): Promise<boolean> {
+  if (isNative() || isIOS()) return true;
+  const nav = navigator as any;
+  try { return !!(nav.canShare && nav.canShare({ files: [new File([blob], name, { type: blob.type })] })); } catch { return false; }
+}
+/** `extra`: a subject, message text and address for a mail app (the share sheet passes what the platform allows). */
+export async function shareFile(blob: Blob, name: string, title?: string, extra: { subject?: string; text?: string; to?: string } = {}): Promise<void> {
   if (isNative()) {
-    await Native.share({ name, mime: blob.type || 'application/octet-stream', data: b64FromBuffer(await blob.arrayBuffer()), title });
+    await Native.share({ name, mime: blob.type || 'application/octet-stream', data: b64FromBuffer(await blob.arrayBuffer()), title, ...extra });
     return;
   }
   if (isIOS()) {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Share } = await import('@capacitor/share');
     const w = await Filesystem.writeFile({ path: name.replace(/[\\/:*?"<>|]/g, '_') || 'picture', data: b64FromBuffer(await blob.arrayBuffer()), directory: Directory.Cache });
-    await Share.share({ title: title || name, files: [w.uri] });
+    await Share.share({ title: title || name, text: extra.text, files: [w.uri] });
     return;
   }
   const file = new File([blob], name, { type: blob.type });
   const nav = navigator as any;
-  if (nav.canShare && nav.canShare({ files: [file] })) { await nav.share({ files: [file], title: title || name }); return; }
+  if (nav.canShare && nav.canShare({ files: [file] })) { await nav.share({ files: [file], title: title || name, text: extra.text }); return; }
   download(blob, name);
 }
 
