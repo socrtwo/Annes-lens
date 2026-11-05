@@ -233,6 +233,32 @@
   "what": "four 8-bit frames with a window",
   "width": 24
  },
+ "gsps-annot.dcm": {
+  "annotations": true,
+  "comment": "graphic annotations: a filled rectangle, a circle, an ellipse, a point, text with an anchor",
+  "frames": 1,
+  "height": 32,
+  "pi": "MONOCHROME2",
+  "references": "ct-window.dcm",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "presentation state: graphic annotations: a filled rectangle, a circle, an ellipse, a point, text with an anchor",
+  "width": 48
+ },
+ "gsps-missing.dcm": {
+  "comment": "references an image that is not in the folder",
+  "unsupported": "missing reference",
+  "what": "presentation state referencing a missing image"
+ },
+ "gsps.dcm": {
+  "comment": "window 100/600, inverse presentation LUT, rectangular shutter, displayed area, rotation 90 and horizontal flip",
+  "frames": 1,
+  "height": 44,
+  "pi": "MONOCHROME2",
+  "references": "ct-window.dcm",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "presentation state: window 100/600, inverse presentation LUT, rectangular shutter, displayed area, rotation 90 and horizontal flip",
+  "width": 30
+ },
  "image_dfl.dcm": {
   "comment": "THE OUTPUT OF THIS SOFTWARE IS FOR INVESTIGATIONAL USE ONLY - NOT TESTED OR APPROVED FOR CLINICAL APPLICATION",
   "frames": 1,
@@ -331,6 +357,24 @@
   "ts": "1.2.840.10008.1.2.1",
   "what": "an overlay plane (Overlay Data) with an origin inside the picture",
   "width": 44
+ },
+ "palette-segmented-winter.dcm": {
+  "comment": "PALETTE COLOR with the segmented WINTER palette (8-bit entries)",
+  "frames": 1,
+  "height": 8,
+  "pi": "PALETTE COLOR",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "PALETTE COLOR with the segmented WINTER palette (8-bit entries)",
+  "width": 64
+ },
+ "palette-segmented16.dcm": {
+  "comment": "PALETTE COLOR with a 16-bit segmented palette: discrete, linear and indirect segments",
+  "frames": 1,
+  "height": 6,
+  "pi": "PALETTE COLOR",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "PALETTE COLOR with a 16-bit segmented palette: discrete, linear and indirect segments",
+  "width": 128
  },
  "palette8.dcm": {
   "comment": "PALETTE COLOR, 8-bit indices, 16-bit lookup tables",

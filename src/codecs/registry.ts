@@ -206,6 +206,8 @@ export const decodeOptions = {
   rawPreferPreview: true,
   /** Asks for a document's password (set by the app's interface); null: the user gave up. */
   askPassword: null as null | ((name: string, wrong: boolean) => Promise<string | null>),
+  /** The other entries of the folder an entry was opened from (set by the app), for files that refer to their neighbours (DICOM presentation states). */
+  siblings: null as null | ((entry: Entry) => Entry[]),
 };
 
 /** Decodes bytes into a Picture. Throws with a readable message when nothing can be shown. */
@@ -256,11 +258,20 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   else if (fmt.id === 'psp') { const { decodePsp } = await import('./psp'); decoded = fromOwn(decodePsp(u8), 'psp'); }
   else if (fmt.id === 'jbig') { const { decodeJbig } = await import('./jbig'); decoded = fromOwn(decodeJbig(u8), 'jbig'); }
   else if (fmt.id === 'dicom') {
-    const [{ decodeDicom, dicomTransferSyntax, isJ2kTransferSyntax }, { imageDecoders }] = await Promise.all([import('./dicom'), import('./jpx')]);
+    const [{ decodeDicom, dicomTransferSyntax, isJ2kTransferSyntax, isPresentationState, readPresentationState, dicomSopInstanceUid }, { imageDecoders }] = await Promise.all([import('./dicom'), import('./jpx')]);
     const dec = await imageDecoders().catch(() => null);
+    let bytes = u8, presentation;
+    if (isPresentationState(u8)) { // display instructions for a picture in another file of the same folder
+      presentation = readPresentationState(u8, entry.name);
+      const sibs = (decodeOptions.siblings?.(entry) || []).filter((s) => s !== entry && s.name !== entry.name && (/\.(dcm|dicom)$/i.test(s.name) || !/\./.test(s.name)) && (s.size ?? 0) <= 512e6).slice(0, 500);
+      let found: Uint8Array | null = null;
+      for (const s of sibs) { const b = new Uint8Array(await s.read()); if (presentation.references.includes(dicomSopInstanceUid(b))) { found = b; presentation.name = s.name === entry.name ? entry.name : `${entry.name} on ${s.name}`; break; } }
+      if (!found) throw new Error(`${entry.name} is a presentation state${presentation.label ? ` (${presentation.label})` : ''}: display settings for a picture in another DICOM file, which is not in this folder (${presentation.references.length ? `SOP instance ${presentation.references[0]}` : 'no image is referenced'}). Open it from the folder that holds the picture.`);
+      bytes = found;
+    }
     let fallback = '';
-    if (isJ2kTransferSyntax(dicomTransferSyntax(u8))) { try { await (await import('./openjpeg16')).loadOpenJpeg(); } catch (e) { fallback = (e as Error).message; } }
-    decoded = fromOwn(await decodeDicom(u8, dec), 'dicom');
+    if (isJ2kTransferSyntax(dicomTransferSyntax(bytes))) { try { await (await import('./openjpeg16')).loadOpenJpeg(); } catch (e) { fallback = (e as Error).message; } }
+    decoded = fromOwn(await decodeDicom(bytes, dec, { presentation, drawText: presentation ? textRasterizer() : undefined }), 'dicom');
     if (fallback) decoded.warnings.push(fallback);
   }
   else if (fmt.id === 'fits') { const { decodeFits } = await import('./fits'); decoded = fromOwn(decodeFits(u8, entry.name), 'fits'); }
@@ -578,4 +589,23 @@ export async function encodeCanvas(c: HTMLCanvasElement, format: EncodeFormat, q
   if (!blob) throw new Error(`Could not encode ${format.toUpperCase()}`);
   if (blob.type !== mime) throw new Error(`${format.toUpperCase()} encoding is not available on this platform`);
   return blob;
+}
+
+/** Text as an alpha mask through a canvas (12 px sans-serif), where the platform has one; null elsewhere (tests). */
+function textRasterizer(): ((text: string) => { width: number; height: number; alpha: Uint8ClampedArray } | null) | undefined {
+  if (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined') return undefined;
+  return (text) => {
+    try {
+      const font = '12px sans-serif';
+      const cv: any = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(8, 8) : Object.assign(document.createElement('canvas'), { width: 8, height: 8 });
+      let ctx = cv.getContext('2d'); if (!ctx) return null;
+      ctx.font = font;
+      const m = ctx.measureText(text), width = Math.ceil(m.width) + 2, height = 16;
+      if (width > 4096) return null;
+      cv.width = width; cv.height = height; ctx = cv.getContext('2d'); ctx.font = font; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff'; ctx.fillText(text, 1, 1);
+      const img = ctx.getImageData(0, 0, width, height).data, alpha = new Uint8ClampedArray(width * height);
+      for (let i = 0; i < alpha.length; i++) alpha[i] = img[i * 4 + 3];
+      return { width, height, alpha };
+    } catch { return null; }
+  };
 }

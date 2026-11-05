@@ -551,6 +551,23 @@ try {
   check('dicom: the details name the modality, window and transfer syntax, and every page says it is not for diagnosis', [more.ctInfo, /not a medical device/.test(more.ctNote || '')], [['CT', 'center 40, width 100', 'JPEG 2000 (1.2.840.10008.1.2.4.91)'], true], JSON.stringify([more.ctInfo, more.ctNote]));
   check('dicom: JPEG-LS color pixel data (sample interleaved) and an overlay plane drawn in white', [more['SC_rgb_jls_lossy_sample.dcm'], more.jlsPx, more['overlay.dcm'], more.ovlPx], [['dicom', 100, 100, 1], [130, 130, 255], ['dicom', 44, 30, 1], [255, 104]], JSON.stringify([more['SC_rgb_jls_lossy_sample.dcm'], more.jlsPx, more['overlay.dcm'], more.ovlPx]));
   check('fits: a tile-compressed, quantized and dithered image opens, its nulls transparent', [more['rice-f32-dither1.fits'], more.riceNote, more.riceAlpha], [['fits', 100, 60, 1], 'FITS image extension 1 "COMPRESSED_IMAGE", 32-bit floating-point, RICE_1 tiles (quantized with dither)', 0], JSON.stringify([more['rice-f32-dither1.fits'], more.riceNote, more.riceAlpha]));
+  // A DICOM presentation state dropped together with the picture it refers to: the picture opens with the state's annotations, the text drawn by the browser.
+  const psFiles = Object.fromEntries(['gsps-annot.dcm', 'ct-window.dcm'].map((n) => [n, readFileSync(`tests/fixtures/dicom/${n}`).toString('base64')]));
+  const psGot = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const list = Object.entries(files).map(([n, b64]) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n));
+    const before = qn.picture;
+    await qn.exec('file.openDropped', list);
+    for (let i = 0; i < 200 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+    if (qn.folder.select(qn.folder.entries.findIndex((e) => e.name === 'gsps-annot.dcm'))) await qn.tab.show(); // the folder is sorted by name: the picture came first
+    for (let i = 0; i < 200 && (!qn.picture || qn.picture.name !== 'gsps-annot.dcm') && !document.querySelector('.ql-toast'); i++) await wait(50);
+    const pic = qn.picture;
+    if (!pic || pic.name !== 'gsps-annot.dcm') return [...document.querySelectorAll('.ql-toast')].map((t) => t.textContent).concat([pic?.name]);
+    const c = pic.frameCanvas(), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let text = 0; for (let y = 2; y < 14; y++) for (let x = 20; x < 46; x++) if (d[(y * c.width + x) * 4] === 191) text++;
+    return [pic.format.id, pic.width, pic.height, pic.pages[0].notes.find((n) => /^presentation state/.test(n)), pic.warnings, text > 10, pic.info.annotations];
+  }, psFiles);
+  check('dicom: a presentation state dropped with its picture opens that picture with the annotations and text drawn', psGot, ['dicom', 48, 32, 'presentation state FIXTURE (graphic annotations: a filled rectangle, a circle, an ellipse, a point, text with an anchor) applied: 5 graphic objects and 1 text', [], true, 'Lesion'], JSON.stringify(psGot));
   check('fits: a world coordinate system is read and described', more.wcs, ['TAN', 'TAN projection: the center is at RA 10:00:24.00 Dec −20:30:00.0 (ICRS J2000); the pixel readout and Measure show sky positions'], JSON.stringify(more.wcs));
   check('fits opens: image extensions as pages; a gzipped file, stretched, the first stored row at the bottom', [more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx], [['fits', 12, 8, 1], 2, ['fits', 30, 20, 1], [0, 255]], JSON.stringify([more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx]));
   check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)

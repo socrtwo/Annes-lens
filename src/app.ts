@@ -191,6 +191,7 @@ export class App {
   journal = new Journal();
 
   constructor(public host: HTMLElement) {
+    decodeOptions.siblings = (e) => { try { const f = this.folder; return f && f.entries.includes(e) ? f.entries : []; } catch { return []; } };
     decodeOptions.askPassword = async (name, wrong) => {
       const r = await openDialog({ title: 'Password', ok: 'Open', help: wrong ? `That password does not open ${name}. Try again.` : `${name} is protected by a password.`, fields: [{ key: 'pw', label: 'Password', type: 'password', value: '' }] });
       return r ? String(r.pw) : null;

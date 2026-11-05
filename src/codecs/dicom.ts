@@ -22,6 +22,72 @@ import { openJpegReady, decodeJ2k16 } from './openjpeg16';
 
 export const NOT_FOR_DIAGNOSIS = 'For viewing only: Anne\'s Lens is not a medical device, and this picture is not for diagnosis or treatment decisions';
 
+/** The SOP Instance UID of a file ('' when it has none), for matching references. */
+export function dicomSopInstanceUid(u8: Uint8Array): string { try { return str(parseFile(u8), 8, 0x18) || ''; } catch { return ''; } }
+const GSPS = '1.2.840.10008.5.1.4.1.1.11.1', CSPS = '1.2.840.10008.5.1.4.1.1.11.2';
+/** Whether a file is a (grayscale or color) softcopy presentation state: display instructions for another file's picture. */
+export function isPresentationState(u8: Uint8Array): boolean { try { const d = parseFile(u8); const sop = str(d, 8, 0x16); return (sop === GSPS || sop === CSPS) && !d.el.has(PIXEL); } catch { return false; } }
+
+export interface GraphicObject { type: string; points: [number, number][]; filled: boolean; units: string }
+export interface TextObject { text: string; anchor?: [number, number]; anchorVisible: boolean; box?: [number, number, number, number]; units: string; anchorUnits: string }
+export interface PresentationState {
+  name: string; label?: string; description?: string; references: string[];
+  window?: { wc: number; ww: number; fn: string }; voiLut?: Lut | null; rescale?: { slope: number; intercept: number }; modalityLut?: Lut | null;
+  inverse: boolean; presentationLut?: Lut | null;
+  shutters: { shape: string; left?: number; right?: number; upper?: number; lower?: number; center?: [number, number]; radius?: number; vertices?: [number, number][]; gray: number }[];
+  area?: { tl: [number, number]; br: [number, number] };
+  rotation: number; flip: boolean;
+  layers: { name: string; gray: number; graphics: GraphicObject[]; texts: TextObject[] }[];
+}
+/** Reads a softcopy presentation state file (PS3.3 A.33): what it says to do with the picture it references. */
+export function readPresentationState(u8: Uint8Array, name = ''): PresentationState {
+  const d = parseFile(u8);
+  const refs: string[] = [];
+  for (const series of d.el.get(T(8, 0x1115))?.items || []) for (const im of series.get(T(8, 0x1140))?.items || []) { const uid = strIn(d, im, 8, 0x1155); if (uid) refs.push(uid); }
+  const ps: PresentationState = { name, label: str(d, 0x70, 0x80), description: str(d, 0x70, 0x81), references: refs, inverse: (str(d, 0x2050, 0x20) || '').toUpperCase() === 'INVERSE', shutters: [], rotation: u16v(d, 0x70, 0x42) || 0, flip: (str(d, 0x70, 0x41) || '').toUpperCase() === 'Y', layers: [] };
+  const voi = d.el.get(T(0x28, 0x3110))?.items?.[0];
+  if (voi) {
+    const wc = numsIn(d, voi, 0x28, 0x1050)[0], ww = numsIn(d, voi, 0x28, 0x1051)[0];
+    if (Number.isFinite(wc) && Number.isFinite(ww) && ww >= 1) ps.window = { wc, ww, fn: (strIn(d, voi, 0x28, 0x1056) || 'LINEAR').toUpperCase() };
+    const lut = voi.get(T(0x28, 0x3010))?.items?.[0]; if (lut) ps.voiLut = readLut(d, lut, true);
+  }
+  const slope = nums(d, 0x28, 0x1053)[0], icpt = nums(d, 0x28, 0x1052)[0];
+  if (Number.isFinite(slope) && Number.isFinite(icpt)) ps.rescale = { slope, intercept: icpt };
+  const ml = d.el.get(T(0x28, 0x3000))?.items?.[0]; if (ml) ps.modalityLut = readLut(d, ml, false);
+  const pl = d.el.get(T(0x2050, 0x10))?.items?.[0]; if (pl) ps.presentationLut = readLut(d, pl, false);
+  const grayOf = (v: number | undefined) => (v === undefined ? 255 : Math.round((v / 65535) * 255));
+  for (const shape of strs(d, 0x18, 0x1600)) {
+    const sh = shape.toUpperCase(), gray = grayOf(u16v(d, 0x18, 0x1622) ?? 0);
+    if (sh === 'RECTANGULAR') ps.shutters.push({ shape: sh, left: nums(d, 0x18, 0x1602)[0], right: nums(d, 0x18, 0x1604)[0], upper: nums(d, 0x18, 0x1606)[0], lower: nums(d, 0x18, 0x1608)[0], gray });
+    else if (sh === 'CIRCULAR') { const c = nums(d, 0x18, 0x1610); ps.shutters.push({ shape: sh, center: [c[0], c[1]], radius: nums(d, 0x18, 0x1612)[0], gray }); }
+    else if (sh === 'POLYGONAL') { const v = nums(d, 0x18, 0x1620), vertices: [number, number][] = []; for (let i = 0; i + 1 < v.length; i += 2) vertices.push([v[i], v[i + 1]]); ps.shutters.push({ shape: sh, vertices, gray }); }
+  }
+  const area = d.el.get(T(0x70, 0x5a))?.items?.[0];
+  if (area) { const tl = binIn(d, area, 0x70, 0x52), br = binIn(d, area, 0x70, 0x53); if (tl.length >= 2 && br.length >= 2) ps.area = { tl: [tl[0], tl[1]], br: [br[0], br[1]] }; }
+  const layerGray = new Map<string, number>();
+  for (const l of d.el.get(T(0x70, 0x60))?.items || []) {
+    const nm = strIn(d, l, 0x70, 0x02) || '', g = binIn(d, l, 0x70, 0x66)[0], lab = binIn(d, l, 0x70, 0x401);
+    layerGray.set(nm, g !== undefined ? grayOf(g) : lab.length >= 1 ? Math.round((lab[0] / 65535) * 255) : 255);
+  }
+  for (const a of d.el.get(T(0x70, 0x01))?.items || []) {
+    const nm = strIn(d, a, 0x70, 0x02) || '', layer = { name: nm, gray: layerGray.get(nm) ?? 255, graphics: [] as GraphicObject[], texts: [] as TextObject[] };
+    for (const g of a.get(T(0x70, 0x09))?.items || []) {
+      const data = binIn(d, g, 0x70, 0x22), points: [number, number][] = [];
+      for (let i = 0; i + 1 < data.length; i += 2) points.push([data[i], data[i + 1]]);
+      layer.graphics.push({ type: (strIn(d, g, 0x70, 0x23) || 'POLYLINE').toUpperCase(), points, filled: (strIn(d, g, 0x70, 0x24) || 'N').toUpperCase() === 'Y', units: (strIn(d, g, 0x70, 0x05) || 'PIXEL').toUpperCase() });
+    }
+    for (const t of a.get(T(0x70, 0x08))?.items || []) {
+      const anchor = binIn(d, t, 0x70, 0x14), tl = binIn(d, t, 0x70, 0x10), br = binIn(d, t, 0x70, 0x11);
+      layer.texts.push({ text: strIn(d, t, 0x70, 0x06) || '', anchor: anchor.length >= 2 ? [anchor[0], anchor[1]] : undefined, anchorVisible: (strIn(d, t, 0x70, 0x15) || 'Y').toUpperCase() === 'Y', box: tl.length >= 2 && br.length >= 2 ? [tl[0], tl[1], br[0], br[1]] : undefined, units: (strIn(d, t, 0x70, 0x03) || 'PIXEL').toUpperCase(), anchorUnits: (strIn(d, t, 0x70, 0x04) || 'PIXEL').toUpperCase() });
+    }
+    ps.layers.push(layer);
+  }
+  return ps;
+}
+
+/** A text rasterizer the app provides (a canvas): an alpha mask of the text in a 12 px sans-serif, or null where none exists. */
+export type TextRasterizer = (text: string) => { width: number; height: number; alpha: Uint8ClampedArray } | null;
+
 /** The transfer syntax UID of a Part 10 file ('' when there is none). */
 export function dicomTransferSyntax(u8: Uint8Array): string { try { return parseFile(u8).ts; } catch { return ''; } }
 export const isJ2kTransferSyntax = (ts: string): boolean => /^1\.2\.840\.10008\.1\.2\.4\.(9[0-3]|20[1-3])$/.test(ts);
@@ -62,7 +128,7 @@ const PIXEL = T(0x7fe0, 0x0010), FLOAT_PIXEL = T(0x7fe0, 0x0008), DOUBLE_PIXEL =
 interface Element { vr: string; off: number; len: number; be: boolean; frags?: { off: number; len: number }[]; bot?: number[]; items?: Elements[] }
 type Elements = Map<number, Element>;
 /** Sequences whose items are kept (the lookup tables). */
-const KEEP_ITEMS = new Set([T(0x28, 0x3000), T(0x28, 0x3010)]);
+const KEEP_ITEMS = new Set([T(0x28, 0x3000), T(0x28, 0x3010), T(0x28, 0x3110), T(0x2050, 0x0010), T(0x70, 0x5a), T(0x70, 0x60), T(0x70, 0x01), T(0x70, 0x08), T(0x70, 0x09), T(0x08, 0x1115), T(0x08, 0x1140)]);
 
 /** The items of a sequence from `start` to `end` (or to the sequence delimiter when `end` is Infinity). */
 function walkItems(u8: Uint8Array, start: number, end: number, explicit: boolean, be: boolean, collect: boolean, depth: number): { end: number; items: Elements[] } {
@@ -182,6 +248,21 @@ function decodeText(d: Parsed, e: Element): string {
   return s.replace(/[\0 ]+$/, '').replace(/^ +/, '');
 }
 const str = (d: Parsed, g: number, e: number): string | undefined => { const el = d.el.get(T(g, e)); return el ? decodeText(d, el) : undefined; };
+const strIn = (d: Parsed, m: Elements, g: number, e: number): string | undefined => { const el = m.get(T(g, e)); return el ? decodeText(d, el) : undefined; };
+const numsIn = (d: Parsed, m: Elements, g: number, e: number): number[] => (strIn(d, m, g, e) || '').split('\\').map((x) => Number(x.trim())).filter((v) => Number.isFinite(v));
+/** Binary numbers of an element (FL, SL, US, SS) by its VR, or the text numbers of IS/DS. */
+function binIn(d: Parsed, m: Elements, g: number, e: number): number[] {
+  const el = m.get(T(g, e)); if (!el) return [];
+  const dv = new DataView(d.u8.buffer, d.u8.byteOffset + el.off, el.len), out: number[] = [];
+  if (el.vr === 'FL') for (let i = 0; i + 4 <= el.len; i += 4) out.push(dv.getFloat32(i, !el.be));
+  else if (el.vr === 'FD') for (let i = 0; i + 8 <= el.len; i += 8) out.push(dv.getFloat64(i, !el.be));
+  else if (el.vr === 'SL') for (let i = 0; i + 4 <= el.len; i += 4) out.push(dv.getInt32(i, !el.be));
+  else if (el.vr === 'UL') for (let i = 0; i + 4 <= el.len; i += 4) out.push(dv.getUint32(i, !el.be));
+  else if (el.vr === 'SS') for (let i = 0; i + 2 <= el.len; i += 2) out.push(dv.getInt16(i, !el.be));
+  else if (el.vr === 'US' || el.vr === '') for (let i = 0; i + 2 <= el.len; i += 2) out.push(dv.getUint16(i, !el.be));
+  else return numsIn(d, m, g, e);
+  return out;
+}
 const strs = (d: Parsed, g: number, e: number): string[] => (str(d, g, e) || '').split('\\').map((s) => s.trim()).filter((s) => s !== '');
 const nums = (d: Parsed, g: number, e: number): number[] => strs(d, g, e).map(Number).filter((v) => Number.isFinite(v));
 /** A US (or SS) value, by the transfer syntax's byte order. */
@@ -305,7 +386,8 @@ function readOverlays(d: Parsed): Overlay[] {
 }
 
 /** `dec` is pdf.js's image-decoders module (JpegImage, JpxImage); needed only for JPEG and JPEG 2000 pixel data. */
-export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFrames?: number; maxPixels?: number } = {}): Promise<DecodeResult> {
+export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFrames?: number; maxPixels?: number; presentation?: PresentationState; drawText?: TextRasterizer } = {}): Promise<DecodeResult> {
+  const ps = o.presentation;
   const d = parseFile(input), warnings: string[] = [], info: Record<string, string> = {};
   const { u8, ts, be } = d;
   const rows = u16v(d, 0x28, 0x10) || 0, cols = u16v(d, 0x28, 0x11) || 0;
@@ -354,8 +436,9 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   const frameBytes = encapsulated ? frameFragments(pix, u8, pi.frames) : null;
   const is422 = pi.pi === 'YBR_FULL_422' && pi.spp === 3 && !encapsulated;
   const frameSize = is422 ? rows * cols * 2 * (pi.bitsAlloc / 8) : Math.ceil((rows * cols * pi.spp * pi.bitsAlloc) / 8);
-  const rescaleSlope = nums(d, 0x28, 0x1053)[0], rescaleIntercept = nums(d, 0x28, 0x1052)[0];
-  const wc = nums(d, 0x28, 0x1050)[0], ww = nums(d, 0x28, 0x1051)[0], voiFn = (str(d, 0x28, 0x1056) || 'LINEAR').toUpperCase();
+  const rescaleSlope = ps?.rescale ? ps.rescale.slope : nums(d, 0x28, 0x1053)[0], rescaleIntercept = ps?.rescale ? ps.rescale.intercept : nums(d, 0x28, 0x1052)[0];
+  let wc = nums(d, 0x28, 0x1050)[0], ww = nums(d, 0x28, 0x1051)[0], voiFn = (str(d, 0x28, 0x1056) || 'LINEAR').toUpperCase();
+  if (ps?.window) { wc = ps.window.wc; ww = ps.window.ww; voiFn = ps.window.fn; }
   const haveWindow = Number.isFinite(wc) && Number.isFinite(ww) && ww >= 1;
   const haveRescale = Number.isFinite(rescaleSlope) && Number.isFinite(rescaleIntercept) && !(rescaleSlope === 1 && rescaleIntercept === 0);
   const spacing = nums(d, 0x28, 0x30).length === 2 ? nums(d, 0x28, 0x30) : nums(d, 0x18, 0x1164).length === 2 ? nums(d, 0x18, 0x1164) : null;
@@ -366,8 +449,8 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   if (haveWindow) info.window = `center ${wc}, width ${ww}${voiFn !== 'LINEAR' ? ` (${voiFn})` : ''}${nums(d, 0x28, 0x1050).length > 1 ? ` (first of ${nums(d, 0x28, 0x1050).length})` : ''}`;
   info.pixels = `${pi.spp === 1 ? 'monochrome' : `${pi.spp} samples`}, ${pi.bitsStored} of ${pi.bitsAlloc} bits${pi.signed ? ', signed' : ''}, ${pi.pi}${pi.frames > 1 ? `, ${pi.frames} frames` : ''}`;
   const overlays = readOverlays(d);
-  const modalityLut = (d.el.get(T(0x28, 0x3000))?.items || []).map((it) => readLut(d, it, pi.signed)).find(Boolean) || null;
-  const voiLut = (d.el.get(T(0x28, 0x3010))?.items || []).map((it) => readLut(d, it, true)).find(Boolean) || null;
+  const modalityLut = ps?.modalityLut || (ps?.rescale ? null : (d.el.get(T(0x28, 0x3000))?.items || []).map((it) => readLut(d, it, pi.signed)).find(Boolean) || null);
+  const voiLut = ps?.window ? null : ps?.voiLut || (d.el.get(T(0x28, 0x3010))?.items || []).map((it) => readLut(d, it, true)).find(Boolean) || null;
   if (modalityLut) info['modality LUT'] = `${modalityLut.values.length} entries from ${modalityLut.first}${modalityLut.explanation ? ` (${modalityLut.explanation})` : ''}`;
   if (voiLut) info['VOI LUT'] = `${voiLut.values.length} entries from ${voiLut.first}${voiLut.explanation ? ` (${voiLut.explanation})` : ''}${haveWindow ? '; used instead of the window' : ''}`;
   if (overlays.length) info.overlays = overlays.map((o) => `${o.rows} × ${o.cols} at (${o.originCol}, ${o.originRow})${o.type === 'R' ? ', ROI' : ''}${o.bits ? '' : ' (embedded)'}`).join('; ');
@@ -376,8 +459,37 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   let palette: Uint8Array[] | null = null, paletteFirst = 0, paletteN = 0;
   if (pi.pi === 'PALETTE COLOR') {
     const desc = u16s(d, 0x28, 0x1101);
-    if (d.el.has(T(0x28, 0x1221))) warnings.push('A segmented palette is not applied: the picture is shown gray');
-    else if (desc.length >= 3) {
+    if (desc.length >= 3 && d.el.has(T(0x28, 0x1221))) { // segmented (PS3.3 C.7.9.2): discrete, linear and indirect segments expanded
+      paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
+      const max = desc[2] === 8 ? 255 : 65535;
+      palette = [0x1221, 0x1222, 0x1223].map((e) => {
+        const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
+        if (!el) return out;
+        // The segments are a stream of 16-bit words, or of bytes when the entries are 8 bits wide; an indirect segment's offset counts bytes.
+        const bytes8 = desc[2] === 8, dv = new DataView(u8.buffer, u8.byteOffset + el.off, el.len), nw = bytes8 ? el.len : el.len >> 1;
+        const word = (i: number) => (i < nw ? (bytes8 ? u8[el.off + i] : dv.getUint16(i * 2, !el.be)) : 0);
+        const vals: number[] = [];
+        const run = (from: number, segments: number, depth: number): number => { // returns the element position after the segments
+          let p = from;
+          for (let s = 0; s < segments && p + 1 < nw && vals.length < paletteN; s++) {
+            const op = word(p), n = word(p + 1);
+            if (op === 0) { for (let i = 0; i < n; i++) vals.push(word(p + 2 + i)); p += 2 + n; }
+            else if (op === 1) { const y = word(p + 2), y0 = vals.length ? vals[vals.length - 1] : 0; for (let i = 1; i <= n; i++) vals.push(Math.round(y0 + ((y - y0) * i) / n)); p += 3; }
+            else if (op === 2) {
+              const off = bytes8 ? word(p + 2) | (word(p + 3) << 8) | (word(p + 4) << 16) | (word(p + 5) << 24) : word(p + 2) | (word(p + 3) << 16);
+              if (depth < 8) run(bytes8 ? off : off >> 1, n, depth + 1);
+              p += bytes8 ? 6 : 4;
+            }
+            else { warnings.push(`Unknown palette segment type ${op}`); break; }
+          }
+          return p;
+        };
+        run(0, 1e9, 0);
+        if (vals.length < paletteN) warnings.push('The segmented palette is shorter than its descriptor says');
+        for (let i = 0; i < paletteN; i++) out[i] = Math.round(((vals[i] ?? 0) * 255) / max);
+        return out;
+      });
+    } else if (desc.length >= 3) {
       paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
       palette = [0x1201, 0x1202, 0x1203].map((e) => {
         const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
@@ -478,8 +590,9 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
           else if (voiFn === 'LINEAR_EXACT') y = x <= wc - ww / 2 ? 0 : x > wc + ww / 2 ? 255 : ((x - (wc - ww / 2)) / ww) * 255;
           else y = x <= wc - 0.5 - (ww - 1) / 2 ? 0 : x > wc - 0.5 + (ww - 1) / 2 ? 255 : ((x - (wc - 0.5)) / (ww - 1) + 0.5) * 255;
         } else y = hi > lo ? ((x - lo) / (hi - lo)) * 255 : 0;
+        if (ps?.presentationLut) y = (lutAt(ps.presentationLut, (y / 255) * (ps.presentationLut.values.length - 1) + ps.presentationLut.first) / ps.presentationLut.max) * 255;
         y = Math.round(Math.max(0, Math.min(255, y)));
-        if (inv) y = 255 - y;
+        if (inv !== !!ps?.inverse) y = 255 - y;
         out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = y; out[i * 4 + 3] = 255;
       }
       const after = modalityLut ? ', after the modality lookup table' : haveRescale ? ', after the rescale' : '';
@@ -502,11 +615,14 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
       if (any) drawn++;
     }
     if (drawn) notes.push(`${drawn} overlay plane${drawn > 1 ? 's' : ''} drawn in white`);
+    let page: { raster: ReturnType<typeof makeRaster>; dpiSwap: boolean } = { raster: r, dpiSwap: false };
+    if (ps) { page = applyPresentation(r, ps, o.drawText, notes, warnings, f === 0 ? info : {}); }
     if (pi.frames > 1) notes.unshift(`frame ${f + 1} of ${pi.frames}`);
     notes.push(`${pi.bitsStored}-bit ${pi.spp === 1 ? 'monochrome' : `${pi.spp}-sample`} ${TS[ts] || 'DICOM'} pixel data`);
     if (depthNote) notes.push(depthNote);
     notes.push(NOT_FOR_DIAGNOSIS);
-    pages.push({ width: cols, height: rows, frames: [{ raster: r, delay: 0 }], loops: 0, bitDepth: pi.bitsStored, hasAlpha: false, notes, dpi: spacing && spacing[0] > 0 && spacing[1] > 0 ? [25.4 / spacing[1], 25.4 / spacing[0]] : undefined });
+    const dpi: [number, number] | undefined = spacing && spacing[0] > 0 && spacing[1] > 0 ? (page.dpiSwap ? [25.4 / spacing[0], 25.4 / spacing[1]] : [25.4 / spacing[1], 25.4 / spacing[0]]) : undefined;
+    pages.push({ width: page.raster.width, height: page.raster.height, frames: [{ raster: page.raster, delay: 0 }], loops: 0, bitDepth: pi.bitsStored, hasAlpha: false, notes, dpi });
   }
   if (!pages.length) throw new Error('No frame could be read');
   info.notice = NOT_FOR_DIAGNOSIS;
@@ -533,3 +649,116 @@ function deinterleave422(src: Float32Array, rows: number, cols: number): Float32
   return v;
 }
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));
+
+/** Shutters, annotations, the displayed area and the spatial transformation of a presentation state applied to a frame's raster. */
+function applyPresentation(r: ReturnType<typeof makeRaster>, ps: PresentationState, drawText: TextRasterizer | undefined, notes: string[], warnings: string[], info: Record<string, string>): { raster: ReturnType<typeof makeRaster>; dpiSwap: boolean } {
+  const w = r.width, h = r.height, d = r.data;
+  const what: string[] = [];
+  if (ps.window) what.push(`window center ${ps.window.wc}, width ${ps.window.ww}`);
+  else if (ps.voiLut) what.push('its VOI lookup table');
+  if (ps.rescale) what.push(`rescale × ${ps.rescale.slope} + ${ps.rescale.intercept}`);
+  if (ps.modalityLut) what.push('its modality lookup table');
+  if (ps.presentationLut) what.push('its presentation lookup table');
+  if (ps.inverse) what.push('inverse presentation');
+  // Shutters: everything outside the shape takes the shutter's gray (pixel columns and rows are 1-based in the file).
+  for (const sh of ps.shutters) {
+    const g = sh.gray;
+    const keep = (x: number, y: number): boolean => {
+      const c = x + 1, rr = y + 1;
+      if (sh.shape === 'RECTANGULAR') return c >= (sh.left ?? 1) && c <= (sh.right ?? w) && rr >= (sh.upper ?? 1) && rr <= (sh.lower ?? h);
+      if (sh.shape === 'CIRCULAR') return sh.center ? Math.hypot(c - sh.center[1], rr - sh.center[0]) <= (sh.radius ?? 0) : true;
+      if (sh.shape === 'POLYGONAL' && sh.vertices && sh.vertices.length >= 3) return insidePolygon(sh.vertices.map(([row, col]) => [col, row] as [number, number]), c, rr);
+      return true;
+    };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!keep(x, y)) { const o = (y * w + x) * 4; d[o] = d[o + 1] = d[o + 2] = g; }
+    what.push(`${sh.shape.toLowerCase()} shutter`);
+  }
+  // Annotations, in image pixel units (the top-left corner of the picture is 0, 0) or fractions of the displayed area.
+  const area = ps.area ? { x: ps.area.tl[0] - 1, y: ps.area.tl[1] - 1, w: ps.area.br[0] - ps.area.tl[0] + 1, h: ps.area.br[1] - ps.area.tl[1] + 1 } : { x: 0, y: 0, w, h };
+  const toPx = (p: [number, number], units: string): [number, number] => (units === 'DISPLAY' ? [area.x + p[0] * area.w, area.y + p[1] * area.h] : p);
+  let nGraphics = 0, nTexts = 0, textSkipped = false;
+  const texts: string[] = [];
+  for (const layer of ps.layers) {
+    const g = layer.gray;
+    for (const obj of layer.graphics) {
+      const pts = obj.points.map((p) => toPx(p, obj.units));
+      if (!pts.length) continue;
+      nGraphics++;
+      if (obj.type === 'POINT') { const [x, y] = pts[0]; drawLine(r, x - 3, y, x + 3, y, g); drawLine(r, x, y - 3, x, y + 3, g); }
+      else if (obj.type === 'CIRCLE' && pts.length >= 2) drawPolyline(r, ellipsePoints(pts[0], Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), 0, 0), true, obj.filled, g);
+      else if (obj.type === 'ELLIPSE' && pts.length >= 4) { const c: [number, number] = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2]; drawPolyline(r, ellipsePoints(c, Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]) / 2, Math.hypot(pts[3][0] - pts[2][0], pts[3][1] - pts[2][1]) / 2, Math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0])), true, obj.filled, g); }
+      else drawPolyline(r, pts, obj.filled, obj.filled, g); // POLYLINE, INTERPOLATED (drawn straight)
+    }
+    for (const t of layer.texts) {
+      nTexts++; texts.push(t.text);
+      const box = t.box ? [...toPx([t.box[0], t.box[1]], t.units), ...toPx([t.box[2], t.box[3]], t.units)] : null;
+      const anchor = t.anchor ? toPx(t.anchor, t.anchorUnits) : null;
+      if (anchor && t.anchorVisible) { drawLine(r, anchor[0] - 3, anchor[1] - 3, anchor[0] + 3, anchor[1] + 3, g); drawLine(r, anchor[0] - 3, anchor[1] + 3, anchor[0] + 3, anchor[1] - 3, g); }
+      if (box) {
+        drawPolyline(r, [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]], true, false, g);
+        if (anchor && t.anchorVisible) { const cx = Math.max(box[0], Math.min(box[2], anchor[0])), cy = Math.max(box[1], Math.min(box[3], anchor[1])); drawLine(r, anchor[0], anchor[1], cx, cy, g); }
+      }
+      const mask = drawText ? drawText(t.text) : null;
+      if (!mask) { textSkipped = true; continue; }
+      const ox = box ? Math.round(box[0] + 2) : anchor ? Math.round(anchor[0] + 6) : 2, oy = box ? Math.round(box[1] + 1) : anchor ? Math.round(anchor[1] - mask.height / 2) : 2;
+      for (let yy = 0; yy < mask.height; yy++) for (let xx = 0; xx < mask.width; xx++) {
+        const a = mask.alpha[yy * mask.width + xx] / 255; if (!a) continue;
+        const x = ox + xx, y = oy + yy; if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const o = (y * w + x) * 4; d[o] = Math.round(d[o] * (1 - a) + g * a); d[o + 1] = Math.round(d[o + 1] * (1 - a) + g * a); d[o + 2] = Math.round(d[o + 2] * (1 - a) + g * a);
+      }
+    }
+  }
+  if (nGraphics || nTexts) what.push(`${nGraphics} graphic object${nGraphics === 1 ? '' : 's'}${nTexts ? ` and ${nTexts} text${nTexts === 1 ? '' : 's'}` : ''}`);
+  if (textSkipped) warnings.push('The presentation state\'s text could not be drawn here (no text renderer); its words are in the details');
+  if (texts.length) info.annotations = texts.join(' | ');
+  // The displayed area (a crop), then the horizontal flip, then the clockwise rotation.
+  let out = r;
+  if (ps.area) {
+    const x0 = Math.max(0, area.x), y0 = Math.max(0, area.y), x1 = Math.min(w, area.x + area.w), y1 = Math.min(h, area.y + area.h);
+    if (x1 > x0 && y1 > y0 && (x0 || y0 || x1 < w || y1 < h)) {
+      const c = makeRaster(x1 - x0, y1 - y0);
+      for (let y = y0; y < y1; y++) c.data.set(d.subarray((y * w + x0) * 4, (y * w + x1) * 4), (y - y0) * c.width * 4);
+      out = c; what.push(`displayed area ${c.width} × ${c.height}`);
+    }
+  }
+  if (ps.flip) { const c = makeRaster(out.width, out.height); for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) { const s0 = (y * out.width + x) * 4, t0 = (y * out.width + (out.width - 1 - x)) * 4; c.data[t0] = out.data[s0]; c.data[t0 + 1] = out.data[s0 + 1]; c.data[t0 + 2] = out.data[s0 + 2]; c.data[t0 + 3] = out.data[s0 + 3]; } out = c; what.push('horizontal flip'); }
+  const rot = ((Math.round(ps.rotation / 90) * 90) % 360 + 360) % 360;
+  let dpiSwap = false;
+  if (rot) {
+    const sw = out.width, sh = out.height, c = rot === 180 ? makeRaster(sw, sh) : makeRaster(sh, sw);
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+      const [tx, ty] = rot === 90 ? [sh - 1 - y, x] : rot === 180 ? [sw - 1 - x, sh - 1 - y] : [y, sw - 1 - x];
+      const s0 = (y * sw + x) * 4, t0 = (ty * c.width + tx) * 4;
+      c.data[t0] = out.data[s0]; c.data[t0 + 1] = out.data[s0 + 1]; c.data[t0 + 2] = out.data[s0 + 2]; c.data[t0 + 3] = out.data[s0 + 3];
+    }
+    out = c; dpiSwap = rot !== 180; what.push(`rotation ${rot}°`);
+  }
+  notes.push(`presentation state ${ps.label || ps.name}${ps.description ? ` (${ps.description})` : ''} applied: ${what.join(', ') || 'nothing to change'}`);
+  info['presentation state'] = `${ps.name}${ps.label ? ` (${ps.label})` : ''}`;
+  return { raster: out, dpiSwap };
+}
+type R = ReturnType<typeof makeRaster>;
+function put(r: R, x: number, y: number, g: number): void { const xi = Math.floor(x), yi = Math.floor(y); if (xi < 0 || yi < 0 || xi >= r.width || yi >= r.height) return; const o = (yi * r.width + xi) * 4; r.data[o] = r.data[o + 1] = r.data[o + 2] = g; r.data[o + 3] = 255; }
+function drawLine(r: R, x0: number, y0: number, x1: number, y1: number, g: number): void {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= n; i++) put(r, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, g);
+}
+function insidePolygon(pts: [number, number][], x: number, y: number): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside; }
+  return inside;
+}
+function drawPolyline(r: R, pts: [number, number][], closed: boolean, filled: boolean, g: number): void {
+  if (filled && pts.length >= 3) {
+    const ys = pts.map((p) => p[1]), y0 = Math.max(0, Math.floor(Math.min(...ys))), y1 = Math.min(r.height - 1, Math.ceil(Math.max(...ys)));
+    for (let y = y0; y <= y1; y++) for (let x = 0; x < r.width; x++) if (insidePolygon(pts, x + 0.5, y + 0.5)) put(r, x, y, g);
+  }
+  for (let i = 1; i < pts.length; i++) drawLine(r, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], g);
+  if (closed && pts.length > 2) drawLine(r, pts[pts.length - 1][0], pts[pts.length - 1][1], pts[0][0], pts[0][1], g);
+}
+function ellipsePoints(c: [number, number], a: number, b: number, angle: number): [number, number][] {
+  if (!b) b = a;
+  const n = Math.max(16, Math.ceil(2 * Math.PI * Math.max(a, b))), out: [number, number][] = [], ca = Math.cos(angle), sa = Math.sin(angle);
+  for (let i = 0; i < n; i++) { const t = (2 * Math.PI * i) / n, ex = a * Math.cos(t), ey = b * Math.sin(t); out.push([c[0] + ex * ca - ey * sa, c[1] + ex * sa + ey * ca]); }
+  return out;
+}

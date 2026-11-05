@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
-import { decodeDicom, isDicom, isRawDicom, NOT_FOR_DIAGNOSIS } from '../../src/codecs/dicom';
+import { decodeDicom, isDicom, isRawDicom, NOT_FOR_DIAGNOSIS, isPresentationState, readPresentationState } from '../../src/codecs/dicom';
+import { decodePicture, decodeOptions } from '../../src/codecs/registry';
 import { decodePngTolerant } from '../../src/codecs/png';
 import { sniff } from '../../src/codecs/registry';
 import { setOpenJpeg } from '../../src/codecs/openjpeg16';
@@ -20,7 +21,7 @@ let openjpeg: any;
 const DIR = 'tests/fixtures/dicom/';
 const fx = (n: string) => new Uint8Array(readFileSync(DIR + n));
 const ref = (n: string) => decodePngTolerant(fx(n)).pages[0].frames[0].raster;
-const expected: Record<string, { frames: number; width: number; height: number; pi: string; ts: string | null; what: string; unsupported?: string }> = JSON.parse(readFileSync(DIR + 'expected.json', 'utf8'));
+const expected: Record<string, { frames: number; width: number; height: number; pi: string; ts: string | null; what: string; unsupported?: string; references?: string; annotations?: boolean }> = JSON.parse(readFileSync(DIR + 'expected.json', 'utf8'));
 
 /** Mean and greatest absolute difference over the RGB channels. */
 function diff(a: { width: number; height: number; data: Uint8ClampedArray }, b: { width: number; height: number; data: Uint8ClampedArray }): { mean: number; max: number } {
@@ -47,7 +48,8 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
   for (const [name, e] of Object.entries(expected)) {
     if (e.unsupported) continue;
     it(`${name}: ${e.what}`, async () => {
-      const d = await decodeDicom(fx(name), pdfjs);
+      const d = e.references ? await decodeDicom(fx(e.references), pdfjs, { presentation: readPresentationState(fx(name), name) }) : await decodeDicom(fx(name), pdfjs);
+      if (e.annotations) { expect(d.pages.length).toBe(e.frames); expect([d.pages[0].width, d.pages[0].height]).toEqual([e.width, e.height]); return; } // checked pixel by pixel below
       expect(d.pages.length).toBe(e.frames);
       expect([d.pages[0].width, d.pages[0].height]).toEqual([e.width, e.height]);
       const [meanTol, maxTol] = TOL[e.ts || ''] || [0.05, 1];
@@ -114,6 +116,36 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
     expect(e.info.overlays).toBe('20 × 24 at (1, 1) (embedded)');
     expect(e.pages[0].notes).toContain('1 overlay plane drawn in white');
     expect(e.warnings).toEqual([]);
+  });
+  it('presentation states: recognized, read, applied with their annotations; the referenced picture is found among the folder\'s files', async () => {
+    expect(isPresentationState(fx('gsps.dcm'))).toBe(true);
+    expect(isPresentationState(fx('ct-window.dcm'))).toBe(false);
+    const ps = readPresentationState(fx('gsps.dcm'), 'gsps.dcm');
+    expect(ps.label).toBe('FIXTURE');
+    expect(ps.window).toEqual({ wc: 100, ww: 600, fn: 'LINEAR' });
+    expect([ps.inverse, ps.flip, ps.rotation, ps.shutters.length, ps.area]).toEqual([true, true, 90, 1, { tl: [3, 2], br: [46, 31] }]);
+    const d = await decodeDicom(fx('ct-window.dcm'), pdfjs, { presentation: ps });
+    expect(d.pages[0].notes).toContain('presentation state FIXTURE (window 100/600, inverse presentation LUT, rectangular shutter, displayed area, rotation 90 and horizontal flip) applied: window center 100, width 600, inverse presentation, rectangular shutter, displayed area 44 × 30, horizontal flip, rotation 90°');
+    expect(d.info['presentation state']).toBe('gsps.dcm (FIXTURE)');
+    expect(d.pages[0].dpi).toEqual([50.8, 50.8]);
+    const a = await decodeDicom(fx('ct-window.dcm'), pdfjs, { presentation: readPresentationState(fx('gsps-annot.dcm'), 'gsps-annot.dcm') });
+    const r = a.pages[0].frames[0].raster, px = (x: number, y: number) => r.data[(y * r.width + x) * 4];
+    expect(px(8, 8)).toBe(191); // inside the filled rectangle (layer gray 0xC000 → 191)
+    expect(px(36, 10)).toBe(191); // on the circle
+    expect(px(44, 26)).toBe(191); // the ellipse's major-axis end
+    expect(px(2, 30)).toBe(191); // the point's marker
+    expect(px(30, 10)).toBe(191); // the text's anchor marker
+    expect(px(18, 1)).toBe(191); // the text's bounding box
+    expect(px(40, 20)).not.toBe(191); // untouched picture
+    expect(a.info.annotations).toBe('Lesion');
+    expect(a.warnings).toEqual(["The presentation state's text could not be drawn here (no text renderer); its words are in the details"]);
+    expect(a.pages[0].notes.some((n) => /applied: 5 graphic objects and 1 text$/.test(n))).toBe(true);
+    // Through the registry: the state's picture is looked up among the entries of its folder (the browser e2e opens one; here the miss).
+    const mk = (n: string) => ({ name: n, uri: null, size: fx(n).length, read: async () => fx(n).buffer as ArrayBuffer });
+    decodeOptions.siblings = (e) => (e.name === 'gsps-missing.dcm' ? [mk('jls-12bit-near.dcm'), mk('ct-window.dcm')] : []);
+    try {
+      await expect(decodePicture(fx('gsps-missing.dcm'), mk('gsps-missing.dcm'))).rejects.toThrow(/gsps-missing\.dcm is a presentation state \(FIXTURE\): display settings for a picture in another DICOM file, which is not in this folder \(SOP instance 1\.2\.826\.0\.1\.3680043\.8\.498\.99999999999999999999\)/);
+    } finally { decodeOptions.siblings = null; }
   });
   it('MONOCHROME1 is inverted and the first window of several is used; the JPEG 2000 depth note', async () => {
     const m = await decodeDicom(fx('mono1.dcm'), pdfjs);

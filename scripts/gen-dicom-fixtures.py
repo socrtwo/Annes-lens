@@ -340,6 +340,109 @@ ds.add_new((0x6000, 0x0010), 'US', 20); ds.add_new((0x6000, 0x0011), 'US', 24); 
 ds.add_new((0x6000, 0x0050), 'SS', [1, 1]); ds.add_new((0x6000, 0x0100), 'US', 16); ds.add_new((0x6000, 0x0102), 'US', 15)
 write('overlay-embedded.dcm', ds)
 
+# Segmented palettes (PS3.3 C.7.9.2): the standard WINTER palette's segments (8-bit entries, from pydicom's copy of the
+# standard's palettes), and an own 16-bit one with discrete, linear and indirect segments.
+PAL = os.path.join(os.path.dirname(pydicom.__file__), 'data', 'palettes')
+winter = pydicom.dcmread(os.path.join(PAL, 'winter.dcm'))
+ds = base_ds(ExplicitVRLittleEndian, 8, 64, 'PALETTE COLOR', bits=8)
+ds.ImageComments = 'PALETTE COLOR with the segmented WINTER palette (8-bit entries)'
+ds.PixelData = np.tile(np.arange(0, 256, 4, dtype=np.uint8), (8, 1)).tobytes()
+for tag in [(0x28, 0x1101), (0x28, 0x1102), (0x28, 0x1103), (0x28, 0x1221), (0x28, 0x1222), (0x28, 0x1223)]:
+    ds.add(winter[tag])
+write('palette-segmented-winter.dcm', ds)
+
+ds = base_ds(ExplicitVRLittleEndian, 6, 128, 'PALETTE COLOR', bits=8)
+ds.ImageComments = 'PALETTE COLOR with a 16-bit segmented palette: discrete, linear and indirect segments'
+ds.PixelData = np.tile(np.arange(0, 256, 2, dtype=np.uint8), (6, 1)).tobytes()
+def seg16(discrete, linear_pairs, indirect=None):
+    words = []
+    words += [0, len(discrete)] + list(discrete)                      # opcode 0: discrete values
+    for n, y in linear_pairs:
+        words += [1, n, y]                                             # opcode 1: n values climbing to y
+    if indirect is not None:
+        n, offset = indirect
+        words += [2, n, offset & 0xFFFF, offset >> 16]                 # opcode 2: n segments repeated from word offset
+    return np.array(words, '<u2').tobytes()
+ds.RedPaletteColorLookupTableDescriptor = [256, 0, 16]
+ds.GreenPaletteColorLookupTableDescriptor = [256, 0, 16]
+ds.BluePaletteColorLookupTableDescriptor = [256, 0, 16]
+# red: 16 discrete, then 112 linear to 65535, then 128 linear down to 0 → 256 entries
+ds.add_new((0x28, 0x1221), 'OW', seg16([i * 1000 for i in range(16)], [(112, 65535), (128, 0)]))
+# green: 8 discrete, 120 linear to 30000, then the same two segments again by an indirect reference (offset 0: the start), 
+ds.add_new((0x28, 0x1222), 'OW', seg16([5000] * 8, [(120, 30000)], indirect=(2, 0)))
+# blue: 256 linear to 65535 from an initial discrete 0
+ds.add_new((0x28, 0x1223), 'OW', seg16([0], [(255, 65535)]))
+write('palette-segmented16.dcm', ds)
+
+# Grayscale softcopy presentation states referencing ct-window.dcm: one with a window, an inverse presentation LUT, a
+# rectangular shutter, a displayed area and a spatial transformation (its expected picture computed here); one with
+# graphic annotations and text (checked pixel by pixel in the tests); one referencing a missing image.
+img = pydicom.dcmread(os.path.join(OUT, 'ct-window.dcm'))
+def gsps(name, comment):
+    ps = Dataset()
+    ps.file_meta = FileMetaDataset()
+    ps.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    ps.file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.11.1'
+    ps.file_meta.MediaStorageSOPInstanceUID = generate_uid(entropy_srcs=[name])
+    ps.SOPClassUID = ps.file_meta.MediaStorageSOPClassUID
+    ps.SOPInstanceUID = ps.file_meta.MediaStorageSOPInstanceUID
+    ps.SpecificCharacterSet = 'ISO_IR 192'
+    ps.PatientName = img.PatientName; ps.PatientID = img.PatientID; ps.StudyDate = img.StudyDate
+    ps.Modality = 'PR'; ps.ContentLabel = 'FIXTURE'; ps.ContentDescription = comment; ps.PresentationCreationDate = '20240312'; ps.PresentationCreationTime = '101500'
+    ps.ImageComments = comment
+    ref = Dataset(); ref.ReferencedSOPClassUID = img.SOPClassUID; ref.ReferencedSOPInstanceUID = img.SOPInstanceUID
+    series = Dataset(); series.SeriesInstanceUID = generate_uid(entropy_srcs=['series']); series.ReferencedImageSequence = Sequence([ref])
+    ps.ReferencedSeriesSequence = Sequence([series])
+    return ps, ref
+
+ps, ref = gsps('gsps.dcm', 'window 100/600, inverse presentation LUT, rectangular shutter, displayed area, rotation 90 and horizontal flip')
+voi = Dataset(); voi.WindowCenter = 100; voi.WindowWidth = 600; voi.ReferencedImageSequence = Sequence([ref])
+ps.SoftcopyVOILUTSequence = Sequence([voi])
+ps.PresentationLUTShape = 'INVERSE'
+ps.ShutterShape = 'RECTANGULAR'; ps.ShutterLeftVerticalEdge = 5; ps.ShutterRightVerticalEdge = 44; ps.ShutterUpperHorizontalEdge = 3; ps.ShutterLowerHorizontalEdge = 29; ps.ShutterPresentationValue = 0x3000
+area = Dataset(); area.DisplayedAreaTopLeftHandCorner = [3, 2]; area.DisplayedAreaBottomRightHandCorner = [46, 31]; area.PresentationSizeMode = 'SCALE TO FIT'; area.ReferencedImageSequence = Sequence([ref])
+ps.DisplayedAreaSelectionSequence = Sequence([area])
+ps.ImageHorizontalFlip = 'Y'; ps.ImageRotation = 90
+ps.save_as(os.path.join(OUT, 'gsps.dcm'), enforce_file_format=True)
+# the expected picture, by the rules the app applies: window → inverse → shutter → displayed area → flip, then rotation
+raw = img.pixel_array.astype(np.float64) * float(img.RescaleSlope) + float(img.RescaleIntercept)
+y = 255 - window(raw, 100, 600)
+sh = np.full_like(y, (0x3000 >> 8))
+sh[3 - 1:29, 5 - 1:44] = y[3 - 1:29, 5 - 1:44]           # edges are 1-based pixel columns/rows, inclusive
+crop = sh[2 - 1:31, 3 - 1:46]                              # TLHC (col 3, row 2) to BRHC (col 46, row 31), 1-based inclusive
+flipped = crop[:, ::-1]
+rot = np.rot90(flipped, k=-1)                              # 90° clockwise
+g = rot.astype(np.uint8)
+Image.fromarray(np.stack([g, g, g], -1), 'RGB').save(os.path.join(OUT, 'gsps.png'), optimize=True)
+manifest['gsps.dcm'] = {'what': 'presentation state: ' + ps.ContentDescription, 'frames': 1, 'width': int(g.shape[1]), 'height': int(g.shape[0]), 'pi': 'MONOCHROME2', 'ts': str(ps.file_meta.TransferSyntaxUID), 'comment': ps.ContentDescription, 'references': 'ct-window.dcm'}
+
+ps, ref = gsps('gsps-annot.dcm', 'graphic annotations: a filled rectangle, a circle, an ellipse, a point, text with an anchor')
+layer = Dataset(); layer.GraphicLayer = 'MARKS'; layer.GraphicLayerOrder = 1; layer.GraphicLayerRecommendedDisplayGrayscaleValue = 0xC000
+ps.GraphicLayerSequence = Sequence([layer])
+ann = Dataset(); ann.GraphicLayer = 'MARKS'; ann.ReferencedImageSequence = Sequence([ref])
+def gobj(kind, pts, filled='N'):
+    g = Dataset(); g.GraphicAnnotationUnits = 'PIXEL'; g.GraphicDimensions = 2; g.NumberOfGraphicPoints = len(pts) // 2; g.GraphicData = [float(v) for v in pts]; g.GraphicType = kind
+    if kind in ('POLYLINE', 'CIRCLE', 'ELLIPSE'): g.GraphicFilled = filled
+    return g
+ann.GraphicObjectSequence = Sequence([
+    gobj('POLYLINE', [4, 4, 14, 4, 14, 12, 4, 12, 4, 4], 'Y'),   # a filled rectangle, columns 4–14, rows 4–12
+    gobj('CIRCLE', [30, 10, 36, 10]),                            # center (30, 10), radius 6
+    gobj('ELLIPSE', [20, 26, 44, 26, 32, 22, 32, 30]),           # major axis 20..44 at row 26, minor 22..30
+    gobj('POINT', [2, 30]),
+    gobj('INTERPOLATED', [16, 18, 20, 14, 24, 18]),
+])
+t = Dataset(); t.BoundingBoxAnnotationUnits = 'PIXEL'; t.AnchorPointAnnotationUnits = 'PIXEL'; t.UnformattedTextValue = 'Lesion'; t.AnchorPoint = [30.0, 10.0]; t.AnchorPointVisibility = 'Y'
+t.BoundingBoxTopLeftHandCorner = [18.0, 1.0]; t.BoundingBoxBottomRightHandCorner = [46.0, 7.0]; t.BoundingBoxTextHorizontalJustification = 'LEFT'
+ann.TextObjectSequence = Sequence([t])
+ps.GraphicAnnotationSequence = Sequence([ann])
+ps.save_as(os.path.join(OUT, 'gsps-annot.dcm'), enforce_file_format=True)
+manifest['gsps-annot.dcm'] = {'what': 'presentation state: ' + ps.ContentDescription, 'frames': 1, 'width': 48, 'height': 32, 'pi': 'MONOCHROME2', 'ts': str(ps.file_meta.TransferSyntaxUID), 'comment': ps.ContentDescription, 'references': 'ct-window.dcm', 'annotations': True}
+
+ps, ref = gsps('gsps-missing.dcm', 'references an image that is not in the folder')
+ref.ReferencedSOPInstanceUID = '1.2.826.0.1.3680043.8.498.99999999999999999999'
+ps.save_as(os.path.join(OUT, 'gsps-missing.dcm'), enforce_file_format=True)
+manifest['gsps-missing.dcm'] = {'what': 'presentation state referencing a missing image', 'unsupported': 'missing reference', 'comment': ps.ContentDescription}
+
 # A raw dataset: implicit VR little endian, no preamble, no file meta (as some PACS exports and DICOMDIR-less dumps are).
 ds = base_ds(ImplicitVRLittleEndian, 10, 12, 'MONOCHROME2', bits=8)
 ds.ImageComments = 'raw dataset without the Part 10 header'
