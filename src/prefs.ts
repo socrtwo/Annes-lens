@@ -289,8 +289,11 @@ function sanitizeAi(raw: any): AiPrefs {
   return out as AiPrefs;
 }
 
+/** The preferences without the AI service keys (those live in the keystore), for saving and exporting. */
+export function prefsWithoutKeys(p: Prefs): Prefs { return { ...p, ai: { ...p.ai, services: p.ai.services.map((s) => ({ ...s, key: '' })) } }; }
+
 export function savePrefs(p: Prefs): void {
-  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* storage full or unavailable */ }
+  try { localStorage.setItem(KEY, JSON.stringify(prefsWithoutKeys(p))); } catch { /* storage full or unavailable */ }
 }
 
 /**

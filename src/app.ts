@@ -16,6 +16,7 @@ import { Picture } from './picture/model';
 import { Loader } from './picture/loader';
 import { Journal } from './picture/journal';
 import { decodeOptions } from './codecs/registry';
+import { keystoreHooks, loadKeys, storeKeys } from './ai/keystore';
 import { pdfOptions } from './codecs/pdf';
 import { djvuOptions } from './codecs/djvu';
 
@@ -191,6 +192,16 @@ export class App {
   journal = new Journal();
 
   constructor(public host: HTMLElement) {
+    keystoreHooks.askPassphrase = async (purpose, wrong) => {
+      const r = await openDialog(purpose === 'set'
+        ? { title: 'Protect Your AI Keys', ok: 'Encrypt', cancel: 'Keep unencrypted', help: 'This browser keeps your AI service keys in its storage. Choose a passphrase to encrypt them; the app asks for it once per session. Without one the keys are stored unencrypted on this device.', fields: [{ key: 'pw', label: 'Passphrase', type: 'password', value: '' }, { key: 'pw2', label: 'Again', type: 'password', value: '' }] }
+        : { title: 'Unlock Your AI Keys', ok: 'Unlock', cancel: 'Not now', help: wrong ? 'That passphrase does not open the keys. Try again.' : 'Enter the passphrase that protects your AI service keys on this device (AI commands need them; the rest of the app does not).', fields: [{ key: 'pw', label: 'Passphrase', type: 'password', value: '' }] });
+      if (!r || !String(r.pw || '')) return null;
+      if (purpose === 'set' && r.pw !== r.pw2) { toast('The two passphrases differ; the keys are kept unencrypted for now (AI ▸ AI and Privacy sets one).'); return null; }
+      return String(r.pw);
+    };
+    const legacyKeys = this.prefs.ai.services.some((s) => !!s.key); // keys saved in the settings by earlier versions
+    void loadKeys(this.prefs.ai.services).then(async () => { if (legacyKeys) { await storeKeys(this.prefs.ai.services); this.savePrefs(); } });
     decodeOptions.siblings = (e) => { try { const f = this.folder; return f && f.entries.includes(e) ? f.entries : []; } catch { return []; } };
     decodeOptions.askPassword = async (name, wrong) => {
       const r = await openDialog({ title: 'Password', ok: 'Open', help: wrong ? `That password does not open ${name}. Try again.` : `${name} is protected by a password.`, fields: [{ key: 'pw', label: 'Password', type: 'password', value: '' }] });
@@ -205,7 +216,7 @@ export class App {
   get folder(): Folder { return this.active.folder; }
 
   onRefresh(fn: (app: App) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  savePrefs(): void { savePrefs(this.prefs); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; pdfOptions.dpi = this.prefs.pdf.dpi; pdfOptions.maxPages = this.prefs.pdf.maxPages; djvuOptions.maxPages = this.prefs.pdf.maxPages; }
+  savePrefs(): void { savePrefs(this.prefs); void storeKeys(this.prefs.ai.services).catch((e) => toast(`The AI keys could not be stored: ${e?.message || e}`)); this.rebuildKeyIndex(); decodeOptions.autoRotate = this.prefs.autoRotateExif; decodeOptions.rawPreferPreview = this.prefs.rawPreferPreview; pdfOptions.dpi = this.prefs.pdf.dpi; pdfOptions.maxPages = this.prefs.pdf.maxPages; djvuOptions.maxPages = this.prefs.pdf.maxPages; }
 
   rebuildKeyIndex(): void {
     this.keyIndex.clear(); this.keyCandidates.clear();

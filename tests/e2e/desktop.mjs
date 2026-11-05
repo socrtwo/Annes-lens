@@ -39,6 +39,9 @@ try {
   await w.waitForFunction(() => window.qn && window.qn.picture?.name === 'a.png', null, { timeout: 30000 });
   const where = () => w.evaluate(() => `${qn.folder.name}:${qn.folder.length}:${qn.picture?.name}`);
   const steps = [await where()];
+  // Secrets (AI service keys) round-trip through the main process's safeStorage store.
+  const secret = await w.evaluate(async () => { const d = window.quillDesktop; const info = await d.secretInfo(); await d.secretSet({ name: 'e2e.test', value: 'sk-e2e' }); const got = (await d.secretGet({ name: 'e2e.test' })).value; await d.secretDelete({ name: 'e2e.test' }); const gone = (await d.secretGet({ name: 'e2e.test' })).value; return [typeof info.available, got, gone]; });
+  check('desktop: secrets round-trip through safeStorage', secret, ['boolean', 'sk-e2e', null]);
   for (const key of ['Control+ArrowRight', 'Control+ArrowRight', 'Control+ArrowRight', 'Control+ArrowLeft', 'Control+ArrowLeft', 'Control+ArrowLeft']) {
     const before = await where();
     await w.keyboard.press(key);

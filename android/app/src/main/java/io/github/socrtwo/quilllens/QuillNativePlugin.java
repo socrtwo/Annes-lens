@@ -10,6 +10,9 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
+import android.content.SharedPreferences;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.content.ContentResolver;
@@ -110,6 +113,60 @@ public class QuillNativePlugin extends Plugin {
     // ---------------------------------------------------------------------------------------------
     // Clipboard
     // ---------------------------------------------------------------------------------------------
+
+    // Secure storage for small secrets (AI service keys): EncryptedSharedPreferences backed by the Android Keystore.
+    private SharedPreferences secrets() throws Exception {
+        MasterKey key = new MasterKey.Builder(getContext()).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
+        return EncryptedSharedPreferences.create(getContext(), "secrets", key,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+    }
+
+    @PluginMethod
+    public void secretInfo(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("available", true);
+        ret.put("backend", "android-keystore");
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void secretGet(PluginCall call) {
+        String name = call.getString("name");
+        if (name == null) { call.reject("name is required"); return; }
+        try {
+            String v = secrets().getString(name, null);
+            JSObject ret = new JSObject();
+            ret.put("value", v == null ? JSObject.NULL : v);
+            call.resolve(ret);
+        } catch (Throwable e) {
+            call.reject("Could not read the secret: " + e.getMessage(), asException(e));
+        }
+    }
+
+    @PluginMethod
+    public void secretSet(PluginCall call) {
+        String name = call.getString("name");
+        String value = call.getString("value");
+        if (name == null || value == null) { call.reject("name and value are required"); return; }
+        try {
+            secrets().edit().putString(name, value).apply();
+            call.resolve(new JSObject());
+        } catch (Throwable e) {
+            call.reject("Could not store the secret: " + e.getMessage(), asException(e));
+        }
+    }
+
+    @PluginMethod
+    public void secretDelete(PluginCall call) {
+        String name = call.getString("name");
+        if (name == null) { call.reject("name is required"); return; }
+        try {
+            secrets().edit().remove(name).apply();
+            call.resolve(new JSObject());
+        } catch (Throwable e) {
+            call.reject("Could not delete the secret: " + e.getMessage(), asException(e));
+        }
+    }
 
     @PluginMethod
     public void readClipboard(PluginCall call) {

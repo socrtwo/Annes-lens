@@ -102,7 +102,8 @@
 - [x] Generate, edit and understand commands; Compare Providers; AI History; Content Credentials on results (IPTC digital source type and provenance fields; C2PA signing still to do); Run on Selection with a cap and the service's price page.
 - [x] Several AIs (master and Quaker consensus) for text commands, with Show AI Discussion.
 - [x] Generate Vector: the picture service draws in a flat vector style and the on-device tracer (Trace to Vector) turns it into SVG with AI provenance in its metadata.
-- [ ] On-device generation; keys in platform secure storage (they are in the app's settings on the device for now); C2PA manifests.
+- [x] Keys in platform secure storage: the desktop OS credential store (safeStorage), the Android Keystore (EncryptedSharedPreferences), a passphrase-encrypted store on the web and iOS; never in settings exports, macros or AI History (iOS Keychain still to do).
+- [ ] On-device generation; C2PA manifests.
 
 ## M8 — Stretch goals
 

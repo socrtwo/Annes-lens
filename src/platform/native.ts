@@ -36,6 +36,11 @@ interface QuillNativePlugin {
   keepAwake(opts: { on: boolean }): Promise<void>;
   addListener(event: 'fileOpened', cb: (f: NativeFile) => void): Promise<{ remove: () => void }>;
   readClipboard(): Promise<{ text?: string | null }>;
+  /** Secure storage for small secrets (AI service keys): the OS credential store or the Android Keystore. */
+  secretInfo(): Promise<{ available: boolean; backend?: string }>;
+  secretGet(o: { name: string }): Promise<{ value: string | null }>;
+  secretSet(o: { name: string; value: string }): Promise<Record<string, never>>;
+  secretDelete(o: { name: string }): Promise<Record<string, never>>;
   writeClipboard(opts: { text: string; sensitive?: boolean }): Promise<void>;
   openInApp?(opts: { packageName: string; name: string; mime: string; data: string }): Promise<{ opened: boolean; reason?: string }>;
   /** Platform-bound file commands (Android). */
@@ -133,7 +138,7 @@ export type CliJob =
 export interface DisplayInfo { id: number; label: string; bounds: { x: number; y: number; width: number; height: number }; primary: boolean; current: boolean }
 
 const desktop: DesktopBridge | undefined = typeof window !== 'undefined' ? (window as any).quillDesktop : undefined;
-const Native: QuillNativePlugin = desktop || registerPlugin<QuillNativePlugin>('QuillNative');
+export const Native: QuillNativePlugin = desktop || registerPlugin<QuillNativePlugin>('QuillNative');
 
 /** Running in the Capacitor app shell (Android or iOS). */
 export const isCapacitor = (): boolean => Capacitor.isNativePlatform();

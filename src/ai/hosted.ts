@@ -9,6 +9,7 @@
  * - 'gemini': /models/{model}:generateContent (vision in; text or pictures out).
  */
 import type { AiService, ChatRequest, ImageRequest, ServiceApi } from './types';
+import { keysReady } from './keystore';
 import { aiRequest, ensureOk, multipart, type AiHttpRequest, type AiHttpResponse } from './transport';
 import { b64FromBuffer, bufferFromB64 } from '../platform/native';
 
@@ -96,6 +97,7 @@ export function parseChat(api: ServiceApi, j: any): string {
 }
 
 export async function chat(s: AiService, r: ChatRequest, signal?: AbortSignal): Promise<string> {
+  await keysReady();
   if (!s.textModel) throw new Error(`${s.name} has no text model set (AI ▸ Providers and Models).`);
   const req = await buildChat(s, r);
   const res = await aiRequest({ ...req, signal, timeoutMs: 300000 });
@@ -130,6 +132,7 @@ export function parseListModels(api: ServiceApi, j: any): string[] {
   return (j?.data || []).map((m: any) => String(m.id || '')).filter(Boolean).sort();
 }
 export async function listModels(s: AiService): Promise<string[]> {
+  await keysReady();
   const res = await aiRequest({ ...buildListModels(s), timeoutMs: 30000 });
   ensureOk(res, s.name);
   return parseListModels(s.api, res.json());
@@ -212,6 +215,7 @@ export async function parseImage(api: ServiceApi, res: AiHttpResponse): Promise<
 }
 
 export async function generateImage(s: AiService, r: ImageRequest, signal?: AbortSignal): Promise<{ blobs: Blob[]; text?: string }> {
+  await keysReady();
   if (!hasImages(s)) throw new Error(`${s.name} has no picture model set (AI ▸ Providers and Models).`);
   const req = await buildImage(s, r);
   const res = await aiRequest({ ...req, signal, timeoutMs: 600000 });

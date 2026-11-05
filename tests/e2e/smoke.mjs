@@ -1927,6 +1927,7 @@ try {
     const aiTab = qn.tab; const back = async () => { if (qn.tab !== aiTab) qn.closeTab(qn.tab); qn.activate(aiTab); await wait(300); };
     qn.prefs.ai.services = [{ id: 'mock', name: 'Mock', api: 'openai', baseUrl: `http://localhost:${AI_PORT}/v1`, key: 'k', textModel: 'mock-vision', imageModel: 'mock-image' }, { id: 'mock2', name: 'Mock Two', api: 'openai', baseUrl: `http://localhost:${AI_PORT}/v1`, key: 'k2', textModel: 'mock-vision', imageModel: '' }];
     qn.prefs.ai.textService = 'mock'; qn.prefs.ai.imageService = 'mock'; qn.prefs.ai.privacy.confirmSend = false; qn.prefs.ai.prefer = 'device'; qn.savePrefs();
+    { const pd = await dialog(); out.passDialog = pd.querySelector('h2, .ql-dialog-title')?.textContent; pd.querySelector('.ql-cancel, .ql-btn:not(.ql-primary)').click(); await noDialog(); out.keysStored = JSON.parse(localStorage.getItem('annes-lens.ai.keys.v1') || 'null'); out.prefsHaveKey = /"key":"k"/.test(localStorage.getItem('quilllens.prefs.v1') || ''); } // saving a key on the web asks for a passphrase; declined: unencrypted
     out.enabled = ['ai.describe', 'ai.generate', 'ai.fill', 'ai.removeBackground', 'ai.stop'].map((id) => { const c = window.__qnGetCommand(id); return !c.isEnabled || c.isEnabled(qn); });
     out.first = qn.picture.name;
     // Describe: the answer appears in a text dialog.
@@ -1987,6 +1988,7 @@ try {
     return out;
   }, AI_PORT);
   check('ai commands enabled with a service', ai.enabled, [true, true, false, true, false]);
+  check('ai keys: saving a key on the web asks for a passphrase; declined, the keys are stored unencrypted and never in the settings', [ai.passDialog, ai.keysStored && ai.keysStored.mode, ai.keysStored && ai.keysStored.keys && ai.keysStored.keys.mock, ai.prefsHaveKey], ['Protect Your AI Keys', 'plain', 'k', false], JSON.stringify([ai.passDialog, ai.keysStored, ai.prefsHaveKey]));
   check('ai describe', ai.describe, 'A red rectangle on a white background.');
   check('ai alt text', ai.alt, ['A red square', 'A plain red square on a white background.']);
   check('ai keywords', ai.tags, ['sunset', 'beach', 'sea']);

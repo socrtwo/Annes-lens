@@ -11,6 +11,7 @@ import { aiBusy, aiStop, serviceById } from '../ai';
 import { PRESETS, listModels, testService, hasImages } from '../ai/hosted';
 import { MODELS, deleteModels, downloadedModels, runtimeStatus } from '../ai/device';
 import { readHistory, clearHistory } from '../ai/history';
+import { keyBackend, setPassphrase, forgetStoredKeys } from '../ai/keystore';
 import type { AiService } from '../ai/types';
 import { info } from './aiShared';
 
@@ -20,6 +21,7 @@ const mb = (n: number) => `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0)} MB`;
 
 /** The service editor used by Set Up AI and Providers and Models. Returns the saved service or null. */
 export async function serviceDialog(app: App, existing?: AiService): Promise<AiService | null> {
+  const backend = await keyBackend();
   const presetOptions = PRESETS.map((p) => ({ value: p.id, label: `${GROUPS[p.group]} — ${p.name}` }));
   const presetOf = (id: string) => PRESETS.find((p) => p.id === id);
   const start = existing ? presetOf(existing.preset || '') : PRESETS[0];
@@ -32,7 +34,7 @@ export async function serviceDialog(app: App, existing?: AiService): Promise<AiS
     { key: 'name', label: 'Name', type: 'text', value: existing?.name || start?.name || '', half: true },
     { key: 'api', label: 'API dialect', type: 'select', options: [{ value: 'openai', label: 'OpenAI-compatible' }, { value: 'anthropic', label: 'Anthropic' }, { value: 'gemini', label: 'Google Gemini' }], value: existing?.api || start?.api || 'openai', half: true },
     { key: 'baseUrl', label: 'Address', type: 'text', value: existing?.baseUrl || start?.baseUrl || '', placeholder: 'https://…/v1' },
-    { key: 'key', label: 'API key', type: 'password', value: existing?.key || '', help: 'Kept in this app\'s settings on this device only; sent only to this address.' },
+    { key: 'key', label: 'API key', type: 'password', value: existing?.key || '', help: `Kept in ${backend.label}; never in settings exports, macros or AI History; sent only to this address.` },
     { key: 'textModel', label: 'Text and vision model', type: 'combo', options: [], value: existing?.textModel || start?.textModel || '', half: true },
     { key: 'fetch', label: 'Fetch model list', type: 'button', half: true, onClick: async (v, ctl) => {
       try { models = await listModels({ id: 'tmp', name: v.name, api: v.api, baseUrl: v.baseUrl, key: v.key, textModel: '', imageModel: '' }); ctl.rebuild(fields.map((f) => f.key === 'textModel' || f.key === 'imageModel' ? { ...f, options: models, value: v[f.key] } : f.key === 'models' ? { ...f, html: `<p>${models.length} models listed by the service.</p>` } : { ...f, value: v[f.key] ?? f.value })); toast(`${models.length} models listed.`); }
@@ -102,9 +104,11 @@ def([
   {
     id: 'ai.privacy', icon: 'privacy_tip', noRecord: true, tip: 'What is sent, to whom, the size limit, the confirmation, keys on this device',
     run: async (app) => {
-      const p = app.prefs.ai.privacy;
+      const p = app.prefs.ai.privacy, backend = await keyBackend();
       const r = await openDialog({ title: 'AI and Privacy', ok: 'Save', wide: true, fields: [
-        info('<p><b>Nothing is sent anywhere until you run an AI command.</b> Commands that use a service send a metadata-free copy of the picture (no EXIF, GPS or XMP), downscaled to the limit below, plus the prompt. On-device models never send anything. Keys are kept in this app\'s settings on this device and sent only to their service\'s address. AI History keeps what was sent where (on this device).</p>'),
+        info(`<p><b>Nothing is sent anywhere until you run an AI command.</b> Commands that use a service send a metadata-free copy of the picture (no EXIF, GPS or XMP), downscaled to the limit below, plus the prompt. On-device models never send anything. Keys are kept in ${backend.label} and sent only to their service's address; they are never part of settings exports, macros or AI History. AI History keeps what was sent where (on this device).</p>`),
+        ...(backend.kind === 'web' ? [{ key: 'pass', type: 'button' as const, label: backend.encrypted ? 'Change the passphrase…' : 'Encrypt the keys with a passphrase…', half: true, onClick: async () => { const q = await openDialog({ title: backend.encrypted ? 'Change the Passphrase' : 'Encrypt Your AI Keys', ok: 'Save', fields: [{ key: 'pw', label: 'Passphrase', type: 'password', value: '' }, { key: 'pw2', label: 'Again', type: 'password', value: '' }] }); if (!q || !q.pw) return; if (q.pw !== q.pw2) { toast('The two passphrases differ.'); return; } await setPassphrase(app.prefs.ai.services, String(q.pw)); toast('The keys are encrypted with the new passphrase.'); } }] : []),
+        { key: 'forget', type: 'button' as const, label: 'Forget every stored key', half: true, onClick: async () => { if (!(await confirmDialog('Forget keys?', 'Every AI service key is removed from this device; the services stay, without keys.', 'Forget'))) return; for (const s of app.prefs.ai.services) s.key = ''; await forgetStoredKeys(); app.savePrefs(); toast('The keys are gone.'); } },
         { key: 'allowRemote', label: 'Allow services on the internet (off: only localhost and private addresses)', type: 'checkbox', value: p.allowRemote },
         { key: 'confirmSend', label: 'Ask before the first send in each session', type: 'checkbox', value: p.confirmSend },
         { key: 'maxEdge', label: 'Longest side of pictures sent (px)', type: 'number', min: 256, max: 8192, value: p.maxEdge, half: true },

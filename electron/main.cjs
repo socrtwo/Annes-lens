@@ -8,7 +8,7 @@
 // File access is limited to files the user opened or saved through a dialog, opened the app with, or
 // that sit in a folder the user opened, so picture content cannot use the bridge to read arbitrary files.
 'use strict';
-const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard, powerSaveBlocker, Menu, session, desktopCapturer, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL, fileURLToPath } = require('node:url');
@@ -309,6 +309,16 @@ function registerIpc() {
     if (!on && wakeId >= 0) { powerSaveBlocker.stop(wakeId); wakeId = -1; }
   });
   handle('readClipboard', async () => ({ text: clipboard.readText() }));
+  // Secrets (AI service keys): encrypted by the OS credential store through safeStorage, kept in secrets.json beside the settings.
+  const secretsFile = () => path.join(app.getPath('userData'), 'secrets.json');
+  const readSecrets = () => { try { const s = JSON.parse(fs.readFileSync(secretsFile(), 'utf8')); return s && typeof s === 'object' ? s : {}; } catch { return {}; } };
+  const writeSecrets = (s) => fs.writeFileSync(secretsFile(), JSON.stringify(s), { mode: 0o600 });
+  const secretName = (n) => { if (typeof n !== 'string' || !/^[\w.-]{1,64}$/.test(n)) throw new Error('Bad secret name'); return n; };
+  handle('secretInfo', async () => ({ available: safeStorage.isEncryptionAvailable(), backend: process.platform === 'linux' && typeof safeStorage.getSelectedStorageBackend === 'function' ? safeStorage.getSelectedStorageBackend() : process.platform }));
+  // Without an OS credential store (a Linux desktop with no keyring), the value is kept as is in the file, marked, and the app says so.
+  handle('secretGet', async ({ name }) => { const s = readSecrets(), v = s[secretName(name)]; if (typeof v !== 'string') return { value: null }; if (v.startsWith('plain:')) return { value: Buffer.from(v.slice(6), 'base64').toString('utf8') }; try { return { value: safeStorage.decryptString(Buffer.from(v, 'base64')) }; } catch { return { value: null }; } });
+  handle('secretSet', async ({ name, value }) => { const s = readSecrets(), v = String(value ?? ''); s[secretName(name)] = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(v).toString('base64') : 'plain:' + Buffer.from(v, 'utf8').toString('base64'); writeSecrets(s); return {}; });
+  handle('secretDelete', async ({ name }) => { const s = readSecrets(); delete s[secretName(name)]; writeSecrets(s); return {}; });
   handle('writeClipboard', async ({ text }) => { clipboard.writeText(String(text ?? '')); });
   handle('openExternal', async ({ url }) => { if (safeUrl(url)) await shell.openExternal(url); });
   handle('revealInFolder', async ({ uri }) => { shell.showItemInFolder(grantedPath(uri)); });

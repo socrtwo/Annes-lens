@@ -6,7 +6,7 @@ import { canListSubfolders, listing, type FolderEntry } from '../platform/native
 import { openDocuments, openFolderDialog, listFolderOf, saveAs, writeBack, shareFile, readUri, printDocument, isDesktop, isCapacitor, desktopBridge, writeClipboardText, type OpenedFile } from '../platform/native';
 import { OPEN_ACCEPT, OPEN_MIMES, FORMATS, encodeCanvas, ENCODERS, encoderFor, type EncodeFormat } from '../codecs/registry';
 import { openDialog, toast, confirmDialog, choiceDialog } from '../ui/dialog';
-import { sanitizePrefs, parseKeyList, DEFAULT_QAT, type Prefs } from '../prefs';
+import { sanitizePrefs, parseKeyList, DEFAULT_QAT, type Prefs, prefsWithoutKeys } from '../prefs';
 import { allCommands, getCommand } from './registry';
 import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
@@ -466,7 +466,7 @@ def([
     id: 'file.exportSettings', icon: 'import_export', noRecord: true,
     tip: 'One JSON text for every setting, shared with the sister apps; or an IrfanView-style key list',
     run: async (app) => {
-      const r = await openDialog({ title: 'Settings Transfer', wide: true, help: 'Copy this text to back up your Quick Access Bar, custom tabs, shortcuts, macros and preferences. Paste settings text here and choose Import to restore. The format is shared with the other Anne\'s Office apps; settings that do not apply to Anne\'s Lens are ignored. An IrfanView-style key list (lines such as "Rotate left=L" or "view.next=Space") can be pasted instead.', fields: [{ key: 'json', label: 'Settings (JSON) or key list', type: 'textarea', rows: 12, value: JSON.stringify({ ...app.prefs, recent: [], recentFolders: [] }, null, 1) }], ok: 'Import', buttons: [{ label: 'Copy', onClick: (x) => { navigator.clipboard?.writeText(x.json); toast('Copied'); } }] });
+      const r = await openDialog({ title: 'Settings Transfer', wide: true, help: 'Copy this text to back up your Quick Access Bar, custom tabs, shortcuts, macros and preferences. Paste settings text here and choose Import to restore. The format is shared with the other Anne\'s Office apps; settings that do not apply to Anne\'s Lens are ignored. An IrfanView-style key list (lines such as "Rotate left=L" or "view.next=Space") can be pasted instead.', fields: [{ key: 'json', label: 'Settings (JSON) or key list', type: 'textarea', rows: 12, value: JSON.stringify({ ...prefsWithoutKeys(app.prefs), recent: [], recentFolders: [] }, null, 1) }], ok: 'Import', buttons: [{ label: 'Copy', onClick: (x) => { navigator.clipboard?.writeText(x.json); toast('Copied'); } }] });
       if (!r) return;
       const text = String(r.json || '').trim();
       let p: unknown = null;
