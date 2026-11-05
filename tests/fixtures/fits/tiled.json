@@ -1,0 +1,244 @@
+{
+ "gzip1-f32-lossless.fits": {
+  "compression": "GZIP_1",
+  "lossy": false,
+  "maxErr": 0.0,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   1
+  ],
+  "zbitpix": -32
+ },
+ "gzip1-f64.fits": {
+  "compression": "GZIP_1",
+  "lossy": false,
+  "maxErr": 0.0,
+  "quantiz": null,
+  "shape": [
+   16,
+   24
+  ],
+  "tiles": [
+   24,
+   1
+  ],
+  "zbitpix": -64
+ },
+ "gzip1-tiny.fits": {
+  "compression": "GZIP_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   8,
+   8
+  ],
+  "tiles": [
+   8,
+   1
+  ],
+  "zbitpix": 16
+ },
+ "gzip2-i16.fits": {
+  "compression": "GZIP_2",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   16
+  ],
+  "zbitpix": 16
+ },
+ "hcomp-f32.fits": {
+  "compression": "HCOMPRESS_1",
+  "lossy": true,
+  "maxErr": 0.01837158203125,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   16
+  ],
+  "zbitpix": -32
+ },
+ "hcomp-i16.fits": {
+  "compression": "HCOMPRESS_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   50,
+   30
+  ],
+  "zbitpix": 16
+ },
+ "hcomp-i32-lossy.fits": {
+  "compression": "HCOMPRESS_1",
+  "lossy": true,
+  "maxErr": 2,
+  "quantiz": null,
+  "shape": [
+   40,
+   64
+  ],
+  "tiles": [
+   64,
+   16
+  ],
+  "zbitpix": 32
+ },
+ "nocompress-i16.fits": {
+  "compression": "NOCOMPRESS",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   10,
+   20
+  ],
+  "tiles": [
+   20,
+   1
+  ],
+  "zbitpix": 16
+ },
+ "plio-mask.fits": {
+  "compression": "PLIO_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   30,
+   40
+  ],
+  "tiles": [
+   40,
+   1
+  ],
+  "zbitpix": 32
+ },
+ "rice-f32-dither1.fits": {
+  "compression": "RICE_1",
+  "lossy": true,
+  "maxErr": 0.02376556396484375,
+  "quantiz": "SUBTRACTIVE_DITHER_1",
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   1
+  ],
+  "zbitpix": -32
+ },
+ "rice-f32-dither2.fits": {
+  "compression": "RICE_1",
+  "lossy": true,
+  "maxErr": 0.02541351318359375,
+  "quantiz": "SUBTRACTIVE_DITHER_2",
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   50,
+   10
+  ],
+  "zbitpix": -32
+ },
+ "rice-f32-nodither.fits": {
+  "compression": "RICE_1",
+  "lossy": true,
+  "maxErr": 0.023288726806640625,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   1
+  ],
+  "zbitpix": -32
+ },
+ "rice-i16-blank.fits": {
+  "compression": "RICE_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   100,
+   1
+  ],
+  "zbitpix": 16
+ },
+ "rice-i16.fits": {
+  "compression": "RICE_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   60,
+   100
+  ],
+  "tiles": [
+   13,
+   7
+  ],
+  "zbitpix": 16
+ },
+ "rice-i32-cube.fits": {
+  "compression": "RICE_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   3,
+   20,
+   30
+  ],
+  "tiles": [
+   9,
+   8,
+   2
+  ],
+  "zbitpix": 32
+ },
+ "rice-u8.fits": {
+  "compression": "RICE_1",
+  "lossy": false,
+  "maxErr": 0,
+  "quantiz": null,
+  "shape": [
+   24,
+   40
+  ],
+  "tiles": [
+   40,
+   1
+  ],
+  "zbitpix": 8
+ }
+}

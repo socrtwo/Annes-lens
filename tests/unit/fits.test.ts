@@ -68,6 +68,38 @@ describe('FITS (files written from the standard with numpy)', () => {
     expect(x.info.origin).toBe('fixture');
     expect(fitsHdus(fx('extensions.fits')).map((h) => h.kind)).toEqual(['empty', 'image', 'table', 'image']);
   });
+  describe('tile-compressed images (written by astropy; the values astropy reads back)', () => {
+    const tiled: Record<string, { shape: number[]; compression: string; zbitpix: number; tiles: number[]; quantiz: string | null; lossy: boolean }> = JSON.parse(readFileSync(DIR + 'tiled.json', 'utf8'));
+    for (const [n, c] of Object.entries(tiled)) {
+      it(`${n}: ${c.compression}, ZBITPIX ${c.zbitpix}, tiles ${c.tiles.join(' × ')}${c.quantiz ? `, ${c.quantiz}` : ''}`, () => {
+        const { planes, hdus, warnings } = fitsData(fx(n));
+        expect(warnings).toEqual([]);
+        expect(hdus[1].kind).toBe('compressed');
+        const exp = new Float64Array(new Uint8Array(readFileSync(DIR + n.replace('.fits', '.bin'))).buffer);
+        const [w, h] = c.shape.length === 3 ? [c.shape[2], c.shape[1]] : [c.shape[1], c.shape[0]];
+        expect(planes.map((p) => [p.width, p.height])).toEqual(new Array(c.shape.length === 3 ? c.shape[0] : 1).fill([w, h]));
+        let k = 0, bad = 0;
+        for (const p of planes) for (let i = 0; i < p.values.length; i++, k++) { const a = p.values[i], b = exp[k]; if (!((a !== a && b !== b) || Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b)))) bad++; }
+        expect(k).toBe(exp.length);
+        expect(bad).toBe(0);
+      });
+    }
+    it('shows them like any other image, with the compression in the notes and details; nulls transparent', () => {
+      const d = decodeFits(fx('rice-f32-dither1.fits'));
+      expect(d.pages[0].notes[0]).toBe('FITS image extension 1 "COMPRESSED_IMAGE", 32-bit floating-point, RICE_1 tiles (quantized with dither)');
+      expect(d.info.compression).toBe('RICE_1 tiles of 100 × 1, SUBTRACTIVE_DITHER_1');
+      expect(d.pages[0].hasAlpha).toBe(true); // the NaN block
+      expect(at(d.pages[0].frames[0].raster, 12, 59 - 6)[3]).toBe(0);
+      const b = decodeFits(fx('rice-i16-blank.fits'));
+      expect(b.pages[0].notes).toContain('undefined (BLANK) pixels are transparent');
+      expect(at(b.pages[0].frames[0].raster, 4, 59 - 4)[3]).toBe(0);
+      expect(at(b.pages[0].frames[0].raster, 40, 20)[3]).toBe(255);
+      const c = decodeFits(fx('rice-i32-cube.fits'));
+      expect(c.pages.length).toBe(3);
+      expect(c.pages[2].notes[0]).toBe('FITS image extension 1 "COMPRESSED_IMAGE", plane 3 of 3, 32-bit integer, RICE_1 tiles');
+      expect(decodeFits(fx('hcomp-i32-lossy.fits')).info.compression).toBe('HCOMPRESS_1 tiles of 64 × 16');
+    });
+  });
   it('refuses files without an image', () => {
     const hdr = fx('extensions.fits').subarray(0, 2880);
     expect(() => decodeFits(hdr)).toThrow(/holds no image/);
