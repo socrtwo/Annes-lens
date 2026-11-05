@@ -1,3 +1,4 @@
+import type { Wcs } from '../codecs/wcs';
 /**
  * The in-memory picture: pages (multipage TIFF, every size of an ICO), frames (animations) and the
  * metadata the Information dialog shows. Pixels live in canvases or ImageBitmaps, one per frame.
@@ -35,6 +36,8 @@ export interface Page {
   icc?: Uint8Array;
   /** Text stored in the file (DjVu's text layer); dropped when the page is rotated, flipped or resized. */
   textLayer?: TextLayer;
+  /** The world coordinate system of a FITS image; dropped when the page is rotated, flipped or resized. */
+  world?: Wcs;
 }
 
 export class Picture {
@@ -95,7 +98,7 @@ export function mapPage(page: Page, size: (w: number, h: number) => [number, num
     return { image: c, width: w, height: h, delay: f.delay };
   });
   const [w, h] = size(page.width, page.height);
-  const { textLayer: _, ...rest } = page; // the word boxes no longer match
+  const { textLayer: _, world: _w, ...rest } = page; // the word boxes and sky coordinates no longer match
   return { ...rest, width: w, height: h, frames };
 }
 

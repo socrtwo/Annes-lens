@@ -10,6 +10,8 @@ export function makeRaster(width: number, height: number): Raster {
   return { width, height, data: new Uint8ClampedArray(width * height * 4) };
 }
 
+import type { Wcs } from './wcs';
+
 export interface DecodedPage {
   width: number;
   height: number;
@@ -22,6 +24,8 @@ export interface DecodedPage {
   notes: string[];
   /** Text stored in the file with word positions (DjVu's text layer). */
   textLayer?: TextLayer;
+  /** The world coordinate system of a FITS image (sky positions for the pixel readout and measurements). */
+  world?: Wcs;
 }
 
 /** Text that comes with a page (not recognized by OCR): its words with boxes in page pixels. */

@@ -12,6 +12,7 @@
 import { makeRaster, type DecodeResult, type DecodedPage } from './raster';
 import { inflate } from './inflate';
 import { decodeRice, decodePlio, decodeHcompress, unshuffleBytes, ditherSequence } from './fitsTiles';
+import { parseWcs, formatWorld, pixelToWorld, type Wcs } from './wcs';
 
 export const isFits = (u8: Uint8Array): boolean => u8.length >= 2880 && String.fromCharCode(...u8.subarray(0, 9)) === 'SIMPLE  =';
 export const isGzipFits = (u8: Uint8Array, name: string): boolean => u8.length > 10 && u8[0] === 0x1f && u8[1] === 0x8b && /\.(fits?|fts)\.gz$/i.test(name);
@@ -273,7 +274,10 @@ export function decodeFits(input: Uint8Array, name = ''): DecodeResult {
     const notes = [`FITS ${pl.hdu === 0 ? 'primary image' : `image extension ${pl.hdu}${hdu.cards.get('EXTNAME') ? ` "${hdu.cards.get('EXTNAME')}"` : ''}`}${depth > 1 ? `, plane ${pl.plane + 1} of ${depth}` : ''}, ${kind}${hdu.cards.has('BZERO') || hdu.cards.has('BSCALE') ? ' (BZERO/BSCALE applied)' : ''}${cmp ? `, ${cmp} tiles${quantiz}` : ''}`,
       `shown stretched linearly from ${fmt(lo)} to ${fmt(hi)}${bunit ? ` ${bunit}` : ''} (the 0.5th and 99.5th percentiles); the first stored row is at the bottom`];
     if (pl.blank) notes.push('undefined (BLANK) pixels are transparent');
-    pages.push({ width: w, height: h, frames: [{ raster: r, delay: 0 }], loops: 0, bitDepth: Math.abs(hdu.bitpix), hasAlpha: transparent, notes });
+    let world: Wcs | null = null;
+    try { world = parseWcs(hdu.cards, w, h); } catch { world = null; }
+    if (world) { const center = pixelToWorld(world, w / 2, h / 2); notes.push(`${world.proj ? `${world.proj} projection` : 'linear axes'}: ${center ? `the center is at ${formatWorld(world, center)}` : 'the center lies outside the projection'}; the pixel readout and Measure show sky positions`); }
+    pages.push({ width: w, height: h, frames: [{ raster: r, delay: 0 }], loops: 0, bitDepth: Math.abs(hdu.bitpix), hasAlpha: transparent, notes, ...(world ? { world } : {}) });
   }
   const info: Record<string, string> = { HDUs: String(hdus.length), planes: String(planes.length) };
   const primary = hdus[planes[0].hdu].cards;

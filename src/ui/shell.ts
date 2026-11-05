@@ -1,4 +1,5 @@
 /** Application shell: title bar, Quick Access Bar, classic menu bar, tabs + ribbon, window tabs, viewer, status bar. */
+import { pixelToWorld, formatWorld, type Wcs } from '../codecs/wcs';
 import type { App, PictureTab } from '../app';
 import { getCommand, allCommands, searchCommands, plannedLabel, type Command, type MenuEntry } from '../commands/registry';
 import { h, icon, clear, isPhone } from './dom';
@@ -86,7 +87,7 @@ export class Shell {
     tab.el = h('div', { class: 'qn-window' }, v.el, tab.thumbs.el);
     this.workspace.appendChild(tab.el);
     if (this.app.prefs.browserLayout || this.app.prefs.folderTree) void import('../commands/browseWindow').then((m) => m.applyBrowseLayout(this.app, tab));
-    v.onPointer = (info) => { this.pixelText = info ? `${info.x}, ${info.y}  RGB ${info.rgba[0]}, ${info.rgba[1]}, ${info.rgba[2]}${info.rgba[3] < 255 ? ` α ${info.rgba[3]}` : ''}  #${hex(info.rgba)}` : ''; this.updatePixel(); };
+    v.onPointer = (info) => { this.pixelText = info ? `${info.x}, ${info.y}  RGB ${info.rgba[0]}, ${info.rgba[1]}, ${info.rgba[2]}${info.rgba[3] < 255 ? ` α ${info.rgba[3]}` : ''}  #${hex(info.rgba)}${worldText(v.picture?.current.world, info.x, info.y)}` : ''; this.updatePixel(); };
     requestAnimationFrame(() => v.layout());
   }
 
@@ -612,3 +613,10 @@ function hex(rgba: [number, number, number, number]): string { return rgba.slice
 export function fmtSize(n: number): string { return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(2)} MB`; }
 export const phone = isPhone;
 export { plannedLabel };
+
+/** The sky position of a pixel's center for the status bar, when the picture has a world coordinate system. */
+function worldText(w: Wcs | undefined, x: number, y: number): string {
+  if (!w) return '';
+  const pos = pixelToWorld(w, x + 0.5, y + 0.5);
+  return pos ? `  ${formatWorld(w, pos)}` : '';
+}

@@ -383,7 +383,7 @@ async function drawPictExtras(page: Page, r: import('./pict').PictResult, warnin
 }
 
 function pageFromDecoded(d: DecodedPage): Page {
-  return { width: d.width, height: d.height, frames: d.frames.map((f) => rasterToFrame(f.raster, f.delay)), loops: d.loops, bitDepth: d.bitDepth, paletteSize: d.paletteSize, hasAlpha: d.hasAlpha, dpi: d.dpi, notes: d.notes, ...(d.textLayer ? { textLayer: d.textLayer } : {}) };
+  return { width: d.width, height: d.height, frames: d.frames.map((f) => rasterToFrame(f.raster, f.delay)), loops: d.loops, bitDepth: d.bitDepth, paletteSize: d.paletteSize, hasAlpha: d.hasAlpha, dpi: d.dpi, notes: d.notes, ...(d.textLayer ? { textLayer: d.textLayer } : {}), ...(d.world ? { world: d.world } : {}) };
 }
 
 function fromOwn(r: { pages: DecodedPage[]; info: Record<string, string>; warnings: string[] }, decoder: string) {

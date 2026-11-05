@@ -4,6 +4,8 @@
  * specimen card). Angles follow the screen's y-down axis turned to the usual convention: 0° points
  * right and positive angles go counterclockwise.
  */
+import { pixelToWorld, formatWorld, formatAngle, angularSeparation, type Wcs } from '../codecs/wcs';
+
 export type P = [number, number];
 export interface Scale { perPx: number; unit: string }
 
@@ -31,13 +33,19 @@ export const scaleFrom = (px: number, known: number, unit: string): Scale | null
 /** A scale from the picture's DPI (inches or centimeters). */
 export const scaleFromDpi = (dpi: number, unit: 'in' | 'cm' | 'mm'): Scale | null => (dpi > 0 ? { perPx: (unit === 'in' ? 1 : unit === 'cm' ? 2.54 : 25.4) / dpi, unit } : null);
 
-/** The lines the readout shows for a set of points. */
-export function readout(pts: P[], closed: boolean, s: Scale | null): string[] {
-  if (pts.length < 2) return pts.length ? ['Click the next point; double-click to close a shape.'] : [];
+/** The lines the readout shows for a set of points; with a world coordinate system, sky positions and separations too. */
+export function readout(pts: P[], closed: boolean, s: Scale | null, world?: Wcs | null): string[] {
+  if (pts.length < 2) return pts.length ? [...(world ? [skyLine(world, pts[0])] : []), 'Click the next point; double-click to close a shape.'].filter(Boolean) : [];
   const out: string[] = [];
-  if (pts.length === 2) { out.push(`Distance ${formatLength(dist(pts[0], pts[1]), s)}`); out.push(`Angle ${fmt(segmentAngle(pts[0], pts[1]))}°`); return out; }
+  if (pts.length === 2) {
+    out.push(`Distance ${formatLength(dist(pts[0], pts[1]), s)}`); out.push(`Angle ${fmt(segmentAngle(pts[0], pts[1]))}°`);
+    if (world) { const a = pixelToWorld(world, pts[0][0], pts[0][1]), b = pixelToWorld(world, pts[1][0], pts[1][1]); if (a && b) out.push(`On the sky ${formatAngle(angularSeparation(a, b))}, from ${formatWorld(world, a, false)} to ${formatWorld(world, b)}`); }
+    return out;
+  }
   out.push(`${closed ? 'Perimeter' : 'Path'} ${formatLength(pathLength(pts, closed), s)}`);
   const n = pts.length;
   out.push(closed ? `Area ${formatArea(polygonArea(pts), s)}` : `Last segment ${formatLength(dist(pts[n - 2], pts[n - 1]), s)}, angle at the bend ${fmt(vertexAngle(pts[n - 3], pts[n - 2], pts[n - 1]))}°`);
+  if (world && !closed) { const a = pixelToWorld(world, pts[n - 2][0], pts[n - 2][1]), b = pixelToWorld(world, pts[n - 1][0], pts[n - 1][1]); if (a && b) out.push(`Last segment on the sky ${formatAngle(angularSeparation(a, b))}`); }
   return out;
 }
+const skyLine = (w: Wcs, p: P): string => { const pos = pixelToWorld(w, p[0], p[1]); return pos ? `At ${formatWorld(w, pos)}` : ''; };

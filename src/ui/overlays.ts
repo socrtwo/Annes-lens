@@ -205,7 +205,7 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, v: Viewer, r: { x: n
     if (m.closed && pv.length > 2) { path(); ctx.fillStyle = 'rgba(255,212,0,0.18)'; ctx.fill(); }
     path(); ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 2; ctx.stroke();
     for (const q of pv) { ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, Math.PI * 2); ctx.fillStyle = '#ffd400'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke(); }
-    const lines = readout(m.pts, m.closed, m.scale);
+    const lines = readout(m.pts, m.closed, m.scale, v.picture?.current.world);
     if (lines.length) {
       ctx.font = '13px sans-serif'; ctx.textBaseline = 'top';
       const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 14, hh = lines.length * 17 + 8;
