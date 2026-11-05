@@ -91,6 +91,10 @@ Some formats (CorelDRAW and Corel PHOTO-PAINT today) are recognized but cannot b
 
 Files kept in the test suite under that permission are listed in this section with the sender's consent noted; none has been received yet. The message also records the sender's program name, notes, and the permissions given.
 
+## Content Credentials
+
+The C2PA manifests the app writes follow the C2PA technical specification (the Coalition for Content Provenance and Authenticity publishes it openly) and the standards it builds on (JUMBF, CBOR, COSE, X.509), implemented in the app's own code and checked against the C2PA reference library (c2pa-python, MIT or Apache 2.0) during development; the library is not shipped. The signing certificate is self-signed on the device, so validators call the signer untrusted while confirming the hashes and signature; the app says the same. No certificate authority, trust list or timestamp service is involved.
+
 ## Medical pictures
 
 Anne's Lens opens DICOM files so that people can look at their own scans. It is not a medical device, has not been assessed as one, and shows every DICOM page with the notice that it is for viewing only, not for diagnosis or treatment decisions. The window, rescale and palette are applied as the standard describes (PS3.3 C.11.2 and C.7.6.3), and lossy pixel data is marked as such in the details; nothing is calibrated, and no measurement in the app is a clinical measurement. The patient details the file carries are shown to its holder in the details pane and are never sent anywhere.

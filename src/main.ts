@@ -62,7 +62,7 @@ app.ui.tabsChanged();
 (window as any).__qnCompare = () => Promise.all([import('./ui/viewHooks'), import('./ui/compareView'), import('./ui/syncWindows'), import('./commands/compare2')]).then(([a, b, c, d]) => ({ ...a, ...b, ...c, ...d }));
 (window as any).__qnSpecial = () => Promise.all([import('./ui/specialView'), import('./picture/stereo'), import('./picture/sphere'), import('./picture/motionPhoto'), import('./commands/specialViews')]).then(([a, b, c, d, e]) => ({ ...a, ...b, ...c, ...d, ...e }));
 (window as any).__qnColor = () => Promise.all([import('./color/embedded'), import('./color/display'), import('./color/spaces'), import('./commands/colorMgmt'), import('./meta/metaWrite')]).then(([a, b, c, d, e]) => ({ ...a, ...b, ...c, ...d, pngIcc: e.pngIcc }));
-(window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite'), import('./meta/geo'), import('./meta/places')]).then(([m, x, e, i, w]) => ({ ...m, ...x, ...e, ...i, ...w }));
+(window as any).__qnMeta = () => Promise.all([import('./picture/metadata'), import('./meta/xmp'), import('./meta/metaEdit'), import('./meta/iptc'), import('./meta/metaWrite'), import('./meta/geo'), import('./meta/places'), import('./meta/c2pa')]).then(([m, x, e, i, w, , , c]) => ({ ...m, ...x, ...e, ...i, ...w, c2pa: c }));
 
 // Files dropped on the window open as a folder of their own.
 window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });

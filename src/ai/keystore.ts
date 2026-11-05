@@ -20,10 +20,14 @@ export const keystoreHooks = { askPassphrase: null as null | ((purpose: 'set' | 
 let ready: Promise<void> = Promise.resolve();
 let passphrase: string | null = null, cryptoKey: { salt: Uint8Array; key: CryptoKey } | null = null;
 let lastStored = '';
+/** Other small secrets kept in the same store (the Content Credentials signing key), by name; the services last loaded, to store with. */
+let extras: Record<string, string> = {}, known: AiService[] = [];
+export const getExtra = (name: string): string | undefined => extras[name];
+export async function setExtra(name: string, value: string | null): Promise<void> { if (value === null) delete extras[name]; else extras[name] = value; await storeKeys(known); }
 /** Resolves when the keys have been loaded into the service records (immediately when nothing was asked to load). */
 export const keysReady = (): Promise<void> => ready;
 /** For tests: forgets the session's passphrase and cached state. */
-export function resetKeystore(): void { passphrase = null; cryptoKey = null; lastStored = ''; ready = Promise.resolve(); }
+export function resetKeystore(): void { passphrase = null; cryptoKey = null; lastStored = ''; extras = {}; known = []; ready = Promise.resolve(); }
 
 const subtle = (): SubtleCrypto => { const c = (globalThis.crypto || (globalThis as any).webcrypto) as Crypto; if (!c?.subtle) throw new Error('No WebCrypto'); return c.subtle; };
 const b64 = (u8: Uint8Array): string => btoa(String.fromCharCode(...u8));
@@ -43,8 +47,8 @@ export async function keyBackend(): Promise<KeyBackend> {
   return { kind: 'web', encrypted: mode !== 'plain', label: mode === 'plain' ? 'this browser\'s storage, unencrypted (you chose no passphrase)' : 'this browser\'s storage, encrypted with your passphrase' };
 }
 
-const keyMap = (services: AiService[]): Record<string, string> => Object.fromEntries(services.filter((s) => s.key).map((s) => [s.id, s.key]));
-const applyMap = (services: AiService[], map: Record<string, string>): void => { for (const s of services) if (!s.key && typeof map[s.id] === 'string') s.key = map[s.id]; };
+const keyMap = (services: AiService[]): Record<string, string> => ({ ...Object.fromEntries(services.filter((s) => s.key).map((s) => [s.id, s.key])), ...Object.fromEntries(Object.entries(extras).map(([k, v]) => ['__' + k, v])) });
+const applyMap = (services: AiService[], map: Record<string, string>): void => { for (const s of services) if (!s.key && typeof map[s.id] === 'string') s.key = map[s.id]; for (const [k, v] of Object.entries(map)) if (k.startsWith('__') && typeof v === 'string') extras[k.slice(2)] = v; };
 
 async function deriveKey(pass: string, salt: Uint8Array): Promise<CryptoKey> {
   const base = await subtle().importKey('raw', enc.encode(pass) as BufferSource, 'PBKDF2', false, ['deriveKey']);
@@ -74,6 +78,7 @@ export async function decryptKeys(record: string, pass: string): Promise<Record<
 
 /** Fills the services' keys from the store (keys already on a record are kept: those are new or legacy ones). */
 export function loadKeys(services: AiService[]): Promise<void> {
+  known = services;
   ready = (async () => {
     const d = desktopBridge();
     try {
@@ -97,6 +102,7 @@ export function loadKeys(services: AiService[]): Promise<void> {
 
 /** Writes the services' keys to the store (nothing is written when they have not changed). */
 export async function storeKeys(services: AiService[]): Promise<void> {
+  known = services;
   const map = keyMap(services), json = JSON.stringify(map);
   if (json === lastStored) return;
   const d = desktopBridge();

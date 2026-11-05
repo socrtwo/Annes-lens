@@ -11,6 +11,7 @@ import { allCommands, getCommand } from './registry';
 import { h } from '../ui/dom';
 import { fmtSize } from '../ui/shell';
 import { extractMeta, hasMeta, injectMeta, setExifOrientation } from '../meta/metaWrite';
+import { parseXmp } from '../meta/xmp';
 import { keepOriginalCopy } from '../picture/keepOriginal';
 import { paintHooks } from '../paint/hooks';
 import { installCustomMenus } from '../ui/classicMenus';
@@ -167,6 +168,7 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
   const c = pic.frameCanvas();
   let blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
   if ((app.prefs.keepMetadata || pic.current.icc) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty, { keep: app.prefs.keepMetadata, icc: pic.current.icc });
+  if (app.prefs.ai.credentials && (fmt === 'jpeg' || fmt === 'png')) blob = await withCredentials(app, blob, pic.bytes, fmt, `${base}.${EXT[fmt!]}`);
   return { blob, name: `${base}.${EXT[fmt!]}` };
 }
 
@@ -182,6 +184,39 @@ export async function withMetadata(blob: Blob, source: Uint8Array, format: 'jpeg
   if (meta.exif && upright) meta.exif = setExifOrientation(meta.exif, 1);
   const bytes = await writeWithProfile(new Uint8Array(await blob.arrayBuffer()), format, meta, icc);
   return new Blob([bytes as BlobPart], { type: blob.type });
+}
+
+declare const __APP_VERSION__: string;
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+/**
+ * Content Credentials: when the source carries the app's AI provenance (an AI result), the saved JPEG or PNG gets a
+ * signed C2PA manifest (the action, its source type, the service and model, the prompt), signed with this device's
+ * own self-signed certificate from the keystore. Pictures without AI provenance are left as they are.
+ */
+export async function withCredentials(app: App, blob: Blob, source: Uint8Array, format: 'jpeg' | 'png', name: string): Promise<Blob> {
+  try {
+    const xmp = extractMeta(source).xmp;
+    if (!xmp) return blob;
+    const props = parseXmp(new TextDecoder().decode(xmp));
+    if (!props.aiCommand) return blob;
+    const [{ embedManifest, makeSigner, loadSigner }, { keysReady, getExtra, setExtra }] = await Promise.all([import('../meta/c2pa'), import('../ai/keystore')]);
+    await keysReady();
+    let stored = getExtra('c2pa.signer');
+    if (!stored) { stored = JSON.stringify(await makeSigner("Anne's Lens on this device", "Anne's Lens")); await setExtra('c2pa.signer', stored); }
+    const signer = await loadSigner(JSON.parse(stored));
+    const generated = /trainedAlgorithmicMedia$/.test(props.digitalSourceType || '') && !/composite/.test(props.digitalSourceType || '');
+    const agent = `Anne's Lens/${APP_VERSION}`, now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const parameters: Record<string, string> = {};
+    if (props.aiProvider) parameters.service = props.aiProvider;
+    if (props.aiModel) parameters.model = props.aiModel;
+    if (props.aiPrompt) parameters.prompt = props.aiPrompt;
+    const bytes = await embedManifest(new Uint8Array(await blob.arrayBuffer()), {
+      title: name, format: format === 'jpeg' ? 'image/jpeg' : 'image/png', generator: { name: "Anne's Lens", version: APP_VERSION },
+      action: { action: generated ? 'c2pa.created' : 'c2pa.edited', when: props.aiDate && !Number.isNaN(Date.parse(props.aiDate)) ? new Date(props.aiDate).toISOString().replace(/\.\d{3}Z$/, 'Z') : now, softwareAgent: agent, digitalSourceType: props.digitalSourceType || 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia', description: `${props.aiCommand}${props.aiProvider ? ` with ${props.aiProvider}` : ''}${props.aiModel ? ` (${props.aiModel})` : ''}`, parameters },
+      more: app.tab?.dirty ? [{ action: 'c2pa.edited', when: now, softwareAgent: agent, description: 'edited in Anne\'s Lens before saving' }] : [],
+    }, signer);
+    return new Blob([bytes as BlobPart], { type: blob.type });
+  } catch (e) { toast(`Content Credentials could not be added: ${(e as Error).message}`); return blob; }
 }
 
 /** Save: back into the same file when the format can be written and the file is writable; otherwise Save As. */

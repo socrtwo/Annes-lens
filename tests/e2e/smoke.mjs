@@ -1944,6 +1944,12 @@ try {
     const M = await window.__qnMeta();
     out.gen = { tabs: qn.tabs.length - tabs0, name: qn.picture.name, w: qn.picture.width, center: pixel(32, 32).slice(0, 3), xmp: (M.extractMeta(qn.picture.bytes).xmp ? new TextDecoder().decode(M.extractMeta(qn.picture.bytes).xmp) : '') };
     out.genProv = { source: /trainedAlgorithmicMedia/.test(out.gen.xmp), prompt: /AiPrompt>a bicycle</.test(out.gen.xmp), provider: /AiProvider>Mock</.test(out.gen.xmp) }; delete out.gen.xmp;
+    // Saved as PNG through a writable handle, the generated picture carries a signed C2PA manifest that reads back as valid.
+    { const N = await window.__qnNative(); const saved = { value: null }; const fh = { kind: 'file', name: 'generated.png', isSameEntry: async (o) => o === undefined, getFile: async () => new File([saved.value || qn.picture.bytes], 'generated.png', { type: 'image/png' }), createWritable: async () => ({ write: async (d) => { saved.value = new Uint8Array(d instanceof Blob ? await d.arrayBuffer() : d); }, close: async () => {} }) };
+      qn.picture.entry.uri = 'fsa:' + (await N.handleId(fh)); qn.prefs.keepOriginal = false; qn.prefs.keepMetadata = true;
+      await qn.exec('file.save'); for (let i = 0; i < 100 && !saved.value; i++) await wait(50); await wait(300);
+      const m = saved.value ? await M.c2pa.readManifest(saved.value) : null;
+      out.c2pa = m ? { checks: m.checks, action: m.actions[0]?.action, source: m.actions[0]?.digitalSourceType?.replace(/^.*\//, ''), prompt: m.actions[0]?.parameters?.prompt, signer: m.signer?.subject, selfSigned: m.signer?.selfSigned, info: qn.picture.info['Content Credentials'] } : { saved: !!saved.value, toasts: seen.slice(-3) }; }
     await back();
     // Generative Fill: the service's blue answer is blended inside the selection only.
     qn.tab.setSelection({ x: 50, y: 40, w: 30, h: 20 });
@@ -1988,6 +1994,7 @@ try {
     return out;
   }, AI_PORT);
   check('ai commands enabled with a service', ai.enabled, [true, true, false, true, false]);
+  check('ai: a generated picture saved as PNG carries a signed, valid C2PA manifest with the prompt, and the details show it', ai.c2pa && [ai.c2pa.checks, ai.c2pa.action, ai.c2pa.source, ai.c2pa.prompt, ai.c2pa.selfSigned, typeof ai.c2pa.info === 'string' && /^valid; signed by Anne's Lens on this device/.test(ai.c2pa.info)], [{ hash: true, assertions: true, signature: true }, 'c2pa.created', 'trainedAlgorithmicMedia', 'a bicycle', true, true], JSON.stringify(ai.c2pa));
   check('ai keys: saving a key on the web asks for a passphrase; declined, the keys are stored unencrypted and never in the settings', [ai.passDialog, ai.keysStored && ai.keysStored.mode, ai.keysStored && ai.keysStored.keys && ai.keysStored.keys.mock, ai.prefsHaveKey], ['Protect Your AI Keys', 'plain', 'k', false], JSON.stringify([ai.passDialog, ai.keysStored, ai.prefsHaveKey]));
   check('ai describe', ai.describe, 'A red rectangle on a white background.');
   check('ai alt text', ai.alt, ['A red square', 'A plain red square on a white background.']);

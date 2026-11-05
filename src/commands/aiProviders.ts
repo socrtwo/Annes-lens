@@ -112,7 +112,7 @@ def([
         { key: 'allowRemote', label: 'Allow services on the internet (off: only localhost and private addresses)', type: 'checkbox', value: p.allowRemote },
         { key: 'confirmSend', label: 'Ask before the first send in each session', type: 'checkbox', value: p.confirmSend },
         { key: 'maxEdge', label: 'Longest side of pictures sent (px)', type: 'number', min: 256, max: 8192, value: p.maxEdge, half: true },
-        { key: 'credentials', label: 'Content Credentials on AI results (IPTC digital source type and provenance fields)', type: 'checkbox', value: app.prefs.ai.credentials },
+        { key: 'credentials', label: 'Content Credentials on AI results (IPTC digital source type and provenance fields; a signed C2PA manifest when saved as JPEG or PNG)', type: 'checkbox', value: app.prefs.ai.credentials },
         { key: 'historyMax', label: 'AI History entries kept', type: 'number', min: 0, max: 2000, value: app.prefs.ai.historyMax, half: true },
       ] });
       if (!r) return;
@@ -167,7 +167,7 @@ def([
       void app;
     },
   },
-  { id: 'ai.contentCredentials', icon: 'verified', kind: 'toggle', noRecord: true, isActive: (app) => app.prefs.ai.credentials, tip: 'On by default: IPTC digital source type and provenance fields (command, service, model, prompt, date) on generated and AI-edited pictures. C2PA manifests are not signed yet.', run: (app) => { app.prefs.ai.credentials = !app.prefs.ai.credentials; app.savePrefs(); app.refresh(); toast(app.prefs.ai.credentials ? 'AI results carry provenance metadata.' : 'AI results carry no provenance metadata.'); } },
+  { id: 'ai.contentCredentials', icon: 'verified', kind: 'toggle', noRecord: true, isActive: (app) => app.prefs.ai.credentials, tip: 'On by default: IPTC digital source type and provenance fields (command, service, model, prompt, date) on generated and AI-edited pictures, and a C2PA manifest signed with this device\'s own certificate when they are saved as JPEG or PNG', run: (app) => { app.prefs.ai.credentials = !app.prefs.ai.credentials; app.savePrefs(); app.refresh(); toast(app.prefs.ai.credentials ? 'AI results carry provenance metadata.' : 'AI results carry no provenance metadata.'); } },
   {
     id: 'ai.promptLibrary', icon: 'collections_bookmark', noRecord: true, tip: 'Saved prompts for Generate and Edit by Instruction (shared format with the sister apps: name, prompt, negative, kind)',
     run: async (app) => {
