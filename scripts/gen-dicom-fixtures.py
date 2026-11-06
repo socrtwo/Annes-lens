@@ -438,6 +438,22 @@ ps.GraphicAnnotationSequence = Sequence([ann])
 ps.save_as(os.path.join(OUT, 'gsps-annot.dcm'), enforce_file_format=True)
 manifest['gsps-annot.dcm'] = {'what': 'presentation state: ' + ps.ContentDescription, 'frames': 1, 'width': 48, 'height': 32, 'pi': 'MONOCHROME2', 'ts': str(ps.file_meta.TransferSyntaxUID), 'comment': ps.ContentDescription, 'references': 'ct-window.dcm', 'annotations': True}
 
+# A pseudo-color softcopy presentation state (PS3.3 A.33.4): the WINTER palette applied to the windowed values.
+ps, ref = gsps('pcsps.dcm', 'pseudo-color: window 100/600 through the segmented WINTER palette')
+ps.file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.11.3'; ps.SOPClassUID = ps.file_meta.MediaStorageSOPClassUID
+voi = Dataset(); voi.WindowCenter = 100; voi.WindowWidth = 600; voi.ReferencedImageSequence = Sequence([ref])
+ps.SoftcopyVOILUTSequence = Sequence([voi])
+ps.PresentationLUTShape = 'IDENTITY'
+for tag in [(0x28, 0x1101), (0x28, 0x1102), (0x28, 0x1103), (0x28, 0x1221), (0x28, 0x1222), (0x28, 0x1223)]:
+    ps.add(winter[tag])
+ps.save_as(os.path.join(OUT, 'pcsps.dcm'), enforce_file_format=True)
+raw = img.pixel_array.astype(np.float64) * float(img.RescaleSlope) + float(img.RescaleIntercept)
+y = window(raw, 100, 600).astype(np.uint8)
+rgb = apply_color_lut(y, winter)
+rgb = (rgb if rgb.dtype == np.uint8 else np.round(rgb.astype(np.float64) * 255 / 65535)).astype(np.uint8)
+Image.fromarray(rgb, 'RGB').save(os.path.join(OUT, 'pcsps.png'), optimize=True)
+manifest['pcsps.dcm'] = {'what': 'presentation state: ' + ps.ContentDescription, 'frames': 1, 'width': int(rgb.shape[1]), 'height': int(rgb.shape[0]), 'pi': 'MONOCHROME2', 'ts': str(ps.file_meta.TransferSyntaxUID), 'comment': ps.ContentDescription, 'references': 'ct-window.dcm'}
+
 ps, ref = gsps('gsps-missing.dcm', 'references an image that is not in the folder')
 ref.ReferencedSOPInstanceUID = '1.2.826.0.1.3680043.8.498.99999999999999999999'
 ps.save_as(os.path.join(OUT, 'gsps-missing.dcm'), enforce_file_format=True)

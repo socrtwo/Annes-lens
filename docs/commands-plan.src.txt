@@ -572,6 +572,7 @@ Stereo View | view.stereo | | GQ | MPO and side-by-side pairs: anaglyph, cross-e
 360° View | view.sphere | | GP | equirectangular panoramas and photo spheres
 Two-Page View | view.twoPage | | HV | comics and scanned books
 Right-to-Left Reading | view.rtl | | HV | toggle
+DICOM Overlay Planes | view.dicomOverlays | | NEW | toggle: draw the overlay planes of DICOM files in white; the open file is decoded again
 
 ## Compare
 Compare Pictures | view.compare | Ctrl+Shift+Y | FS,XN,NM,DK | two to four panes, synchronized zoom and pan

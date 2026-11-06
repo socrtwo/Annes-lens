@@ -3,10 +3,12 @@
  * from the Recommendation: the median-edge predictor with context modeling (365 contexts, bias correction), Golomb
  * coding with the limited code length, run mode with its interruption samples, 2 to 16 bits per sample, the three
  * interleave modes (separate scans, line and sample interleaved), the LSE preset parameters (MAXVAL, T1–T3, RESET)
- * and restart intervals. Not supported: the LSE mapping tables (ID 2/3), subsampled components, the point transform.
+ * restart intervals and the LSE mapping tables (ID 2 with ID 3 continuations: a one-component picture whose scan names
+ * a table comes out mapped through it, 1-byte entries as gray, 3 as RGB, 4 as RGBA, 2 as a 16-bit sample). Not
+ * supported: subsampled components, the point transform.
  * Output: the samples, pixel-interleaved, as unsigned P-bit values.
  */
-export interface JlsFrame { width: number; height: number; comps: number; precision: number; near: number; data: Uint16Array; warnings: string[] }
+export interface JlsFrame { width: number; height: number; comps: number; precision: number; near: number; data: Uint16Array; warnings: string[]; /** Set when a mapping table was applied: its id and entry width. */ mapped?: { id: number; width: number; entries: number } }
 
 const J = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
@@ -54,8 +56,8 @@ export function decodeJpegLs(u8: Uint8Array): JlsFrame {
   const warnings: string[] = [];
   let p = 2, width = 0, height = 0, precision = 0, comps = 0, restart = 0, near = 0;
   const preset: Preset = { maxval: 0, t1: 0, t2: 0, t3: 0, reset: 0 };
-  const compIds: number[] = [];
-  let data: Uint16Array | null = null;
+  const compIds: number[] = [], tables = new Map<number, { width: number; bytes: number[] }>();
+  let data: Uint16Array | null = null, tableUsed = 0;
   const u16 = (o: number) => (u8[o] << 8) | u8[o + 1];
   const scanned = new Set<number>();
   while (p + 4 <= u8.length) {
@@ -74,12 +76,25 @@ export function decodeJpegLs(u8: Uint8Array): JlsFrame {
       const id = u8[seg];
       if (id === 1) { preset.maxval = u16(seg + 1); preset.t1 = u16(seg + 3); preset.t2 = u16(seg + 5); preset.t3 = u16(seg + 7); preset.reset = u16(seg + 9); }
       else if (id === 4) throw new Error('JPEG-LS pictures larger than 65535 pixels a side are not supported');
-      else throw new Error('JPEG-LS mapping tables (LSE ID 2/3) are not supported');
+      else if (id === 2 || id === 3) { // a mapping table, or the continuation of one (C.2.4.1.2)
+        const tid = u8[seg + 1], wt = u8[seg + 2];
+        if (!tid || !wt) throw new Error('JPEG-LS: a mapping table with no id or entry width');
+        const t = tables.get(tid);
+        if (id === 2) tables.set(tid, { width: wt, bytes: Array.from(u8.subarray(seg + 3, segEnd)) });
+        else if (!t) throw new Error(`JPEG-LS: a continuation of mapping table ${tid} before the table itself`);
+        else if (t.width !== wt) throw new Error(`JPEG-LS: mapping table ${tid} continues with another entry width`);
+        else t.bytes.push(...u8.subarray(seg + 3, segEnd));
+      } else warnings.push(`JPEG-LS: unknown LSE parameter id ${id} ignored`);
     } else if (m === 0xdd) restart = u16(seg);
     else if (m === 0xda) { // SOS
       if (!width || !height) throw new Error('JPEG-LS: a scan before the frame header');
       const ns = u8[seg], sel: number[] = [];
-      for (let i = 0; i < ns; i++) { const id = u8[seg + 1 + i * 2], ci = compIds.indexOf(id); if (ci < 0) throw new Error(`JPEG-LS: scan of an unknown component ${id}`); sel.push(ci); }
+      for (let i = 0; i < ns; i++) {
+        const id = u8[seg + 1 + i * 2], ci = compIds.indexOf(id), tm = u8[seg + 2 + i * 2];
+        if (ci < 0) throw new Error(`JPEG-LS: scan of an unknown component ${id}`);
+        sel.push(ci);
+        if (tm) { if (!tables.has(tm)) throw new Error(`JPEG-LS: the scan names mapping table ${tm}, which the stream does not carry`); if (comps === 1) tableUsed = tm; else if (!warnings.includes('JPEG-LS: mapping tables on a picture with several components are ignored')) warnings.push('JPEG-LS: mapping tables on a picture with several components are ignored'); }
+      }
       near = u8[seg + 1 + ns * 2];
       const ilv = u8[seg + 2 + ns * 2], al = u8[seg + 3 + ns * 2] & 0x0f;
       if (al) throw new Error('JPEG-LS with a point transform is not supported');
@@ -94,6 +109,20 @@ export function decodeJpegLs(u8: Uint8Array): JlsFrame {
   }
   if (!data) throw new Error('JPEG-LS: no scan found');
   if (scanned.size < comps) warnings.push(`JPEG-LS: ${comps - scanned.size} of ${comps} components have no scan`);
+  if (tableUsed) { // the samples index the table; each entry's bytes become the output samples
+    const t = tables.get(tableUsed)!, wt = t.width, entries = Math.floor(t.bytes.length / wt), n = width * height;
+    if (!entries) throw new Error(`JPEG-LS: mapping table ${tableUsed} is empty`);
+    const outComps = wt === 2 ? 1 : wt, mapped = new Uint16Array(n * outComps);
+    let over = false;
+    for (let i = 0; i < n; i++) {
+      let k = data[i]; if (k >= entries) { k = entries - 1; over = true; }
+      const b = k * wt;
+      if (wt === 2) mapped[i] = (t.bytes[b] << 8) | t.bytes[b + 1];
+      else for (let c = 0; c < wt; c++) mapped[i * wt + c] = t.bytes[b + c];
+    }
+    if (over) warnings.push(`JPEG-LS: samples beyond the ${entries} entries of mapping table ${tableUsed} take its last entry`);
+    return { width, height, comps: outComps, precision: wt === 2 ? 16 : 8, near, data: mapped, warnings, mapped: { id: tableUsed, width: wt, entries } };
+  }
   return { width, height, comps, precision, near, data, warnings };
 }
 

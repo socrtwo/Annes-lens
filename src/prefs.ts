@@ -113,6 +113,8 @@ export interface Prefs {
   colorFormat: 'hex' | 'rgb' | 'hsl' | 'name';
   /** RAW files open as their embedded preview. */
   rawPreferPreview: boolean;
+  /** Draw the overlay planes of DICOM files. */
+  dicomOverlays: boolean;
   /** Batch recipes: named Batch Steps jobs. */
   batchRecipes: { name: string; actions: any[]; format: string; quality: number; keepMeta: boolean; pattern: string }[];
   /** Adjust presets: named lists of adjustment steps (command id and dialog values). */
@@ -184,7 +186,7 @@ export function defaultPrefs(): Prefs {
     escExits: false, wheel: 'navigate',
     jpegQuality: 90, defaultSaveFormat: 'png', keepMetadata: true, keepOriginal: false, tgaRle: true, printScale: 1,
     print: { paper: 'a4', orientation: 'auto', margin: 10, captions: false, fit: 'page' }, externalEditors: [], mapTiles: { basemap: 'osm', template: '' }, externalTools: [], scriptPlugins: [],
-    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
+    quickFolders: [], confirmDelete: true, convolutions: [], sidecarMode: 'embed', metaTemplates: [], adjustPresets: [], batchRecipes: [], rawPreferPreview: true, dicomOverlays: true, osdTemplate: '{name}  {w} × {h}  {zoom}%\n{exifdate}  {camera}  {exposure}\n{n} / {total}', colorFormat: 'hex', slideshow: {}, keywordHistory: [], thumbSize: 160, thumbMode: 'grid',
     ai: defaultAiPrefs(), hiddenFiles: [], scanSource: '', importRules: [], people: [], faces: { enabled: false, threshold: 0.42 }, pdf: { dpi: 150, maxPages: 100 }, importedPlaces: [], ocrLangs: ['eng'], ocrLayout: 'auto',
     sort: 'natural', sortDescending: false,
   };

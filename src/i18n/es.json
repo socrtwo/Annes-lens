@@ -444,6 +444,7 @@
   "view.alphaDisplay": "Visualización de la transparencia",
   "view.background": "Color de fondo…",
   "view.colorManaged": "Visualización con gestión del color",
+  "view.dicomOverlays": "Planos de superposición DICOM",
   "view.displayAdjust": "Ajustes de visualización",
   "view.grayscalePreview": "Vista previa en escala de grises",
   "view.colorBlindSim": "Simulación de daltonismo",

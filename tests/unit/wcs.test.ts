@@ -16,6 +16,7 @@ describe('FITS world coordinates (files written with astropy; wcslib\'s position
       expect(w).toBeTruthy();
       c.pixels.forEach(([px, py], i) => {
         const got = pixelToWorld(w, px + 0.5, H - py - 0.5); // astropy's 0-based pixel centers → the app's y-down coordinates
+        if (c.world[i][0] === null) { expect(got, `pixel ${i} is outside the projection`).toBeNull(); return; }
         expect(got, `pixel ${i}`).toBeTruthy();
         if (n === 'wcs-linear.fits') { expect(got![0]).toBeCloseTo(500 + 0.25 * px, 9); expect(got![1]).toBeCloseTo(2 * py, 9); return; }
         const exp = (n === 'wcs-swapped.fits' ? [c.world[i][1], c.world[i][0]] : c.world[i]) as [number, number];
@@ -27,6 +28,17 @@ describe('FITS world coordinates (files written with astropy; wcslib\'s position
       }
     });
   }
+  it('rejects points outside a projection\'s domain and the hidden side of a perspective', () => {
+    const { w: azp } = wcsOf('wcs-azp.fits');
+    expect(pixelToWorld(azp, 20.5, 15.5)).toBeTruthy();
+    expect(pixelToWorld(azp, 20.5 + 200 / 0.02, 15.5)).toBeNull(); // 200° from the center: beyond the horizon of a μ = 2 perspective
+    const { w: tsc } = wcsOf('wcs-tsc.fits');
+    expect(pixelToWorld(tsc, 60.5 + 100, 40.5 + 100)).toBeNull(); // off the cross-shaped layout
+    const { w: zpn } = wcsOf('wcs-zpn.fits');
+    expect(pixelToWorld(zpn, 20.5, 15.5)).toBeTruthy();
+    const { w: mol } = wcsOf('wcs-mol.fits');
+    expect(pixelToWorld(mol, 20.5 + 400, 15.5)).toBeNull(); // outside the ellipse
+  });
   it('formats positions: equatorial sexagesimal with the frame, galactic in degrees, linear axes with units', () => {
     expect(formatRa(150.1)).toBe('10:00:24.00');
     expect(formatRa(359.99999)).toBe('00:00:00.00');
@@ -54,6 +66,7 @@ describe('FITS world coordinates (files written with astropy; wcslib\'s position
   });
   it('ignores headers without a usable system', () => {
     expect(parseWcs(new Map(), 10, 10)).toBeNull();
-    expect(parseWcs(new Map([['CTYPE1', 'RA---ZPN'], ['CTYPE2', 'DEC--ZPN'], ['CRVAL1', '1'], ['CD1_1', '0.1']]), 10, 10)).toBeNull();
+    expect(parseWcs(new Map([['CTYPE1', 'RA---CSC'], ['CTYPE2', 'DEC--CSC'], ['CRVAL1', '1'], ['CD1_1', '0.1']]), 10, 10)).toBeNull(); // COBE's cube needs its fitted coefficient tables
+    expect(parseWcs(new Map([['CTYPE1', 'RA---HPX'], ['CTYPE2', 'DEC--HPX'], ['CRVAL1', '1'], ['CD1_1', '0.1']]), 10, 10)).toBeNull();
   });
 });

@@ -24,9 +24,9 @@ export const NOT_FOR_DIAGNOSIS = 'For viewing only: Anne\'s Lens is not a medica
 
 /** The SOP Instance UID of a file ('' when it has none), for matching references. */
 export function dicomSopInstanceUid(u8: Uint8Array): string { try { return str(parseFile(u8), 8, 0x18) || ''; } catch { return ''; } }
-const GSPS = '1.2.840.10008.5.1.4.1.1.11.1', CSPS = '1.2.840.10008.5.1.4.1.1.11.2';
-/** Whether a file is a (grayscale or color) softcopy presentation state: display instructions for another file's picture. */
-export function isPresentationState(u8: Uint8Array): boolean { try { const d = parseFile(u8); const sop = str(d, 8, 0x16); return (sop === GSPS || sop === CSPS) && !d.el.has(PIXEL); } catch { return false; } }
+const GSPS = '1.2.840.10008.5.1.4.1.1.11.1', CSPS = '1.2.840.10008.5.1.4.1.1.11.2', PCSPS = '1.2.840.10008.5.1.4.1.1.11.3';
+/** Whether a file is a (grayscale, color or pseudo-color) softcopy presentation state: display instructions for another file's picture. */
+export function isPresentationState(u8: Uint8Array): boolean { try { const d = parseFile(u8); const sop = str(d, 8, 0x16); return (sop === GSPS || sop === CSPS || sop === PCSPS) && !d.el.has(PIXEL); } catch { return false; } }
 
 export interface GraphicObject { type: string; points: [number, number][]; filled: boolean; units: string }
 export interface TextObject { text: string; anchor?: [number, number]; anchorVisible: boolean; box?: [number, number, number, number]; units: string; anchorUnits: string }
@@ -38,6 +38,8 @@ export interface PresentationState {
   area?: { tl: [number, number]; br: [number, number] };
   rotation: number; flip: boolean;
   layers: { name: string; gray: number; graphics: GraphicObject[]; texts: TextObject[] }[];
+  /** A pseudo-color state's palette (PS3.3 C.11.6), applied to the presentation values. */
+  palette?: Palette;
 }
 /** Reads a softcopy presentation state file (PS3.3 A.33): what it says to do with the picture it references. */
 export function readPresentationState(u8: Uint8Array, name = ''): PresentationState {
@@ -55,6 +57,7 @@ export function readPresentationState(u8: Uint8Array, name = ''): PresentationSt
   if (Number.isFinite(slope) && Number.isFinite(icpt)) ps.rescale = { slope, intercept: icpt };
   const ml = d.el.get(T(0x28, 0x3000))?.items?.[0]; if (ml) ps.modalityLut = readLut(d, ml, false);
   const pl = d.el.get(T(0x2050, 0x10))?.items?.[0]; if (pl) ps.presentationLut = readLut(d, pl, false);
+  if (str(d, 8, 0x16) === PCSPS) { const pal = readPalette(d, u8, []); if (pal) ps.palette = pal; }
   const grayOf = (v: number | undefined) => (v === undefined ? 255 : Math.round((v / 65535) * 255));
   for (const shape of strs(d, 0x18, 0x1600)) {
     const sh = shape.toUpperCase(), gray = grayOf(u16v(d, 0x18, 0x1622) ?? 0);
@@ -386,7 +389,7 @@ function readOverlays(d: Parsed): Overlay[] {
 }
 
 /** `dec` is pdf.js's image-decoders module (JpegImage, JpxImage); needed only for JPEG and JPEG 2000 pixel data. */
-export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFrames?: number; maxPixels?: number; presentation?: PresentationState; drawText?: TextRasterizer } = {}): Promise<DecodeResult> {
+export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFrames?: number; maxPixels?: number; presentation?: PresentationState; drawText?: TextRasterizer; /** Draw the overlay planes (default true). */ overlays?: boolean } = {}): Promise<DecodeResult> {
   const ps = o.presentation;
   const d = parseFile(input), warnings: string[] = [], info: Record<string, string> = {};
   const { u8, ts, be } = d;
@@ -415,7 +418,7 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   };
   describe();
   if (!pix || !rows || !cols) throw new Error(`This DICOM file has no picture${info.kind ? ` (${info.kind}${modality ? `, ${modality}` : ''})` : ''}`);
-  const pi: PixelInfo = {
+  let pi: PixelInfo = {
     rows, cols, spp: u16v(d, 0x28, 2) || 1, pi: (str(d, 0x28, 4) || 'MONOCHROME2').toUpperCase(), planar: u16v(d, 0x28, 6) || 0,
     bitsAlloc: u16v(d, 0x28, 0x100) || 8, bitsStored: u16v(d, 0x28, 0x101) || 0, highBit: u16v(d, 0x28, 0x102) || 0, signed: u16v(d, 0x28, 0x103) === 1, frames: Math.max(1, nums(d, 0x28, 8)[0] || 1),
   };
@@ -456,51 +459,9 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
   if (overlays.length) info.overlays = overlays.map((o) => `${o.rows} × ${o.cols} at (${o.originCol}, ${o.originRow})${o.type === 'R' ? ', ROI' : ''}${o.bits ? '' : ' (embedded)'}`).join('; ');
 
   // The palette (PS3.3 C.7.6.3.1.5/6): descriptors [entries, first index, bits], data as 16-bit words (or bytes).
-  let palette: Uint8Array[] | null = null, paletteFirst = 0, paletteN = 0;
-  if (pi.pi === 'PALETTE COLOR') {
-    const desc = u16s(d, 0x28, 0x1101);
-    if (desc.length >= 3 && d.el.has(T(0x28, 0x1221))) { // segmented (PS3.3 C.7.9.2): discrete, linear and indirect segments expanded
-      paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
-      const max = desc[2] === 8 ? 255 : 65535;
-      palette = [0x1221, 0x1222, 0x1223].map((e) => {
-        const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
-        if (!el) return out;
-        // The segments are a stream of 16-bit words, or of bytes when the entries are 8 bits wide; an indirect segment's offset counts bytes.
-        const bytes8 = desc[2] === 8, dv = new DataView(u8.buffer, u8.byteOffset + el.off, el.len), nw = bytes8 ? el.len : el.len >> 1;
-        const word = (i: number) => (i < nw ? (bytes8 ? u8[el.off + i] : dv.getUint16(i * 2, !el.be)) : 0);
-        const vals: number[] = [];
-        const run = (from: number, segments: number, depth: number): number => { // returns the element position after the segments
-          let p = from;
-          for (let s = 0; s < segments && p + 1 < nw && vals.length < paletteN; s++) {
-            const op = word(p), n = word(p + 1);
-            if (op === 0) { for (let i = 0; i < n; i++) vals.push(word(p + 2 + i)); p += 2 + n; }
-            else if (op === 1) { const y = word(p + 2), y0 = vals.length ? vals[vals.length - 1] : 0; for (let i = 1; i <= n; i++) vals.push(Math.round(y0 + ((y - y0) * i) / n)); p += 3; }
-            else if (op === 2) {
-              const off = bytes8 ? word(p + 2) | (word(p + 3) << 8) | (word(p + 4) << 16) | (word(p + 5) << 24) : word(p + 2) | (word(p + 3) << 16);
-              if (depth < 8) run(bytes8 ? off : off >> 1, n, depth + 1);
-              p += bytes8 ? 6 : 4;
-            }
-            else { warnings.push(`Unknown palette segment type ${op}`); break; }
-          }
-          return p;
-        };
-        run(0, 1e9, 0);
-        if (vals.length < paletteN) warnings.push('The segmented palette is shorter than its descriptor says');
-        for (let i = 0; i < paletteN; i++) out[i] = Math.round(((vals[i] ?? 0) * 255) / max);
-        return out;
-      });
-    } else if (desc.length >= 3) {
-      paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
-      palette = [0x1201, 0x1202, 0x1203].map((e) => {
-        const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
-        if (!el) return out;
-        const wide = desc[2] === 16 && el.len >= paletteN * 2;
-        const dv = new DataView(u8.buffer, u8.byteOffset + el.off, el.len);
-        for (let i = 0; i < paletteN; i++) out[i] = wide ? (i * 2 + 2 <= el.len ? Math.round((dv.getUint16(i * 2, !el.be) * 255) / 65535) : 0) : i < el.len ? u8[el.off + i] : 0;
-        return out;
-      });
-    } else warnings.push('The palette is missing: the picture is shown gray');
-  }
+  const pal = pi.pi === 'PALETTE COLOR' ? readPalette(d, u8, warnings) : null;
+  const palette = pal?.rgb || null, paletteFirst = pal?.first || 0, paletteN = pal?.n || 0;
+  if (pi.pi === 'PALETTE COLOR' && !pal) warnings.push('The palette is missing: the picture is shown gray');
 
   const pages: DecodedPage[] = [];
   let depthNote = '';
@@ -525,6 +486,10 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
         if (j.width !== cols || j.height !== rows) warnings.push(`Frame ${f + 1} is ${j.width} × ${j.height}, not ${cols} × ${rows}`);
         for (const w of j.warnings) if (!warnings.includes(w)) warnings.push(w);
         if (j.near && f === 0) info['lossy compression'] = info['lossy compression'] || `JPEG-LS near-lossless, error up to ${j.near}`;
+        if (j.mapped) { // a JPEG-LS mapping table turned the samples into gray, a 16-bit value or RGB(A): shown as the table says
+          if (f === 0) info['JPEG-LS mapping table'] = `table ${j.mapped.id}, ${j.mapped.entries} entries of ${j.mapped.width} byte${j.mapped.width > 1 ? 's' : ''}`;
+          if (j.comps !== pi.spp || j.precision !== pi.bitsStored) { pi = { ...pi, spp: j.comps, bitsStored: j.precision, bitsAlloc: j.precision > 8 ? 16 : 8, highBit: j.precision - 1, signed: false, planar: 0, pi: j.comps >= 3 ? 'RGB' : 'MONOCHROME2' }; if (f === 0) warnings.push(`The JPEG-LS mapping table gives ${j.comps >= 3 ? 'color' : `${j.precision}-bit`} samples; the file's photometric interpretation is set aside`); }
+        }
         fr = { v: samplesFrom(j.data, j.width, j.height, j.comps, pi, pi.signed) };
       } else if (/\.(57|70)$/.test(ts)) {
         const lj = decodeLjpeg(bytes);
@@ -600,7 +565,7 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
       if (inv) notes.push('MONOCHROME1: low values are bright');
     }
     let drawn = 0;
-    for (const ov of overlays) {
+    for (const ov of o.overlays === false ? [] : overlays) {
       const of = ov.frames > 1 || ov.frameOrigin > 1 ? f - (ov.frameOrigin - 1) : 0;
       if (of < 0 || of >= ov.frames) continue;
       const per = ov.rows * ov.cols;
@@ -615,6 +580,7 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
       if (any) drawn++;
     }
     if (drawn) notes.push(`${drawn} overlay plane${drawn > 1 ? 's' : ''} drawn in white`);
+    else if (o.overlays === false && overlays.length) notes.push(`${overlays.length} overlay plane${overlays.length > 1 ? 's' : ''} not drawn (View ▸ DICOM Overlay Planes)`);
     let page: { raster: ReturnType<typeof makeRaster>; dpiSwap: boolean } = { raster: r, dpiSwap: false };
     if (ps) { page = applyPresentation(r, ps, o.drawText, notes, warnings, f === 0 ? info : {}); }
     if (pi.frames > 1) notes.unshift(`frame ${f + 1} of ${pi.frames}`);
@@ -630,6 +596,55 @@ export async function decodeDicom(input: Uint8Array, dec: any = null, o: { maxFr
 }
 
 /** Decoder output (interleaved samples) into the frame's layout, applying BitsStored masking and the sign when asked. */
+export interface Palette { rgb: Uint8Array[]; first: number; n: number }
+/** The palette of a PALETTE COLOR picture or a pseudo-color presentation state: 8-bit RGB entries from 8- or 16-bit data, plain or segmented. */
+function readPalette(d: Parsed, u8: Uint8Array, warnings: string[]): Palette | null {
+  let palette: Uint8Array[] | null = null, paletteFirst = 0, paletteN = 0;
+  const desc = u16s(d, 0x28, 0x1101);
+  if (desc.length >= 3 && d.el.has(T(0x28, 0x1221))) { // segmented (PS3.3 C.7.9.2): discrete, linear and indirect segments expanded
+    paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
+    const max = desc[2] === 8 ? 255 : 65535;
+    palette = [0x1221, 0x1222, 0x1223].map((e) => {
+      const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
+      if (!el) return out;
+      // The segments are a stream of 16-bit words, or of bytes when the entries are 8 bits wide; an indirect segment's offset counts bytes.
+      const bytes8 = desc[2] === 8, dv = new DataView(u8.buffer, u8.byteOffset + el.off, el.len), nw = bytes8 ? el.len : el.len >> 1;
+      const word = (i: number) => (i < nw ? (bytes8 ? u8[el.off + i] : dv.getUint16(i * 2, !el.be)) : 0);
+      const vals: number[] = [];
+      const run = (from: number, segments: number, depth: number): number => { // returns the element position after the segments
+        let p = from;
+        for (let s = 0; s < segments && p + 1 < nw && vals.length < paletteN; s++) {
+          const op = word(p), n = word(p + 1);
+          if (op === 0) { for (let i = 0; i < n; i++) vals.push(word(p + 2 + i)); p += 2 + n; }
+          else if (op === 1) { const y = word(p + 2), y0 = vals.length ? vals[vals.length - 1] : 0; for (let i = 1; i <= n; i++) vals.push(Math.round(y0 + ((y - y0) * i) / n)); p += 3; }
+          else if (op === 2) {
+            const off = bytes8 ? word(p + 2) | (word(p + 3) << 8) | (word(p + 4) << 16) | (word(p + 5) << 24) : word(p + 2) | (word(p + 3) << 16);
+            if (depth < 8) run(bytes8 ? off : off >> 1, n, depth + 1);
+            p += bytes8 ? 6 : 4;
+          }
+          else { warnings.push(`Unknown palette segment type ${op}`); break; }
+        }
+        return p;
+      };
+      run(0, 1e9, 0);
+      if (vals.length < paletteN) warnings.push('The segmented palette is shorter than its descriptor says');
+      for (let i = 0; i < paletteN; i++) out[i] = Math.round(((vals[i] ?? 0) * 255) / max);
+      return out;
+    });
+  } else if (desc.length >= 3) {
+    paletteN = desc[0] || 65536; paletteFirst = desc[1] > 32767 ? desc[1] - 65536 : desc[1];
+    palette = [0x1201, 0x1202, 0x1203].map((e) => {
+      const el = d.el.get(T(0x28, e)), out = new Uint8Array(paletteN);
+      if (!el) return out;
+      const wide = desc[2] === 16 && el.len >= paletteN * 2;
+      const dv = new DataView(u8.buffer, u8.byteOffset + el.off, el.len);
+      for (let i = 0; i < paletteN; i++) out[i] = wide ? (i * 2 + 2 <= el.len ? Math.round((dv.getUint16(i * 2, !el.be) * 255) / 65535) : 0) : i < el.len ? u8[el.off + i] : 0;
+      return out;
+    });
+  } else return null;
+  return palette ? { rgb: palette, first: paletteFirst, n: paletteN } : null;
+}
+
 function samplesFrom(src: ArrayLike<number>, w: number, h: number, comps: number, pi: PixelInfo, signed: boolean): Float32Array {
   const n = pi.rows * pi.cols, spp = Math.min(comps, 4), out = new Float32Array(n * spp);
   const signBit = 2 ** (pi.bitsStored - 1), wrap = 2 ** pi.bitsStored;
@@ -660,6 +675,11 @@ function applyPresentation(r: ReturnType<typeof makeRaster>, ps: PresentationSta
   if (ps.modalityLut) what.push('its modality lookup table');
   if (ps.presentationLut) what.push('its presentation lookup table');
   if (ps.inverse) what.push('inverse presentation');
+  if (ps.palette) { // pseudo-color: the presentation values index the state's palette (8-bit values scaled over its entries)
+    const { rgb, first, n: pn } = ps.palette, scale = (pn - 1) / 255;
+    for (let i = 0; i < w * h; i++) { const o = i * 4, k = Math.min(pn - 1, Math.max(0, Math.round(d[o] * scale) - first)); d[o] = rgb[0][k]; d[o + 1] = rgb[1][k]; d[o + 2] = rgb[2][k]; }
+    what.push(`pseudo-color palette (${pn} entries)`);
+  }
   // Shutters: everything outside the shape takes the shutter's gray (pixel columns and rows are 1-based in the file).
   for (const sh of ps.shutters) {
     const g = sh.gray;

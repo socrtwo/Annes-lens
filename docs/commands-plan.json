@@ -900,7 +900,8 @@
       "view.stereo",
       "view.sphere",
       "view.twoPage",
-      "view.rtl"
+      "view.rtl",
+      "view.dicomOverlays"
      ]
     },
     {
@@ -6972,6 +6973,18 @@
    "tab": "View",
    "group": "Display"
   },
+  "view.dicomOverlays": {
+   "label": "DICOM Overlay Planes",
+   "id": "view.dicomOverlays",
+   "shortcuts": [],
+   "origins": [
+    "NEW"
+   ],
+   "notes": "toggle: draw the overlay planes of DICOM files in white; the open file is decoded again",
+   "notInTabs": false,
+   "tab": "View",
+   "group": "Display"
+  },
   "view.compare": {
    "label": "Compare Pictures",
    "id": "view.compare",
@@ -8955,6 +8968,7 @@
       "view.histogramOverlay",
       "view.alphaDisplay",
       "view.colorManaged",
+      "view.dicomOverlays",
       "browse.map"
      ]
     },
@@ -10503,6 +10517,7 @@
       "view.histogramOverlay",
       "view.alphaDisplay",
       "view.colorManaged",
+      "view.dicomOverlays",
       "browse.map",
       "---",
       "view.syncWindows",
@@ -11617,7 +11632,8 @@
         "view.stereo",
         "view.sphere",
         "view.twoPage",
-        "view.rtl"
+        "view.rtl",
+        "view.dicomOverlays"
        ]
       },
       {

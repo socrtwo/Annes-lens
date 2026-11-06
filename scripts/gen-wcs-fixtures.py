@@ -65,6 +65,36 @@ write('wcs-sip.fits', {**base, 'CTYPE1': 'RA---TAN-SIP', 'CTYPE2': 'DEC--TAN-SIP
 write('wcs-linear.fits', {'CTYPE1': 'WAVE', 'CTYPE2': 'TIME', 'CRVAL1': 500.0, 'CRVAL2': 0.0, 'CRPIX1': 1.0, 'CRPIX2': 1.0, 'CDELT1': 0.25, 'CDELT2': 2.0, 'CUNIT1': 'nm', 'CUNIT2': 's'}, note='linear axes (wavelength, time)')
 write('wcs-compressed.fits', base, compressed=True, note='TAN in a tile-compressed image')
 write('wcs-north-pole.fits', {**base, 'CTYPE1': 'RA---TAN', 'CTYPE2': 'DEC--TAN', 'CRVAL1': 0.0, 'CRVAL2': 90.0}, note='reference point at the celestial pole')
+# The remaining projections of Calabretta & Greisen (2002), each with non-default parameters where it has any.
+zen = {**base, 'CDELT1': -0.02, 'CDELT2': 0.02}
+for k in list(zen):
+    if k.startswith('CD'): del zen[k]
+zen.update({'CDELT1': -0.02, 'CDELT2': 0.02})
+def proj(code, extra=None, lon='RA--', lat='DEC-', crval2=-20.5, note=''):
+    h = {**zen, 'CTYPE1': f'{lon}-{code}', 'CTYPE2': f'{lat}-{code}', 'CRVAL2': crval2}
+    h.update(extra or {})
+    write(f'wcs-{code.lower()}.fits', h, note=note or code)
+proj('AZP', {'PV2_1': 2.0, 'PV2_2': 30.0}, note='zenithal perspective, μ 2, γ 30')
+proj('SZP', {'PV2_1': 2.0, 'PV2_2': 30.0, 'PV2_3': 60.0}, note='slant zenithal perspective, μ 2, φc 30, θc 60')
+proj('ZPN', {'PV2_0': 0.0, 'PV2_1': 1.0, 'PV2_2': 0.0, 'PV2_3': 0.05, 'PV2_5': -0.01, 'CDELT1': -0.2, 'CDELT2': 0.2}, note='zenithal polynomial (P1 1, P3 0.05, P5 −0.01)')
+proj('AIR', {'PV2_1': 45.0}, note='Airy, θb 45')
+proj('CYP', {'PV2_1': 1.0, 'PV2_2': 0.5, 'CRVAL2': 0.0}, note='cylindrical perspective, μ 1, λ 0.5')
+proj('PAR', {'CRVAL2': 0.0, 'CDELT1': -0.5, 'CDELT2': 0.5}, note='parabolic')
+proj('MOL', {'CRVAL2': 0.0, 'CDELT1': -0.5, 'CDELT2': 0.5}, note='Mollweide')
+proj('BON', {'PV2_1': 45.0, 'CRVAL2': 0.0, 'CDELT1': -0.5, 'CDELT2': 0.5}, note='Bonne, θ1 45')
+proj('PCO', {'CRVAL2': 0.0, 'CDELT1': -0.5, 'CDELT2': 0.5}, note='polyconic')
+for code, note in [('COP', 'conic perspective'), ('COE', 'conic equal area'), ('COD', 'conic equidistant'), ('COO', 'conic orthomorphic')]:
+    proj(code, {'PV2_1': 45.0, 'PV2_2': 25.0, 'CRVAL2': 45.0, 'CDELT1': -0.1, 'CDELT2': 0.1}, note=f'{note}, θa 45, η 25')
+proj('TSC', {'CRVAL2': 0.0, 'CDELT1': -1.0, 'CDELT2': 1.0, 'CRPIX1': 60.5, 'CRPIX2': 40.5}, note='tangential spherical cube')
+proj('QSC', {'CRVAL2': 0.0, 'CDELT1': -1.0, 'CDELT2': 1.0, 'CRPIX1': 60.5, 'CRPIX2': 40.5}, note='quadrilateralized spherical cube')
+for code in ('TSC', 'QSC'):
+    cube = {**zen, 'CTYPE1': f'RA---{code}', 'CTYPE2': f'DEC--{code}', 'CRVAL2': 0.0, 'CDELT1': -1.0, 'CDELT2': 1.0}
+    write(f'wcs-{code.lower()}-north.fits', {**cube, 'CRPIX1': 20.5, 'CRPIX2': -50.5}, note=f'{code} on the north polar face')
+    write(f'wcs-{code.lower()}-south.fits', {**cube, 'CRPIX1': 20.5, 'CRPIX2': 110.5}, note=f'{code} on the south polar face')
+    write(f'wcs-{code.lower()}-far.fits', {**cube, 'CRPIX1': -140.5, 'CRPIX2': 15.5}, note=f'{code} across faces 3 and 4')
+    write(f'wcs-{code.lower()}-wrap.fits', {**cube, 'CRPIX1': 250.5, 'CRPIX2': 15.5}, note=f'{code} with the layout wrapping at negative x')
+write('wcs-tpv.fits', {**base, 'CTYPE1': 'RA---TPV', 'CTYPE2': 'DEC--TPV', 'PV1_0': 0.0001, 'PV1_1': 1.0, 'PV1_2': 0.002, 'PV1_4': 0.03, 'PV1_5': -0.01, 'PV1_6': 0.02, 'PV1_7': 0.5, 'PV2_0': -0.0002, 'PV2_1': 1.0, 'PV2_2': -0.003, 'PV2_4': -0.02, 'PV2_5': 0.015, 'PV2_6': 0.01, 'PV2_10': 0.4}, note='TAN with TPV polynomial distortion')
+write('wcs-cop-lonpole.fits', {**zen, 'CTYPE1': 'RA---COP', 'CTYPE2': 'DEC--COP', 'PV2_1': 45.0, 'PV2_2': 25.0, 'CRVAL2': 10.0, 'LONPOLE': 160.0, 'CDELT1': -0.1, 'CDELT2': 0.1}, note='conic with CRVAL2 below θa and LONPOLE 160')
 with open(os.path.join(OUT, 'wcs.json'), 'w') as f:
     json.dump(manifest, f, indent=1, sort_keys=True)
 for k, v in manifest.items():

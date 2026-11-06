@@ -202,6 +202,8 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
 export const decodeOptions = {
   /** Turn pictures upright by their EXIF Orientation tag when decoding (Options ▸ Auto-rotate by EXIF orientation). */
   autoRotate: true,
+  /** Draw the overlay planes of DICOM files (View ▸ DICOM Overlay Planes). */
+  dicomOverlays: true,
   /** RAW files open as their embedded preview; when off, DNG files are developed (Use Embedded Preview by Default). */
   rawPreferPreview: true,
   /** Asks for a document's password (set by the app's interface); null: the user gave up. */
@@ -271,7 +273,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
     }
     let fallback = '';
     if (isJ2kTransferSyntax(dicomTransferSyntax(bytes))) { try { await (await import('./openjpeg16')).loadOpenJpeg(); } catch (e) { fallback = (e as Error).message; } }
-    decoded = fromOwn(await decodeDicom(bytes, dec, { presentation, drawText: presentation ? textRasterizer() : undefined }), 'dicom');
+    decoded = fromOwn(await decodeDicom(bytes, dec, { presentation, drawText: presentation ? textRasterizer() : undefined, overlays: decodeOptions.dicomOverlays }), 'dicom');
     if (fallback) decoded.warnings.push(fallback);
   }
   else if (fmt.id === 'fits') { const { decodeFits } = await import('./fits'); decoded = fromOwn(decodeFits(u8, entry.name), 'fits'); }

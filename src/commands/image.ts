@@ -105,6 +105,16 @@ def([
       app.edit('Auto-Rotate by EXIF', (p) => { p.pages = p.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); p.orientationApplied = true; });
     },
   },
+  {
+    id: 'view.dicomOverlays', icon: 'layers', kind: 'toggle', noRecord: true, tip: 'Draws the overlay planes of DICOM files in white (on) or leaves them out (off); the open file is decoded again',
+    isActive: (app) => app.prefs.dicomOverlays !== false,
+    run: async (app) => {
+      app.prefs.dicomOverlays = app.prefs.dicomOverlays === false; app.savePrefs();
+      toast(app.prefs.dicomOverlays ? 'DICOM overlay planes drawn' : 'DICOM overlay planes left out', { ms: 1500 });
+      const tab = app.active, pic = tab?.picture;
+      if (tab && pic && pic.format.id === 'dicom' && !tab.dirty) { tab.loader.invalidate(pic.entry); await tab.show(); }
+    },
+  },
 ]);
 
 export { esc };

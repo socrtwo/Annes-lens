@@ -385,6 +385,16 @@
   "what": "PALETTE COLOR, 8-bit indices, 16-bit lookup tables",
   "width": 64
  },
+ "pcsps.dcm": {
+  "comment": "pseudo-color: window 100/600 through the segmented WINTER palette",
+  "frames": 1,
+  "height": 32,
+  "pi": "MONOCHROME2",
+  "references": "ct-window.dcm",
+  "ts": "1.2.840.10008.1.2.1",
+  "what": "presentation state: pseudo-color: window 100/600 through the segmented WINTER palette",
+  "width": 48
+ },
  "raw-noheader.dcm": {
   "comment": "raw dataset without the Part 10 header",
   "frames": 1,

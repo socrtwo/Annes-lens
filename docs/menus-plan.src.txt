@@ -315,6 +315,7 @@ view.osdTemplate
 view.histogramOverlay
 view.alphaDisplay
 view.colorManaged
+view.dicomOverlays
 browse.map
 = Image
 image.rotateLeft

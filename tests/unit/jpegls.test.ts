@@ -22,6 +22,19 @@ describe('JPEG-LS (T.87; codestreams from CharLS)', () => {
       expect(d.warnings).toEqual([]);
     });
   }
+  it('applies LSE mapping tables (ID 2 with an ID 3 continuation): 3-byte entries as RGB, 2-byte as 16-bit samples', () => {
+    const gray = decodeJpegLs(fx('g8.jls')), pal = fx('g8map3.pal');
+    const rgb = decodeJpegLs(fx('g8map3.jls'));
+    expect([rgb.width, rgb.height, rgb.comps, rgb.precision]).toEqual([gray.width, gray.height, 3, 8]);
+    expect(rgb.mapped).toEqual({ id: 1, width: 3, entries: 256 });
+    let bad = 0;
+    for (let i = 0; i < gray.data.length; i++) for (let c = 0; c < 3; c++) if (rgb.data[i * 3 + c] !== pal[gray.data[i] * 3 + c]) bad++;
+    expect(bad).toBe(0);
+    expect(rgb.warnings).toEqual([]);
+    const g16 = decodeJpegLs(fx('g8map2.jls'));
+    expect([g16.comps, g16.precision, g16.mapped?.id]).toEqual([1, 16, 7]);
+    expect(Array.from(g16.data.subarray(0, 5))).toEqual(Array.from(gray.data.subarray(0, 5)).map((v) => v * 257));
+  });
   it('refuses what it cannot read, and reports a cut-short stream', () => {
     expect(() => decodeJpegLs(new Uint8Array(readFileSync('tests/fixtures/dicom/jpeg-gray.dcm')))).toThrow(/not a JPEG stream/);
     const g = fx('g8.jls');

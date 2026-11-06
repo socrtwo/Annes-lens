@@ -15,8 +15,10 @@ export interface Wcs {
   lonpole: number; latpole: number;
   /** Native longitude/latitude of the fiducial point for the projection. */
   phi0: number; theta0: number;
-  /** PV2_n projection parameters (CEA's λ, SIN's ξ/η). */
+  /** PV2_n projection parameters (CEA's λ, SIN's ξ/η, AZP's μ/γ, ZPN's polynomial, the conics' θa/η…). */
   pv: number[];
+  /** TPV distortion polynomials (PV1_i for ξ, PV2_i for η), when CTYPE says TPV. */
+  tpv?: { x: number[]; y: number[] };
   /** SIP forward polynomials: [p, q, coefficient] triples for u (A) and v (B). */
   sipA?: [number, number, number][]; sipB?: [number, number, number][];
   /** Picture height, to turn y-down coordinates into FITS rows. */
@@ -28,8 +30,8 @@ export interface Wcs {
 }
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
-const ZENITHAL = new Set(['TAN', 'SIN', 'ARC', 'STG', 'ZEA']), CYLINDRICAL = new Set(['CAR', 'MER', 'CEA']), PSEUDO = new Set(['AIT', 'SFL', 'GLS']);
-export const WCS_PROJECTIONS = [...ZENITHAL, ...CYLINDRICAL, ...PSEUDO];
+const ZENITHAL = new Set(['TAN', 'TPV', 'SIN', 'ARC', 'STG', 'ZEA', 'AZP', 'SZP', 'ZPN', 'AIR']), CYLINDRICAL = new Set(['CAR', 'MER', 'CEA', 'CYP']), PSEUDO = new Set(['AIT', 'SFL', 'GLS', 'PAR', 'MOL', 'BON', 'PCO']), CONIC = new Set(['COP', 'COE', 'COD', 'COO']), QUADCUBE = new Set(['TSC', 'QSC']);
+export const WCS_PROJECTIONS = [...ZENITHAL, ...CYLINDRICAL, ...PSEUDO, ...CONIC, ...QUADCUBE];
 
 /** Reads the WCS of a two-axis image from its header cards; null when there is none the reader understands. */
 export function parseWcs(cards: Map<string, string>, width: number, height: number): Wcs | null {
@@ -64,8 +66,9 @@ export function parseWcs(cards: Map<string, string>, width: number, height: numb
   if (proj) {
     const lonName = w.ctype[0].split('-')[0];
     w.frame = lonName === 'RA' ? 'equatorial' : lonName === 'GLON' ? 'galactic' : lonName === 'ELON' ? 'ecliptic' : lonName === 'HLON' ? 'helioecliptic' : lonName === 'SLON' ? 'supergalactic' : 'other';
-    w.theta0 = ZENITHAL.has(proj) ? 90 : 0;
-    for (let i = 0; i <= 2; i++) w.pv[i] = num(`PV2_${i}`, i === 1 && proj === 'CEA' ? 1 : 0);
+    if (proj === 'TPV') { w.tpv = { x: [], y: [] }; for (let i = 0; i < 40; i++) { w.tpv.x[i] = num(`PV1_${i}`, i === 1 ? 1 : 0); w.tpv.y[i] = num(`PV2_${i}`, i === 1 ? 1 : 0); } }
+    else for (let i = 0; i <= 20; i++) w.pv[i] = num(`PV2_${i}`, i === 1 && (proj === 'CEA' || proj === 'CYP') ? 1 : i === 2 && proj === 'CYP' ? 1 : i === 1 && proj === 'AIR' ? 90 : i === 3 && proj === 'SZP' ? 90 : 0);
+    w.theta0 = ZENITHAL.has(proj) ? 90 : CONIC.has(proj) ? w.pv[1] : 0;
     w.lonpole = has('LONPOLE') ? num('LONPOLE', 0) : w.crval[1] >= w.theta0 ? 0 : 180;
     if (cards.has('EQUINOX')) w.equinox = cards.get('EQUINOX')!.trim();
     if (cards.has('RADESYS')) w.radesys = cards.get('RADESYS')!.trim();
@@ -87,38 +90,12 @@ export function pixelToWorld(w: Wcs, x: number, y: number): [number, number] | n
     const du = poly(w.sipA), dv = poly(w.sipB);
     u += du; v += dv;
   }
-  const ix = w.cd[0] * u + w.cd[1] * v, iy = w.cd[2] * u + w.cd[3] * v; // intermediate world coordinates (degrees)
+  let ix = w.cd[0] * u + w.cd[1] * v, iy = w.cd[2] * u + w.cd[3] * v; // intermediate world coordinates (degrees)
   if (!w.proj) return [w.crval[0] + ix, w.crval[1] + iy];
-  // The projection's inverse: (x, y) → native spherical (φ, θ).
-  let phi: number, theta: number;
-  const p = w.proj, r = Math.hypot(ix, iy);
-  if (ZENITHAL.has(p)) {
-    phi = r === 0 ? 0 : Math.atan2(ix, -iy) * R2D;
-    if (p === 'TAN') theta = Math.atan2(R2D, r) * R2D;
-    else if (p === 'SIN') {
-      const xi = w.pv[1] || 0, eta = w.pv[2] || 0;
-      if (xi === 0 && eta === 0) { const s = r * D2R; if (s > 1) return null; theta = Math.acos(s) * R2D; }
-      else { // the slant orthographic (eq. 56–58 of Calabretta & Greisen 2002)
-        const X = ix * D2R, Y = iy * D2R, a = xi * xi + eta * eta + 1, b = xi * (X - xi) + eta * (Y - eta), c = (X - xi) ** 2 + (Y - eta) ** 2 - 1;
-        const disc = b * b - a * c; if (disc < 0) return null;
-        const t = (-b + Math.sqrt(disc)) / a; // the root nearest θ = 90°
-        theta = Math.asin(Math.max(-1, Math.min(1, t))) * R2D;
-        phi = Math.atan2(X - xi * (1 - Math.sin(theta * D2R)), -(Y - eta * (1 - Math.sin(theta * D2R)))) * R2D;
-      }
-    } else if (p === 'ARC') theta = 90 - r;
-    else if (p === 'STG') theta = 90 - 2 * Math.atan((r * D2R) / 2) * R2D;
-    else { const s = (r * D2R) / 2; if (s > 1) return null; theta = 90 - 2 * Math.asin(s) * R2D; } // ZEA
-  } else if (p === 'CAR') { phi = ix; theta = iy; }
-  else if (p === 'MER') { phi = ix; theta = 2 * Math.atan(Math.exp(iy * D2R)) * R2D - 90; }
-  else if (p === 'CEA') { const lam = w.pv[1] || 1, s = lam * iy * D2R; if (Math.abs(s) > 1) return null; phi = ix; theta = Math.asin(s) * R2D; }
-  else if (p === 'AIT') {
-    const z2 = 1 - (ix * D2R / 4) ** 2 - (iy * D2R / 2) ** 2; if (z2 < 0.5) return null; // outside the ellipse
-    const z = Math.sqrt(z2);
-    phi = 2 * Math.atan2((z * ix * D2R) / 2, 2 * z2 - 1) * R2D;
-    const s = iy * D2R * z; if (Math.abs(s) > 1) return null; theta = Math.asin(s) * R2D;
-  } else { // SFL / GLS
-    theta = iy; const c = Math.cos(theta * D2R); if (Math.abs(c) < 1e-12) return null; phi = ix / c;
-  }
+  if (w.tpv) { const [dx, dy] = tpvDistort(w.tpv, ix, iy); ix = dx; iy = dy; }
+  const inv = inverseProjection(w, ix, iy);
+  if (!inv) return null;
+  const [phi, theta] = inv;
   if (!Number.isFinite(phi) || !Number.isFinite(theta)) return null;
   return nativeToCelestial(w, phi, theta);
 }
@@ -201,4 +178,210 @@ export function pixelScale(w: Wcs, x: number, y: number): number | null {
   const a = pixelToWorld(w, x, y), b = pixelToWorld(w, x + 1, y), c = pixelToWorld(w, x, y + 1);
   if (!a || !b || !c) return null;
   return (angularSeparation(a, b) + angularSeparation(a, c)) / 2;
+}
+
+/** The TPV polynomial distortion of the intermediate coordinates (the SCAMP/TPV convention, 40 terms each). */
+function tpvDistort(t: { x: number[]; y: number[] }, x: number, y: number): [number, number] {
+  const r = Math.hypot(x, y);
+  const terms = (a: number, b: number): number[] => [1, a, b, r, a * a, a * b, b * b, a ** 3, a * a * b, a * b * b, b ** 3, r ** 3, a ** 4, a ** 3 * b, a * a * b * b, a * b ** 3, b ** 4, a ** 5, a ** 4 * b, a ** 3 * b * b, a * a * b ** 3, a * b ** 4, b ** 5, r ** 5, a ** 6, a ** 5 * b, a ** 4 * b * b, a ** 3 * b ** 3, a * a * b ** 4, a * b ** 5, b ** 6, a ** 7, a ** 6 * b, a ** 5 * b * b, a ** 4 * b ** 3, a ** 3 * b ** 4, a * a * b ** 5, a * b ** 6, b ** 7, r ** 7];
+  const tx = terms(x, y), ty = terms(y, x);
+  let ox = 0, oy = 0;
+  for (let i = 0; i < 40; i++) { if (t.x[i]) ox += t.x[i] * tx[i]; if (t.y[i]) oy += t.y[i] * ty[i]; }
+  return [ox, oy];
+}
+const argd = (a: number, b: number): number => Math.atan2(b, a) * R2D; // the papers' arg(a, b)
+const clampAsin = (v: number): number => Math.asin(Math.max(-1, Math.min(1, v))) * R2D;
+
+/** Intermediate (x, y) in degrees to native (φ, θ) for the projection, or null outside its domain. */
+function inverseProjection(w: Wcs, ix: number, iy: number): [number, number] | null {
+  const p = w.proj, r = Math.hypot(ix, iy), pv = w.pv;
+  let phi = 0, theta = 0;
+  if (ZENITHAL.has(p)) {
+    phi = r === 0 ? 0 : argd(-iy, ix);
+    switch (p) {
+      case 'TAN': case 'TPV': theta = Math.atan2(R2D, r) * R2D; break;
+      case 'SIN': {
+        const xi = pv[1] || 0, eta = pv[2] || 0;
+        if (xi === 0 && eta === 0) { const s = r * D2R; if (s > 1) return null; theta = Math.acos(s) * R2D; }
+        else { // the slant orthographic
+          const X = ix * D2R, Y = iy * D2R, a = xi * xi + eta * eta + 1, b = xi * (X - xi) + eta * (Y - eta), c = (X - xi) ** 2 + (Y - eta) ** 2 - 1;
+          const disc = b * b - a * c; if (disc < 0) return null;
+          const t = (-b + Math.sqrt(disc)) / a;
+          theta = clampAsin(t);
+          phi = Math.atan2(X - xi * (1 - Math.sin(theta * D2R)), -(Y - eta * (1 - Math.sin(theta * D2R)))) * R2D;
+        }
+        break;
+      }
+      case 'ARC': theta = 90 - r; break;
+      case 'STG': theta = 90 - 2 * Math.atan((r * D2R) / 2) * R2D; break;
+      case 'ZEA': { const s = (r * D2R) / 2; if (s > 1) return null; theta = 90 - 2 * Math.asin(s) * R2D; break; }
+      case 'AZP': { // zenithal perspective from distance μ with the plane tilted by γ (Calabretta & Greisen 2002, §5.1.1)
+        const mu = pv[1] || 0, gamma = (pv[2] || 0) * D2R, cg = Math.cos(gamma);
+        const rr = Math.hypot(ix, iy * cg), den = R2D * (mu + 1) + iy * Math.sin(gamma);
+        if (!den) return null;
+        const rho = rr / den, s = (rho * mu) / Math.sqrt(rho * rho + 1);
+        if (Math.abs(s) > 1 + 1e-13) return null;
+        const psi = argd(rho, 1), om = clampAsin(s);
+        phi = rr === 0 ? 0 : argd(-iy * cg, ix);
+        let a = psi - om, b = psi + om + 180; // two solutions; the one nearer the pole (as wcslib chooses)
+        if (a > 90) a -= 360; if (b > 90) b -= 360;
+        theta = Math.max(a, b);
+        break;
+      }
+      case 'SZP': { // slant zenithal perspective: the projection point at μ along (φc, θc)
+        const mu = pv[1] || 0, phic = (pv[2] || 0) * D2R, thetac = (pv[3] ?? 90) * D2R;
+        const xp = -mu * Math.cos(thetac) * Math.sin(phic), yp = mu * Math.cos(thetac) * Math.cos(phic), zp = mu * Math.sin(thetac) + 1;
+        const X = ix * D2R, Y = iy * D2R, a1 = xp - X, b1 = yp - Y;
+        const A = a1 * a1 + b1 * b1 + zp * zp, B = 2 * zp * (X * a1 + Y * b1 - zp), C = zp * zp * (X * X + Y * Y);
+        const disc = B * B - 4 * A * C; if (disc < 0 || A === 0) return null;
+        const roots = [(-B - Math.sqrt(disc)) / (2 * A), (-B + Math.sqrt(disc)) / (2 * A)].filter((sv) => sv >= 0 && sv <= 2);
+        if (!roots.length) return null;
+        const sv = roots[0]; // 1 − sin θ: the smaller is nearer the pole, the visible side
+        theta = clampAsin(1 - sv);
+        phi = Math.atan2(X * (zp - sv) + xp * sv, -(Y * (zp - sv) + yp * sv)) * R2D;
+        break;
+      }
+      case 'ZPN': { // R = (180/π) Σ Pk ζ^k with ζ = 90° − θ in radians; solved for ζ by Newton's method
+        const coef = pv.slice(0, 21), rr = r * D2R;
+        const f = (z: number) => coef.reduce((acc, c, k) => acc + c * z ** k, 0) - rr, df = (z: number) => coef.reduce((acc, c, k) => acc + (k ? k * c * z ** (k - 1) : 0), 0);
+        let z = coef[1] ? rr / coef[1] : rr, ok = false;
+        for (let i = 0; i < 50; i++) { const d = df(z); if (!d) break; const nz = z - f(z) / d; if (Math.abs(nz - z) < 1e-13) { z = nz; ok = true; break; } z = nz; }
+        if (!ok || !Number.isFinite(z) || z < 0 || z > Math.PI) return null;
+        theta = 90 - z * R2D;
+        break;
+      }
+      case 'AIR': { // Airy's minimum-error projection, inverted by bisection on ξ = (90° − θ)/2
+        const thetab = pv[1] ?? 90, xib = ((90 - thetab) / 2) * D2R;
+        const tb = Math.tan(xib), kb = Math.abs(xib) < 1e-9 ? -0.5 : Math.log(Math.cos(xib)) / (tb * tb);
+        const fwd = (xi: number): number => (xi <= 0 ? 0 : -2 * R2D * (Math.log(Math.cos(xi)) / Math.tan(xi) + kb * Math.tan(xi)));
+        let lo = 0, hi = Math.PI / 2 - 1e-6;
+        if (r > fwd(hi)) return null;
+        for (let i = 0; i < 100; i++) { const mid = (lo + hi) / 2; if (fwd(mid) < r) lo = mid; else hi = mid; }
+        theta = 90 - 2 * ((lo + hi) / 2) * R2D;
+        break;
+      }
+    }
+  } else if (CYLINDRICAL.has(p)) {
+    phi = ix;
+    if (p === 'CAR') theta = iy;
+    else if (p === 'MER') theta = 2 * Math.atan(Math.exp(iy * D2R)) * R2D - 90;
+    else if (p === 'CEA') { const lam = pv[1] || 1, s = lam * iy * D2R; if (Math.abs(s) > 1) return null; theta = Math.asin(s) * R2D; }
+    else { // CYP: cylindrical perspective from μ, radius λ
+      const mu = pv[1] ?? 1, lam = pv[2] ?? 1;
+      if (!lam || mu + lam === 0) return null;
+      phi = ix / lam;
+      const eta = (iy * D2R) / (mu + lam);
+      theta = argd(1, eta) + clampAsin((eta * mu) / Math.sqrt(eta * eta + 1));
+    }
+  } else if (PSEUDO.has(p)) {
+    if (p === 'AIT') {
+      const z2 = 1 - (ix * D2R / 4) ** 2 - (iy * D2R / 2) ** 2; if (z2 < 0.5) return null;
+      const z = Math.sqrt(z2);
+      phi = 2 * Math.atan2((z * ix * D2R) / 2, 2 * z2 - 1) * R2D;
+      const s = iy * D2R * z; if (Math.abs(s) > 1) return null; theta = Math.asin(s) * R2D;
+    } else if (p === 'PAR') {
+      const s = iy / 180; if (Math.abs(s) > 1) return null;
+      theta = 3 * Math.asin(s) * R2D; const d = 1 - 4 * s * s; if (!d) return null; phi = ix / d;
+    } else if (p === 'MOL') {
+      const sg = (iy * D2R) / Math.SQRT2; if (Math.abs(sg) > 1) return null;
+      const g = Math.asin(sg), cg = Math.cos(g); if (!cg) return null;
+      phi = (Math.PI * ix) / (2 * Math.SQRT2 * cg);
+      theta = clampAsin((2 * g + Math.sin(2 * g)) / Math.PI);
+    } else if (p === 'BON') {
+      const t1 = pv[1] || 0;
+      if (t1 === 0) { theta = iy; const c = Math.cos(theta * D2R); if (!c) return null; phi = ix / c; } // Sanson–Flamsteed
+      else {
+        const y0 = R2D / Math.tan(t1 * D2R) + t1, rt = Math.sign(t1) * Math.hypot(ix, y0 - iy);
+        if (!rt) return null;
+        const aphi = argd((y0 - iy) / rt, ix / rt);
+        theta = y0 - rt; const c = Math.cos(theta * D2R); if (!c) return null;
+        phi = (aphi * rt * D2R) / c;
+      }
+    } else if (p === 'PCO') { // polyconic: Newton's method on (φ, θ) with the forward projection
+      const fwd = (f: number, t: number): [number, number] => { const st = Math.sin(t * D2R); if (Math.abs(st) < 1e-10) return [f, t]; const ct = Math.cos(t * D2R) / st; return [R2D * ct * Math.sin(f * D2R * st), R2D * ct * (1 - Math.cos(f * D2R * st)) + t]; };
+      let f = ix, t = iy;
+      for (let i = 0; i < 60; i++) {
+        const [x0, y0] = fwd(f, t), ex = x0 - ix, ey = y0 - iy;
+        if (Math.abs(ex) < 1e-11 && Math.abs(ey) < 1e-11) break;
+        const h = 1e-5, [xa, ya] = fwd(f + h, t), [xb, yb] = fwd(f, t + h);
+        const a = (xa - x0) / h, b = (xb - x0) / h, c = (ya - y0) / h, d = (yb - y0) / h, det = a * d - b * c;
+        if (!det) return null;
+        f -= (d * ex - b * ey) / det; t -= (-c * ex + a * ey) / det;
+        if (!Number.isFinite(f) || !Number.isFinite(t)) return null;
+      }
+      phi = f; theta = t;
+    } else { theta = iy; const c = Math.cos(theta * D2R); if (Math.abs(c) < 1e-12) return null; phi = ix / c; } // SFL / GLS
+  } else if (CONIC.has(p)) {
+    const ta = pv[1] || 0, eta = pv[2] || 0, t1 = ta - eta, t2 = ta + eta;
+    const sa = Math.sin(ta * D2R), ca = Math.cos(ta * D2R);
+    let C: number, y0: number, thetaOf: (rt: number) => number;
+    if (p === 'COP') { C = sa; const ce = Math.cos(eta * D2R); y0 = (R2D * ce * ca) / sa; thetaOf = (rt) => ta + Math.atan(ca / sa - (rt * D2R) / ce) * R2D; }
+    else if (p === 'COE') { const s1 = Math.sin(t1 * D2R), s2 = Math.sin(t2 * D2R), g = s1 + s2; C = g / 2; y0 = ((R2D * 2) / g) * Math.sqrt(Math.max(0, 1 + s1 * s2 - g * sa)); thetaOf = (rt) => clampAsin((1 + s1 * s2 - (rt * g * D2R / 2) ** 2) / g); }
+    else if (p === 'COD') { const e = eta * D2R; C = e ? (sa * Math.sin(e)) / e : sa; y0 = (e ? (eta / Math.tan(e)) : R2D) * (ca / sa); thetaOf = (rt) => ta + y0 - rt; }
+    else { // COO
+      const c1 = Math.cos(t1 * D2R), c2 = Math.cos(t2 * D2R), tn1 = Math.tan(((90 - t1) / 2) * D2R), tn2 = Math.tan(((90 - t2) / 2) * D2R);
+      C = t1 === t2 ? Math.sin(t1 * D2R) : Math.log(c2 / c1) / Math.log(tn2 / tn1);
+      const psi = (R2D * c1) / (C * tn1 ** C);
+      y0 = psi * Math.tan(((90 - ta) / 2) * D2R) ** C;
+      thetaOf = (rt) => 90 - 2 * Math.atan((rt / psi) ** (1 / C)) * R2D;
+    }
+    if (!C) return null;
+    const rt = Math.sign(ta || 1) * Math.hypot(ix, y0 - iy);
+    if (!rt) return null;
+    const aphi = argd((y0 - iy) / rt, ix / rt);
+    phi = aphi / C; theta = thetaOf(rt);
+  } else if (QUADCUBE.has(p)) {
+    const d = cubeDirection(p, ix / 45, iy / 45); if (!d) return null;
+    const [l, m, n] = d;
+    phi = l === 0 && m === 0 ? 0 : argd(l, m); theta = clampAsin(n);
+  } else return null;
+  if (!Number.isFinite(phi) || !Number.isFinite(theta) || Math.abs(phi) > 180 + 1e-11 || Math.abs(theta) > 90 + 1e-11) return null; // wcslib's native bounds check
+  return [phi, theta];
+}
+
+/**
+ * The direction cosines (l, m, n) for a point of the quad-cube layout in face units (45° each), following wcslib:
+ * faces 1–4 around the equator at x = 0, 2, 4, 6 (negative x wraps), face 0 above face 1 and face 5 below it.
+ * TSC is gnomonic on each face; QSC (O'Neill & Laubscher's quadrilateralized cube) is equal-area.
+ */
+function cubeDirection(p: string, xf0: number, yf0: number): [number, number, number] | null {
+  let xf = xf0, yf = yf0;
+  if (Math.abs(xf) <= 1) { if (Math.abs(yf) > 3) return null; } else if (Math.abs(xf) > 7 || Math.abs(yf) > 1) return null;
+  if (xf < -1) xf += 8;
+  let face: number;
+  if (xf > 5) { face = 4; xf -= 6; } else if (xf > 3) { face = 3; xf -= 4; } else if (xf > 1) { face = 2; xf -= 2; } else if (yf > 1) { face = 0; yf -= 2; } else if (yf < -1) { face = 5; yf += 2; } else face = 1;
+  if (p === 'TSC') {
+    const q = 1 / Math.sqrt(1 + xf * xf + yf * yf);
+    switch (face) {
+      case 4: return [q * xf, -q, q * yf];
+      case 3: return [-q, -q * xf, q * yf];
+      case 2: return [-q * xf, q, q * yf];
+      case 0: return [-q * yf, q * xf, q];
+      case 5: return [q * yf, q * xf, -q];
+      default: return [q, q * xf, q * yf];
+    }
+  }
+  const direct = Math.abs(xf) > Math.abs(yf);
+  let omega = 0, tau = 1, zeta = 1, zeco = 0;
+  const major = direct ? xf : yf, minor = direct ? yf : xf;
+  if (major !== 0) {
+    const w = (15 * minor) / major;
+    omega = Math.sin(w * D2R) / (Math.cos(w * D2R) - Math.SQRT1_2);
+    tau = 1 + omega * omega;
+    zeco = major * major * (1 - 1 / Math.sqrt(1 + tau));
+    zeta = 1 - zeco;
+  }
+  let w: number;
+  if (zeta < -1) { if (zeta < -1 - 1e-12) return null; zeta = -1; w = 0; } else w = Math.sqrt((zeco * (2 - zeco)) / tau);
+  const sgn = (v: number, neg: boolean): number => (neg ? -v : v);
+  let l: number, m: number, n: number;
+  switch (face) {
+    case 1: if (direct) { m = sgn(w, xf < 0); n = m * omega; } else { n = sgn(w, yf < 0); m = n * omega; } l = zeta; break;
+    case 2: if (direct) { l = sgn(w, xf > 0); n = -l * omega; } else { n = sgn(w, yf < 0); l = -n * omega; } m = zeta; break;
+    case 3: if (direct) { m = sgn(w, xf > 0); n = -m * omega; } else { n = sgn(w, yf < 0); m = -n * omega; } l = -zeta; break;
+    case 4: if (direct) { l = sgn(w, xf < 0); n = l * omega; } else { n = sgn(w, yf < 0); l = n * omega; } m = -zeta; break;
+    case 5: if (direct) { m = sgn(w, xf < 0); l = m * omega; } else { l = sgn(w, yf < 0); m = l * omega; } n = -zeta; break;
+    default: if (direct) { m = sgn(w, xf < 0); l = -m * omega; } else { l = sgn(w, yf > 0); m = -l * omega; } n = zeta; break;
+  }
+  return [l, m, n];
 }

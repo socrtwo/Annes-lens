@@ -568,6 +568,31 @@ try {
     return [pic.format.id, pic.width, pic.height, pic.pages[0].notes.find((n) => /^presentation state/.test(n)), pic.warnings, text > 10, pic.info.annotations];
   }, psFiles);
   check('dicom: a presentation state dropped with its picture opens that picture with the annotations and text drawn', psGot, ['dicom', 48, 32, 'presentation state FIXTURE (graphic annotations: a filled rectangle, a circle, an ellipse, a point, text with an anchor) applied: 5 graphic objects and 1 text', [], true, 'Lesion'], JSON.stringify(psGot));
+  // View ▸ DICOM Overlay Planes: the open DICOM file is decoded again without its overlay; a pseudo-color state colors its picture.
+  const ovFiles = Object.fromEntries(['overlay.dcm', 'pcsps.dcm', 'ct-window.dcm'].map((n) => [n, readFileSync(`tests/fixtures/dicom/${n}`).toString('base64')]));
+  const ovGot = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const list = Object.entries(files).map(([n, b64]) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n));
+    const before = qn.picture;
+    await qn.exec('file.openDropped', list);
+    for (let i = 0; i < 200 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+    const show = async (name) => { if (qn.folder.select(qn.folder.entries.findIndex((e) => e.name === name))) await qn.tab.show(); for (let i = 0; i < 200 && (!qn.picture || qn.picture.name !== name); i++) await wait(50); return qn.picture; };
+    const whites = (pic) => { const c = pic.frameCanvas(), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] === 255 && d[i + 1] === 255) n++; return n; };
+    let pic = await show('overlay.dcm');
+    const withOverlay = whites(pic), noteOn = pic.pages[0].notes.find((n) => /overlay plane/.test(n));
+    await qn.exec('view.dicomOverlays');
+    for (let i = 0; i < 100 && (qn.picture === pic || !qn.picture); i++) await wait(50);
+    pic = qn.picture;
+    const without = whites(pic), noteOff = pic.pages[0].notes.find((n) => /overlay plane/.test(n)), pref = qn.prefs.dicomOverlays;
+    await qn.exec('view.dicomOverlays');
+    for (let i = 0; i < 100 && (qn.picture === pic || !qn.picture); i++) await wait(50);
+    const back = whites(qn.picture);
+    const pc = await show('pcsps.dcm');
+    const c = pc.frameCanvas(), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let colored = 0; for (let i = 0; i < d.length; i += 4) if (d[i] !== d[i + 1] || d[i + 1] !== d[i + 2]) colored++;
+    return [withOverlay > 0 && without < withOverlay, noteOn, noteOff, pref, back === withOverlay, qn.prefs.dicomOverlays, pc.pages[0].notes.find((n) => /^presentation state/.test(n)), colored > 100];
+  }, ovFiles);
+  check('dicom: View ▸ DICOM Overlay Planes decodes the file again without its overlay, and back; a pseudo-color state colors its picture', ovGot, [true, '1 overlay plane drawn in white', '1 overlay plane not drawn (View ▸ DICOM Overlay Planes)', false, true, true, 'presentation state FIXTURE (pseudo-color: window 100/600 through the segmented WINTER palette) applied: window center 100, width 600, pseudo-color palette (256 entries)', true], JSON.stringify(ovGot));
   check('fits: a world coordinate system is read and described', more.wcs, ['TAN', 'TAN projection: the center is at RA 10:00:24.00 Dec −20:30:00.0 (ICRS J2000); the pixel readout and Measure show sky positions'], JSON.stringify(more.wcs));
   check('fits opens: image extensions as pages; a gzipped file, stretched, the first stored row at the bottom', [more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx], [['fits', 12, 8, 1], 2, ['fits', 30, 20, 1], [0, 255]], JSON.stringify([more['extensions.fits'], more['extensions.fits:pages'], more['int16-bzero.fits.gz'], more.fitsPx]));
   check('flashpix JPEG tiles (near libjpeg\'s decoding) and a JBIG2 page are decoded', [more.fpxPx && more.fpxPx.every((v, i) => Math.abs(v - [249, 43, 56][i]) <= 32), more.jb2Black > 1000], [true, true], JSON.stringify([more.fpxPx, more.jb2Black])); // input_jpeg.libjpeg.png at (30, 20)

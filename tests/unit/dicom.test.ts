@@ -79,6 +79,11 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
     expect(d.info['body part']).toBe('CHEST');
     expect(d.info.pixels).toBe('monochrome, 12 of 16 bits, MONOCHROME2');
     expect(d.pages[0].dpi).toEqual([50.8, 50.8]);
+    const pc = readPresentationState(fx('pcsps.dcm'), 'pcsps.dcm'); // pseudo-color: the state's palette over the presentation values
+    expect(isPresentationState(fx('pcsps.dcm'))).toBe(true);
+    expect([pc.palette?.n, pc.palette?.first, pc.window]).toEqual([256, 0, { wc: 100, ww: 600, fn: 'LINEAR' }]);
+    const pcd = await decodeDicom(fx('ct-window.dcm'), pdfjs, { presentation: pc });
+    expect(pcd.pages[0].notes).toContain('presentation state FIXTURE (pseudo-color: window 100/600 through the segmented WINTER palette) applied: window center 100, width 600, pseudo-color palette (256 entries)');
     expect(d.pages[0].notes[0]).toBe('window center 40, width 400, after the rescale');
     expect(d.warnings).toEqual([]);
   });
@@ -112,6 +117,14 @@ describe('DICOM (pydicom test files and files written with pydicom)', () => {
     const o = await decodeDicom(fx('overlay.dcm'), pdfjs);
     expect(o.info.overlays).toBe('16 × 20 at (12, 6)');
     expect(o.pages[0].notes).toContain('1 overlay plane drawn in white');
+    const off = await decodeDicom(fx('overlay.dcm'), pdfjs, { overlays: false }); // View ▸ DICOM Overlay Planes off
+    expect(off.pages[0].notes).toContain('1 overlay plane not drawn (View ▸ DICOM Overlay Planes)');
+    expect(off.pages[0].notes).not.toContain('1 overlay plane drawn in white');
+    const a = o.pages[0].frames[0].raster.data, b = off.pages[0].frames[0].raster.data;
+    let onlyOn = 0, onlyOff = 0;
+    for (let i = 0; i < a.length; i += 4) { if (a[i] === 255 && b[i] !== 255) onlyOn++; if (b[i] === 255 && a[i] !== 255) onlyOff++; }
+    expect(onlyOn).toBeGreaterThan(0); // the plane's set bits were white
+    expect(onlyOff).toBe(0);
     const e = await decodeDicom(fx('overlay-embedded.dcm'), pdfjs);
     expect(e.info.overlays).toBe('20 × 24 at (1, 1) (embedded)');
     expect(e.pages[0].notes).toContain('1 overlay plane drawn in white');
