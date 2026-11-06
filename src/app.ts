@@ -155,6 +155,7 @@ export class PictureTab {
       pic.loadMs = Math.round(performance.now() - t0);
       this.ui.pictureChanged(true);
       this.app.addRecent(e);
+      if (pic.media && this === this.app.tab) { const { show } = await import('./picture/slideshow'); if (!show.running && this.picture === pic) void this.app.exec('view.media'); } // a video or audio file: its player opens over the poster
     } catch (err: any) {
       if (this.folder.current !== e) return;
       this.picture = null; this.loading = null; this.error = err?.message || String(err);

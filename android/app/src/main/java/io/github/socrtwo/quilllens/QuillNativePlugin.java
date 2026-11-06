@@ -372,7 +372,8 @@ public class QuillNativePlugin extends Plugin {
         "svg", "svgz", "jxl", "psd", "psb", "tga", "pnm", "ppm", "pgm", "pbm", "pam", "pfm", "qoi", "pcx", "dcx", "xpm", "xbm", "wbmp", "icns", "dds", "hdr",
         "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "rwl", "pef", "dng", "3fr", "fff", "iiq", "x3f", "srw", "mrw", "erf", "mef", "mos", "kdc", "dcr",
         "pdf", "djvu", "djv", "pct", "pict", "ras", "sun", "im1", "im8", "im24", "im32", "sgi", "rgb", "rgba", "bw", "urt", "pi1", "pi2", "pi3", "pc1", "pc2", "pc3", "neo", "spu", "koa", "kla", "art", "aas", "ximg", "msp", "fpx", "fli", "flc", "flx", "clp", "jbg", "jbig", "bie", "jb2", "jbig2", "psp", "pspimage", "tub", "icl", "cdr", "cpt", "iff", "ilbm", "lbm", "ham", "ham8", "mac", "pntg", "pnt", "pcd", "exr", "jp2", "jpx", "jpf", "jph", "j2k", "j2c", "jpc", "jhc", "wmf", "emf", "wmz", "emz",
-        "dcm", "dicom", "fits", "fit", "fts"
+        "dcm", "dicom", "fits", "fit", "fts",
+        "mp4", "m4v", "mov", "qt", "3gp", "3g2", "webm", "mkv", "ogv", "avi", "mp3", "mp2", "m4a", "m4b", "aac", "flac", "wav", "wave", "ogg", "oga", "opus", "spx", "aif", "aiff", "aifc", "mka", "weba"
     };
 
     private static boolean isPictureName(String name) {

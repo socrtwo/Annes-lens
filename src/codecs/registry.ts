@@ -41,6 +41,7 @@ import { isClp } from './clipboard';
 import { isJbig, isJbig2 } from './jbig';
 import { isPsp } from './psp';
 import { isDicom, isRawDicom } from './dicom';
+import { sniffMedia } from './media';
 import { isFits } from './fits';
 import { winModuleKind } from './winres';
 import { decodePngTolerant } from './png';
@@ -114,6 +115,8 @@ export const FORMATS: FormatInfo[] = [
   { id: 'jbig', label: 'JBIG', mime: 'image/jbig', extensions: ['jbg', 'jbig', 'bie'], decoder: 'own', save: false, notes: 'T.82 bilevel and bit-plane pictures (the lowest layer of multi-layer files)' },
   { id: 'jbig2', label: 'JBIG2', mime: 'image/x-jbig2', extensions: ['jb2', 'jbig2'], decoder: 'own', save: false, notes: 'T.88 files, every page, through pdf.js (PDFium\'s JBIG2 decoder, WebAssembly)' },
   { id: 'clp', label: 'Windows clipboard file', mime: 'application/x-ms-clipboard', extensions: ['clp'], decoder: 'own', save: false, notes: 'Windows 3.x and NT: the bitmap (DIB or device-dependent) or metafile it holds' },
+  { id: 'video', label: 'Video', mime: 'video/mp4', extensions: ['mp4', 'm4v', 'mov', 'qt', '3gp', '3g2', 'webm', 'mkv', 'ogv', 'avi'], decoder: 'platform', save: false, notes: 'video files met while browsing: the first frame as the picture, the file in the Media Player (which codecs play depends on the platform); duration, size, codecs and tags read by the app' },
+  { id: 'audio', label: 'Audio', mime: 'audio/mpeg', extensions: ['mp3', 'mp2', 'm4a', 'm4b', 'aac', 'flac', 'wav', 'wave', 'ogg', 'oga', 'opus', 'spx', 'aif', 'aiff', 'aifc', 'mka', 'weba'], decoder: 'platform', save: false, notes: 'audio files met while browsing: the cover art as the picture, the file in the Media Player; duration, codec, sample rate, channels and tags read by the app' },
   { id: 'flic', label: 'Autodesk FLI/FLC', mime: 'video/x-flic', extensions: ['fli', 'flc', 'flx'], decoder: 'own', save: false, notes: 'Animator and Animator Pro animations: every frame with its time, palette changes' },
   { id: 'djvu', label: 'DjVu', mime: 'image/vnd.djvu', extensions: ['djvu', 'djv'], decoder: 'own', save: false, notes: 'single and bundled multipage documents with their text layer, rendered by djvu-rs (WebAssembly; Options: PDF and DjVu pages)' },
   { id: 'pdf', label: 'PDF', mime: 'application/pdf', extensions: ['pdf', 'ai'], decoder: 'own', save: false, notes: 'pages rendered by pdf.js (Options: PDF pages); Illustrator files saved PDF-compatible too' },
@@ -147,6 +150,7 @@ export function sniff(u8: Uint8Array, name = ''): FormatInfo | null {
   if (isJbig2(u8)) return formatById('jbig2')!;
   if (isPsp(u8)) return formatById('psp')!;
   if (isDicom(u8)) return formatById('dicom')!;
+  { const m = sniffMedia(u8, name); if (m) return formatById(m.kind)!; }
   if (isFits(u8)) return formatById('fits')!;
   if (isCorel(u8)) return formatById('corel')!;
   if (winModuleKind(u8)) return formatById('winres')!;
@@ -219,7 +223,9 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   if (!fmt) throw new Error('Not a picture format Anne\'s Lens can open');
   const exif = safe(() => readExif(u8));
   let decoded: { pages: Page[]; info: Record<string, string>; warnings: string[]; decoder: string };
-  if (fmt.id === 'gif') decoded = fromOwn(decodeGif(u8), 'gif');
+  let media: import('./media').MediaInfo | null = null;
+  if (fmt.id === 'video' || fmt.id === 'audio') { const r = await (await import('./mediaPoster')).decodeMediaPicture(u8, entry.name); decoded = r; media = r.media; }
+  else if (fmt.id === 'gif') decoded = fromOwn(decodeGif(u8), 'gif');
   else if (fmt.id === 'tiff') decoded = fromOwn(await decodeTiff(u8), 'tiff');
   else if (fmt.id === 'ico' || fmt.id === 'cur') decoded = await decodeIcoFile(u8);
   else if (fmt.id === 'tga') decoded = fromOwn(decodeTga(u8), 'tga');
@@ -360,6 +366,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   }
   if (fmt.id === 'tiff' || fmt.id === 'jp2') { const own = await keepEmbedded(u8, fmt.id); if (own) for (const pg of decoded.pages) { pg.icc = own.icc; pg.notes.push(`color profile: ${own.profile.description || 'embedded'}`); } }
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
+  if (media) pic.media = { kind: media.kind, mime: media.mime, duration: media.duration, title: media.tags.title };
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;
   // EXIF orientation: the platform decodes with imageOrientation 'none', so the pixels are as stored.
   if (fmt.id === 'jpeg' || fmt.id === 'png' || fmt.id === 'webp') { try { const { findManifestStore, readManifest, describeManifest } = await import('../meta/c2pa'); if (findManifestStore(u8)) { const m = await readManifest(u8); if (m) decoded.info['Content Credentials'] = describeManifest(m); } } catch (e) { decoded.info['Content Credentials'] = `present but unreadable (${(e as Error).message})`; } }

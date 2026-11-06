@@ -916,6 +916,7 @@
     {
      "name": "Media",
      "commands": [
+      "view.media",
       "view.mediaPlay",
       "view.mediaFrame",
       "view.motionPhoto"
@@ -7038,6 +7039,20 @@
    "tab": "View",
    "group": "Compare"
   },
+  "view.media": {
+   "label": "Media Player",
+   "id": "view.media",
+   "shortcuts": [],
+   "origins": [
+    "IV",
+    "XN",
+    "NEW"
+   ],
+   "notes": "toggle: plays a video or audio file met while browsing (opens by itself when one is shown; the first frame or the cover art is the picture)",
+   "notInTabs": false,
+   "tab": "View",
+   "group": "Media"
+  },
   "view.mediaPlay": {
    "label": "Play / Pause",
    "id": "view.mediaPlay",
@@ -8969,6 +8984,7 @@
       "view.alphaDisplay",
       "view.colorManaged",
       "view.dicomOverlays",
+      "view.media",
       "browse.map"
      ]
     },
@@ -10518,6 +10534,7 @@
       "view.alphaDisplay",
       "view.colorManaged",
       "view.dicomOverlays",
+      "view.media",
       "browse.map",
       "---",
       "view.syncWindows",
@@ -11648,6 +11665,7 @@
       {
        "submenu": "Media",
        "items": [
+        "view.media",
         "view.mediaPlay",
         "view.mediaFrame",
         "view.motionPhoto"

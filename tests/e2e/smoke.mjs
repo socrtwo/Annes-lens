@@ -1773,6 +1773,49 @@ try {
   check('motion photo: the appended clip found and played', [mov.enabled, mov.clipLen, mov.loaded, mov.size, mov.pausedAfterToggle, mov.playingAgain], [true, mov.expected, 'loaded', [256, 144], true, true]);
   check('save current frame opens the clip frame as a picture', [/^z-motion \(frame [\d.]+ s\)\.png$/.test(mov.frame.name || ''), mov.frame.size, mov.frame.px && mov.frame.px[2] > 200 && mov.frame.px[0] < 40], [true, [256, 144], true]);
 
+  // Video and audio files met while browsing: the first frame or the cover art is the picture, the Media Player opens by itself.
+  const mediaFiles = Object.fromEntries(['clip-vp9.webm', 'tone.flac', 'clip-h264.mov'].map((n) => [n, readFileSync(`tests/fixtures/media/${n}`).toString('base64')]));
+  const med = await p.evaluate(async (files) => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const S = await window.__qnSpecial();
+    const list = Object.entries(files).map(([n, b64]) => new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], n));
+    const before = qn.picture;
+    await qn.exec('file.openDropped', list);
+    for (let i = 0; i < 200 && (!qn.picture || qn.picture === before) && !document.querySelector('.ql-toast'); i++) await wait(50);
+    const show = async (name) => { if (qn.picture?.name !== name) { qn.folder.select(qn.folder.entries.findIndex((e) => e.name === name)); await qn.tab.show(); } for (let i = 0; i < 200 && (!qn.picture || qn.picture.name !== name); i++) await wait(50); await wait(200); return qn.picture; };
+    const out = {};
+    let pic = await show('clip-vp9.webm');
+    const sv = S.specialOpen();
+    out.video = [pic.format.id, pic.width, pic.height, pic.media?.kind, pic.info.duration, pic.info.video, pic.info.audio, pic.info.title, pic.warnings, sv?.kind, !!sv?.video];
+    const v = sv?.video;
+    out.loaded = await new Promise((r) => { if (!v) return r('no video'); if (v.readyState >= 2) return r('loaded'); v.onloadeddata = () => r('loaded'); v.onerror = () => r('error'); setTimeout(() => r('timeout'), 8000); });
+    out.playing = await new Promise((r) => { if (!v) return r(false); if (!v.paused) return r(true); v.onplaying = () => r(true); setTimeout(() => r(!v.paused), 3000); });
+    const d = pic.frameCanvas().getContext('2d').getImageData(0, 0, 64, 48).data; let bright = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 60) bright++; out.posterBright = bright > 500; // testsrc's colored pattern, not a black frame
+    await qn.exec('view.mediaPlay'); await wait(100); out.pausedAfterToggle = !!v?.paused;
+    const tabs0 = qn.tabs.length;
+    await qn.exec('view.mediaFrame'); for (let i = 0; i < 80 && qn.tabs.length === tabs0; i++) await wait(50); await wait(200);
+    out.frame = [/^clip-vp9 \(frame [\d.]+ s\)\.png$/.test(qn.picture?.name || ''), qn.picture?.width, qn.picture?.height];
+    if (qn.tabs.length > tabs0) qn.closeTab(qn.tab);
+    await wait(150);
+    out.afterClose = [qn.picture?.name, S.specialOpen()?.kind ?? null];
+    if (S.specialOpen()?.kind !== 'media') await qn.exec('view.media'); await wait(100);
+    out.reopened = S.specialOpen()?.kind; await qn.exec('view.media'); await wait(50); out.closedAgain = S.specialOpen() === null;
+    pic = await show('tone.flac');
+    const sa = S.specialOpen();
+    out.audio = [pic.format.id, pic.width, pic.height, pic.media?.kind, pic.info.duration, pic.info.audio, pic.info['cover art'], pic.info.artist, sa?.kind, !!sa?.audio, !!sa?.video];
+    const a = sa?.audio;
+    out.audioLoaded = await new Promise((r) => { if (!a) return r('no audio'); if (a.readyState >= 2) return r('loaded'); a.onloadeddata = () => r('loaded'); a.onerror = () => r('error'); setTimeout(() => r('timeout'), 8000); });
+    out.coverPx = [...pic.frameCanvas().getContext('2d').getImageData(32, 32, 1, 1).data].slice(0, 3); // the yellow disc of the cover
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await wait(100);
+    out.escClosed = S.specialOpen() === null;
+    pic = await show('clip-h264.mov'); // the open-source browser build has no H.264: a placeholder or a frame, either way a video picture
+    out.mov = [pic.format.id, pic.media?.kind, pic.info.video, pic.pages[0].notes.some((n) => /Media Player/.test(n)), S.specialOpen()?.kind ?? null];
+    S.specialOpen()?.close();
+    return out;
+  }, mediaFiles);
+  check('media: a WebM file opens as its first frame with duration, codecs and tags; the Media Player opens, plays, pauses and saves a frame', [med.video, med.loaded, med.playing, med.posterBright, med.pausedAfterToggle, med.frame, med.afterClose, med.reopened, med.closedAgain], [['video', 64, 48, 'video', '1.01 s', 'VP9, 64 × 48, 10 fps', 'Opus, 48 kHz, mono', 'Fixture Title', [], 'media', true], 'loaded', true, true, true, [true, 64, 48], ['clip-vp9.webm', null], 'media', true], JSON.stringify(med));
+  check('media: a FLAC file shows its cover art with the audio player; Esc closes it; a QuickTime file opens as a video picture', [med.audio, med.audioLoaded, med.coverPx, med.escClosed, med.mov], [['audio', 64, 64, 'audio', '1.00 s', 'FLAC, 44.1 kHz, mono, 16-bit', 'PNG, 0.3 KB', 'Anne Lens', 'media', true, false], 'loaded', [240, 200, 40], true, ['video', 'video', 'H.264 Baseline, 64 × 48, 10 fps', true, 'media']], JSON.stringify([med.audio, med.audioLoaded, med.coverPx, med.escClosed, med.mov]));
+
   // Script Console: JavaScript in a worker edits the picture (one Undo step), lists the folder,
   // reports a syntax error, and Stop ends a runaway loop. Command-Line Help lists the options.
   const scon = await p.evaluate(async () => {

@@ -123,6 +123,18 @@ function openMotion(app: App): void {
   sv.mount(); sv.showVideo(blob);
 }
 
+/** The Media Player for a video or audio file: the file's bytes in a media element over the poster or cover art. */
+function openMedia(app: App): void {
+  const p = app.picture!, m = p.media; if (!m) { toast('This is not a video or audio file.'); return; }
+  const blob = new Blob([p.bytes as BlobPart], { type: m.mime });
+  const sv = openSpecial(app, 'media', `${m.kind === 'video' ? 'Video' : 'Audio'} · ${m.title || p.name}`);
+  const dur = p.info.duration ? h('span', { class: 'ql-help' }, p.info.duration) : null;
+  sv.controls(...(dur ? [dur] : []), ...(m.kind === 'video' ? [h('button', { class: 'ql-btn', type: 'button', onclick: () => app.exec('view.mediaFrame') }, 'Save current frame')] : []));
+  sv.mount();
+  if (m.kind === 'audio') sv.setImage(p.frameCanvas());
+  sv.showMedia(blob, m.kind);
+}
+
 def([
   {
     id: 'view.stereo', icon: 'view_in_ar', kind: 'menu', noRecord: true, isEnabled: has, isActive: () => specialOpen()?.kind === 'stereo', tip: 'MPO files, side-by-side pairs or two marked pictures: red-cyan anaglyph, cross-eye or parallel',
@@ -133,9 +145,10 @@ def([
   { id: 'view.twoPage', icon: 'menu_book', kind: 'toggle', noRecord: true, isEnabled: (app) => !!app.picture && (app.picture.pages.length > 1 || app.folder.length > 1), isActive: () => specialOpen()?.kind === 'spread', tip: 'Facing pages: the folder\'s pictures (comics, a scanned book) or a multipage file\'s pages; arrows turn two at a time', run: (app) => { if (specialOpen()?.kind === 'spread') specialOpen()!.close(); else openSpread(app); } },
   { id: 'view.rtl', icon: 'format_textdirection_r_to_l', kind: 'toggle', noRecord: true, isActive: () => reading.rtl, tip: 'Pages read right to left (manga): the first page on the right, the left arrow goes forward', run: () => { reading.rtl = !reading.rtl; const sv = specialOpen() as any; if (sv?.kind === 'spread') sv.spread.refresh(); toast(reading.rtl ? 'Right-to-left reading.' : 'Left-to-right reading.'); } },
   { id: 'view.motionPhoto', icon: 'motion_photos_on', noRecord: true, isEnabled: (app) => !!clipOf(app.picture), isActive: () => specialOpen()?.kind === 'motion', tip: 'Plays the clip inside a Google or Samsung motion photo; save the clip or a frame', run: (app) => { if (specialOpen()?.kind === 'motion') specialOpen()!.close(); else openMotion(app); } },
+  { id: 'view.media', icon: 'smart_display', kind: 'toggle', noRecord: true, isEnabled: (app) => !!app.picture?.media, isActive: () => specialOpen()?.kind === 'media', tip: 'Plays a video or audio file met while browsing (opens by itself when one is shown); Esc closes it', run: (app) => { if (specialOpen()?.kind === 'media') specialOpen()!.close(); else openMedia(app); } },
   {
-    id: 'view.mediaPlay', icon: 'play_pause', noRecord: true, isEnabled: (app) => !!specialOpen()?.video || !!app.picture?.animated, tip: 'Plays or pauses a motion photo\'s clip or an animated picture',
-    run: (app) => { const v = specialOpen()?.video; if (v) { if (v.paused) void v.play(); else v.pause(); return; } if (app.picture?.animated) app.viewer.togglePlay(); },
+    id: 'view.mediaPlay', icon: 'play_pause', noRecord: true, isEnabled: (app) => !!specialOpen()?.player || !!app.picture?.animated || !!app.picture?.media, tip: 'Plays or pauses a video or audio file, a motion photo\'s clip or an animated picture',
+    run: (app) => { const v = specialOpen()?.player; if (v) { if (v.paused) void v.play(); else v.pause(); return; } if (app.picture?.media) { openMedia(app); return; } if (app.picture?.animated) app.viewer.togglePlay(); },
   },
   {
     id: 'view.mediaFrame', icon: 'add_photo_alternate', noRecord: true, isEnabled: (app) => !!specialOpen()?.video || !!app.picture?.animated, tip: 'The clip\'s or the animation\'s current frame as a new picture',

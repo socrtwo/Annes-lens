@@ -88,6 +88,20 @@ Files with no magic number (Atari ST, Commodore 64) are recognized by their exte
 
 Formats that are proprietary and undocumented are attempted only clean-room from public information; where that is not enough, Anne's Lens identifies the file, shows any embedded preview, and explains why it cannot open the rest.
 
+## Video and audio
+
+Files met while browsing open like pictures: the first frame of a video or the cover art of an audio file is the picture (a drawn placeholder when there is neither), and the **Media Player** (`view.media`) opens over it by itself, with **Play / Pause** (`view.mediaPlay`) and **Save Current Frame** (`view.mediaFrame`). Playback is the platform's media element, so which codecs play depends on the platform (the desktop app plays H.264/AAC; browsers and the Android WebView vary); what the file holds is read by the app's own code either way.
+
+| Format | Extensions | Detection | Open | Save | Notes |
+|---|---|---|---|---|---|
+| MP4, QuickTime, 3GPP, M4A | .mp4 .m4v .mov .qt .3gp .3g2 .m4a .m4b | `ftyp` box (still pictures in the same structure, HEIF/AVIF/JP2, are told apart) | **Done:** platform playback, own reader | No | movie header duration and creation time; tracks with codec (H.264 with its profile, HEVC, VP9, AV1, AAC, MP3, Opus, FLAC, ALAC, PCM…), size, frame rate, sample rate, channels, language; iTunes tags (title, artist, album, date, genre, track) and cover art; QuickTime user data |
+| WebM, Matroska | .webm .mkv .mka .weba | EBML header and DocType | **Done:** platform playback, own reader | No | Info (duration, muxer, date), Tracks (codec IDs, size, sample rate, channels), Tags, an attached cover; clusters skipped |
+| Ogg | .ogg .oga .ogv .opus .spx | `OggS` pages | **Done:** platform playback, own reader | No | Vorbis, Opus, Theora, FLAC, Speex streams with their comments and METADATA_BLOCK_PICTURE; the duration from the last page's granule position |
+| FLAC | .flac | `fLaC` | **Done:** platform playback, own reader | No | STREAMINFO, comments, PICTURE blocks |
+| WAVE, AVI | .wav .avi | RIFF form type | **Done:** platform playback, own reader | No | format chunk (PCM, float, ADPCM, MP3…), AVI stream headers (Motion JPEG, MPEG-4, H.264, uncompressed…), INFO tags |
+| AIFF | .aif .aiff .aifc | `FORM` AIFF/AIFC | **Done:** platform playback, own reader | No | COMM chunk (80-bit sample rate), NAME/AUTH/ANNO |
+| MPEG audio | .mp3 .mp2 | ID3 tag or two frame syncs in a row | **Done:** platform playback, own reader | No | ID3v2.2, 2.3 and 2.4 (unsynchronisation, APIC/PIC covers) and ID3v1; the duration from Xing/Info or VBRI frames, else the bitrate |
+
 ## Files from other kinds of programs
 
 Anne's Lens recognizes documents, spreadsheets, presentations, PDFs and e-mail by content too. It offers to open them in the matching Anne's Office app when installed, or to **Extract Embedded Pictures** (`create.extractEmbedded`) from them: pictures inside .docx, .pptx, .xlsx, .odt, .odp, .epub, .pdf, .eml and .mbox files are listed as a virtual folder, opened and saved at their original quality.

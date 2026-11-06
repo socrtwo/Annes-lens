@@ -581,6 +581,7 @@ Difference Overlay | view.diffOverlay | | NEW | highlights changed pixels; thres
 Synchronize Windows | view.syncWindows | | NM | several windows follow the same zoom, pan and navigation
 
 ## Media
+Media Player | view.media | | IV,XN,NEW | toggle: plays a video or audio file met while browsing (opens by itself when one is shown; the first frame or the cover art is the picture)
 Play / Pause | view.mediaPlay | K | IV,WP | video and audio files met while browsing
 Save Current Frame | view.mediaFrame | | IV,WP |
 Motion Photo | view.motionPhoto | | APH,GP | plays the clip inside a motion or live photo

@@ -111,7 +111,8 @@
 - 8BF plug-in host (Windows), panorama stitching, focus stacking and exposure merge refinements, content-aware resize (done), vectorize (done: Trace to Vector).
 - Network-synchronized viewing with the suite's relay; shared albums.
 - [x] Stereo View (MPO pairs, side-by-side pictures or two marked pictures; red-cyan anaglyph in color, half color or gray, cross-eye, parallel, either eye, swap) and 360° View (equirectangular panoramas: drag to look, wheel for the field of view, save the view). Two-Page View with Right-to-Left Reading (a folder or a multipage file as facing pages, the first page alone, keys turn two pages), Motion Photo (the clip in Google and Samsung motion photos: play, pause, save the clip or a frame).
-- [ ] Video and audio files in folders; DICOM and FITS tools.
+- [x] Video and audio files in folders: MP4/MOV/M4A/3GP, WebM and Matroska, Ogg (Vorbis, Opus, Theora, FLAC), FLAC, WAV, AVI, AIFF and MP3 recognized by content and listed with pictures; the first frame or the cover art is the picture (thumbnails too); the Media Player (the platform's media element, so the playable codecs are the platform's) opens by itself, with Play/Pause and Save Current Frame; duration, size, codecs, sample rate, channels, tags and cover art read by the app's own container reader (ISO boxes with iTunes tags, EBML, Ogg pages, FLAC blocks, RIFF INFO, AIFF chunks, ID3v1/v2.2–2.4, Xing/VBRI).
+- [ ] DICOM and FITS tools.
 
 ## Recovery (throughout)
 

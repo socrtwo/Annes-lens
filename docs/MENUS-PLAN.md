@@ -413,7 +413,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## XnView style
 
-*Modeled on XnView MP browser and viewer. 179 commands.*
+*Modeled on XnView MP browser and viewer. 180 commands.*
 
 ### File
 
@@ -500,6 +500,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Transparency Display — `view.alphaDisplay`
 - Color-Managed Display — `view.colorManaged`
 - DICOM Overlay Planes — `view.dicomOverlays`
+- Media Player — `view.media`
 - Map — `browse.map`
 
 ### Image
@@ -1606,7 +1607,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## All viewers combined
 
-*Modeled on the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options). 341 commands.*
+*Modeled on the union of every layout above, merged menu by menu without duplicates (Picture, Modify and Item merge into Image; Go and Window into View; Album, Tag and Folder into Organize; Import and Export into File; Settings into Options). 342 commands.*
 
 ### File
 
@@ -1791,6 +1792,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 - Transparency Display — `view.alphaDisplay`
 - Color-Managed Display — `view.colorManaged`
 - DICOM Overlay Planes — `view.dicomOverlays`
+- Media Player — `view.media`
 - Map — `browse.map`
 - ───
 - Synchronize Windows — `view.syncWindows`
@@ -2133,7 +2135,7 @@ The **AI** menu is the same in every layout and sits just before Help.
 
 ## Anne's Lens complete
 
-*Modeled on the ribbon itself: one menu per tab, one submenu per group, every command. 559 commands.*
+*Modeled on the ribbon itself: one menu per tab, one submenu per group, every command. 560 commands.*
 
 <details><summary><b>File</b></summary>
 
@@ -2691,6 +2693,7 @@ The **AI** menu is the same in every layout and sits just before Help.
   - Difference Overlay — `view.diffOverlay`
   - Synchronize Windows — `view.syncWindows`
 - **Media ▸**
+  - Media Player — `view.media`
   - Play / Pause — `view.mediaPlay`
   - Save Current Frame — `view.mediaFrame`
   - Motion Photo — `view.motionPhoto`

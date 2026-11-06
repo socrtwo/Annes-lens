@@ -316,6 +316,7 @@ view.histogramOverlay
 view.alphaDisplay
 view.colorManaged
 view.dicomOverlays
+view.media
 browse.map
 = Image
 image.rotateLeft

@@ -14,7 +14,7 @@ import { encodeCanvas } from '../codecs/registry';
 import { Folder, entryFromBytes } from '../picture/folder';
 import { saveAs } from '../platform/native';
 
-export type SpecialKind = 'stereo' | 'sphere' | 'spread' | 'motion';
+export type SpecialKind = 'stereo' | 'sphere' | 'spread' | 'motion' | 'media';
 export const rasterCanvas = (r: Raster): HTMLCanvasElement => { const c = document.createElement('canvas'); c.width = r.width; c.height = r.height; c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.width, r.height), 0, 0); return c; };
 
 export class SpecialView {
@@ -24,6 +24,8 @@ export class SpecialView {
   /** 360° view. */
   pano: Raster | null = null; look = { yaw: 0, pitch: 0, fov: 90 };
   video: HTMLVideoElement | null = null; videoUrl = '';
+  /** The Media Player's audio element (audio files; the cover art stays on the canvas). */
+  audio: HTMLAudioElement | null = null;
   onKeyExtra: ((e: KeyboardEvent) => boolean) | null = null;
   private drag: { x: number; y: number; s: CompareState; look: { yaw: number; pitch: number; fov: number } } | null = null;
   private ro: ResizeObserver; private raf = 0; private out: Uint8ClampedArray | null = null;
@@ -39,7 +41,7 @@ export class SpecialView {
   /** Adds controls to the toolbar (before Close). */
   controls(...kids: HTMLElement[]): void { this.bar.append(...kids); }
   mount(): void {
-    this.bar.append(h('span', { class: 'ql-spacer' }), ...(this.kind !== 'motion' ? [h('button', { class: 'ql-btn', type: 'button', onclick: () => this.saveView() }, 'Save view as picture')] : []), h('button', { class: 'ql-btn', type: 'button', onclick: () => this.close() }, 'Close'));
+    this.bar.append(h('span', { class: 'ql-spacer' }), ...(this.kind !== 'motion' && this.kind !== 'media' ? [h('button', { class: 'ql-btn', type: 'button', onclick: () => this.saveView() }, 'Save view as picture')] : []), h('button', { class: 'ql-btn', type: 'button', onclick: () => this.close() }, 'Close'));
     this.app.viewer.el.appendChild(this.el);
     window.addEventListener('keydown', this.onKey, true);
     this.ro.observe(this.el);
@@ -109,6 +111,22 @@ export class SpecialView {
     void v.play().catch(() => undefined);
     return v;
   }
+  /** Media Player: a video with sound and controls, or an audio element under the cover art. Autoplay may be refused until the user acts; the controls stay. */
+  showMedia(blob: Blob, kind: 'video' | 'audio'): HTMLMediaElement {
+    this.videoUrl = URL.createObjectURL(blob);
+    if (kind === 'video') {
+      const v = h('video', { class: 'qn-sv-video', controls: true, playsinline: true }) as HTMLVideoElement;
+      v.src = this.videoUrl; this.video = v; this.canvas.replaceWith(v);
+      void v.play().catch(() => undefined);
+      return v;
+    }
+    const a = h('audio', { class: 'qn-sv-audio', controls: true }) as HTMLAudioElement;
+    a.src = this.videoUrl; this.audio = a; this.stage.appendChild(a);
+    void a.play().catch(() => undefined);
+    return a;
+  }
+  /** The element playing, when the view has one. */
+  get player(): HTMLMediaElement | null { return this.video || this.audio; }
   /** The video's current frame (waits for a presented frame when none has been shown yet). */
   async videoFrame(): Promise<HTMLCanvasElement | null> {
     const v = this.video; if (!v || !v.videoWidth) return null;
@@ -120,7 +138,7 @@ export class SpecialView {
   async saveClip(blob: Blob, name: string): Promise<void> { const r = await saveAs(blob, name); toast(r ? `Saved ${r.name}.` : 'Not saved.'); }
   close(): void {
     window.removeEventListener('keydown', this.onKey, true); this.ro.disconnect(); cancelAnimationFrame(this.raf);
-    if (this.video) { this.video.pause(); this.video.removeAttribute('src'); this.video.load(); }
+    for (const m of [this.video, this.audio]) if (m) { m.pause(); m.removeAttribute('src'); m.load(); }
     if (this.videoUrl) URL.revokeObjectURL(this.videoUrl);
     this.el.remove(); if (current === this) current = null; this.app.refresh();
   }

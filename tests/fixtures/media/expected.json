@@ -1,0 +1,408 @@
+{
+ "clip-3gp.3gp": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "3GPP: H.264 Baseline video",
+  "size": 7018,
+  "streams": [
+   {
+    "codec": "h264",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   }
+  ],
+  "tags": {}
+ },
+ "clip-h264.mkv": {
+  "cover": true,
+  "duration": 1.0,
+  "note": "Matroska: H.264 video, FLAC audio, an attached cover, tags",
+  "size": 20782,
+  "streams": [
+   {
+    "codec": "h264",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   },
+   {
+    "channels": 1,
+    "codec": "flac",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "clip-h264.mov": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "QuickTime: H.264 video, tags",
+  "size": 7167,
+  "streams": [
+   {
+    "codec": "h264",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "clip-h264.mp4": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "MP4: H.264 video with AAC audio, tags, a creation time, moov first",
+  "size": 12328,
+  "streams": [
+   {
+    "codec": "h264",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   },
+   {
+    "channels": 1,
+    "codec": "aac",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "clip-mjpeg.avi": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "AVI: Motion JPEG video with PCM audio, INFO tags",
+  "size": 113464,
+  "streams": [
+   {
+    "codec": "mjpeg",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   },
+   {
+    "channels": 1,
+    "codec": "pcm_s16le",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "clip-theora.ogv": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "Ogg: Theora video with Vorbis audio, comments",
+  "size": 10156,
+  "streams": [
+   {
+    "codec": "theora",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   },
+   {
+    "channels": 1,
+    "codec": "vorbis",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "clip-vp8.webm": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "WebM: VP8 video only",
+  "size": 4199,
+  "streams": [
+   {
+    "codec": "vp8",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   }
+  ],
+  "tags": {}
+ },
+ "clip-vp9.webm": {
+  "cover": false,
+  "duration": 1.008,
+  "note": "WebM: VP9 video with Opus audio, tags",
+  "size": 7855,
+  "streams": [
+   {
+    "codec": "vp9",
+    "height": 48,
+    "type": "video",
+    "width": 64
+   },
+   {
+    "channels": 1,
+    "codec": "opus",
+    "sampleRate": 48000,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone-bare.mp3": {
+  "cover": false,
+  "duration": 1.045,
+  "note": "MP3: frames only, no tags, no Xing (duration from the bitrate)",
+  "size": 4180,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "mp3",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {}
+ },
+ "tone-float.wav": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "WAVE: 32-bit float stereo (WAVE_FORMAT_EXTENSIBLE)",
+  "size": 352914,
+  "streams": [
+   {
+    "channels": 2,
+    "codec": "pcm_f32le",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {}
+ },
+ "tone-id3v22.mp3": {
+  "cover": true,
+  "duration": 1.045,
+  "note": "MP3: an ID3v2.2 tag (TT2/TP1/TAL/TYE, PIC cover) before bare frames",
+  "size": 5654,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "mp3",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Old Album",
+   "artist": "Old Artist",
+   "date": "1999",
+   "title": "Old Title"
+  }
+ },
+ "tone-opus.mka": {
+  "cover": false,
+  "duration": 1.008,
+  "note": "Matroska audio: Opus",
+  "size": 4598,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "opus",
+    "sampleRate": 48000,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone-vbr.mp3": {
+  "cover": false,
+  "duration": 1.044898,
+  "note": "MP3: ID3v2.4 and ID3v1, VBR with a Xing frame",
+  "size": 5069,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "mp3",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.aiff": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "AIFF: 16-bit PCM, NAME/AUTH chunks",
+  "size": 88276,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "pcm_s16be",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "title": "Fixture Title"
+  }
+ },
+ "tone.flac": {
+  "cover": true,
+  "duration": 1.0,
+  "note": "FLAC with a PNG cover and comments",
+  "size": 20735,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "flac",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.m4a": {
+  "cover": true,
+  "duration": 1.0,
+  "note": "M4A: AAC with iTunes tags and a PNG cover",
+  "size": 7698,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "aac",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.mp3": {
+  "cover": true,
+  "duration": 1.044898,
+  "note": "MP3: ID3v2.3 with a JPEG cover, CBR 64 kbit/s with an Info frame",
+  "size": 9802,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "mp3",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.ogg": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "Ogg Vorbis with comments",
+  "size": 5139,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "vorbis",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.opus": {
+  "cover": false,
+  "duration": 1.0065,
+  "note": "Ogg Opus with tags",
+  "size": 3930,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "opus",
+    "sampleRate": 48000,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ },
+ "tone.wav": {
+  "cover": false,
+  "duration": 1.0,
+  "note": "WAVE: 16-bit PCM, INFO tags",
+  "size": 88352,
+  "streams": [
+   {
+    "channels": 1,
+    "codec": "pcm_s16le",
+    "sampleRate": 44100,
+    "type": "audio"
+   }
+  ],
+  "tags": {
+   "album": "Test Album",
+   "artist": "Anne Lens",
+   "date": "2024",
+   "title": "Fixture Title"
+  }
+ }
+}

@@ -48,6 +48,8 @@ export class Picture {
   page = 0;
   frame = 0;
   loadMs = 0;
+  /** A video or audio file: the pages are its first frame or cover art; the bytes play in the Media Player. */
+  media: { kind: 'video' | 'audio'; mime: string; duration?: number; title?: string } | null = null;
   constructor(
     public entry: Entry,
     public bytes: Uint8Array,
