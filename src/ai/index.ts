@@ -130,13 +130,16 @@ let edits = 0;
 export async function openResult(app: App, r: Raster, p: Provenance, opts: { name?: string; replace?: boolean; label?: string } = {}): Promise<void> {
   const replace = opts.replace ?? (app.prefs.ai.result === 'replace' && p.kind === 'edited' && !!app.picture);
   if (replace) { editRaster(app, opts.label || p.command, () => r); toast(`${opts.label || p.command} applied (AI; undo with Ctrl+Z).`); return; }
+  const source = p.kind === 'edited' && app.picture ? { name: app.picture.name, bytes: app.picture.bytes, mime: app.picture.format.mime } : null;
   const blob = await encodeCanvas(rasterCanvas(r), 'png');
   let u8 = new Uint8Array(await blob.arrayBuffer());
   const props = provenanceProps(app, p);
   if (Object.keys(props).length) u8 = setXmp(u8, 'png', new TextEncoder().encode(updateXmp(null, props))) as Uint8Array<ArrayBuffer>;
   const cur = app.picture?.name;
   const name = opts.name || (p.kind === 'generated' || !cur ? `AI ${p.command.replace(/^ai\./, '')} ${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png` : `${base(cur)} (AI edit ${++edits}).png`);
-  await app.openFolder(new Folder([entryFromBytes(name, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer)], p.kind === 'generated' ? 'Generated' : 'AI edits'), 0, { newWindow: true });
+  const entry = entryFromBytes(name, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer);
+  if (source) entry.ingredient = source;
+  await app.openFolder(new Folder([entry], p.kind === 'generated' ? 'Generated' : 'AI edits'), 0, { newWindow: true });
   toast(`${name} opened (AI result; not saved yet).`);
 }
 

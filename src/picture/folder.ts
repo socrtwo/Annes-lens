@@ -14,6 +14,8 @@ export interface Entry {
   mtime?: number;
   /** The folder the entry was listed from, when that is not the open folder (Include Subfolders, the catalog). */
   dirUri?: string;
+  /** The picture an AI edit started from (its file bytes), for the Content Credentials ingredient when the result is saved. */
+  ingredient?: { name: string; bytes: Uint8Array; mime: string };
   read(): Promise<ArrayBuffer>;
 }
 

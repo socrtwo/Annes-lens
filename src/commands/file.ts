@@ -168,7 +168,7 @@ async function produce(app: App, format?: SaveFormat, quality?: number): Promise
   const c = pic.frameCanvas();
   let blob = await encodeCanvas(c, fmt!, (q ?? app.prefs.jpegQuality) / 100, opts);
   if ((app.prefs.keepMetadata || pic.current.icc) && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withMetadata(blob, pic.bytes, fmt, pic.orientationApplied || app.tab.dirty, { keep: app.prefs.keepMetadata, icc: pic.current.icc });
-  if (app.prefs.ai.credentials && (fmt === 'jpeg' || fmt === 'png')) blob = await withCredentials(app, blob, pic.bytes, fmt, `${base}.${EXT[fmt!]}`);
+  if (app.prefs.ai.credentials && (fmt === 'jpeg' || fmt === 'png' || fmt === 'webp')) blob = await withCredentials(app, blob, pic.bytes, fmt, `${base}.${EXT[fmt!]}`, pic.entry.ingredient);
   return { blob, name: `${base}.${EXT[fmt!]}` };
 }
 
@@ -193,7 +193,7 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '
  * signed C2PA manifest (the action, its source type, the service and model, the prompt), signed with this device's
  * own self-signed certificate from the keystore. Pictures without AI provenance are left as they are.
  */
-export async function withCredentials(app: App, blob: Blob, source: Uint8Array, format: 'jpeg' | 'png', name: string): Promise<Blob> {
+export async function withCredentials(app: App, blob: Blob, source: Uint8Array, format: 'jpeg' | 'png' | 'webp', name: string, ingredient?: { name: string; bytes: Uint8Array; mime: string }): Promise<Blob> {
   try {
     const xmp = extractMeta(source).xmp;
     if (!xmp) return blob;
@@ -211,12 +211,25 @@ export async function withCredentials(app: App, blob: Blob, source: Uint8Array, 
     if (props.aiModel) parameters.model = props.aiModel;
     if (props.aiPrompt) parameters.prompt = props.aiPrompt;
     const bytes = await embedManifest(new Uint8Array(await blob.arrayBuffer()), {
-      title: name, format: format === 'jpeg' ? 'image/jpeg' : 'image/png', generator: { name: "Anne's Lens", version: APP_VERSION },
+      title: name, format: format === 'jpeg' ? 'image/jpeg' : format === 'png' ? 'image/png' : 'image/webp', generator: { name: "Anne's Lens", version: APP_VERSION },
+      ingredient: ingredient ? { title: ingredient.name, format: ingredient.mime, bytes: ingredient.bytes, thumbnail: await thumbnailOf(ingredient.bytes) } : undefined,
       action: { action: generated ? 'c2pa.created' : 'c2pa.edited', when: props.aiDate && !Number.isNaN(Date.parse(props.aiDate)) ? new Date(props.aiDate).toISOString().replace(/\.\d{3}Z$/, 'Z') : now, softwareAgent: agent, digitalSourceType: props.digitalSourceType || 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia', description: `${props.aiCommand}${props.aiProvider ? ` with ${props.aiProvider}` : ''}${props.aiModel ? ` (${props.aiModel})` : ''}`, parameters },
       more: app.tab?.dirty ? [{ action: 'c2pa.edited', when: now, softwareAgent: agent, description: 'edited in Anne\'s Lens before saving' }] : [],
     }, signer);
     return new Blob([bytes as BlobPart], { type: blob.type });
   } catch (e) { toast(`Content Credentials could not be added: ${(e as Error).message}`); return blob; }
+}
+
+/** A small JPEG of a picture's file for the ingredient (the platform decodes it; null where it cannot). */
+async function thumbnailOf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; mime: string } | undefined> {
+  try {
+    const bmp = await createImageBitmap(new Blob([bytes as BlobPart]));
+    const scale = Math.min(1, 256 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+    const ctx = c.getContext('2d')!; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close();
+    const b = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.8));
+    return b ? { bytes: new Uint8Array(await b.arrayBuffer()), mime: 'image/jpeg' } : undefined;
+  } catch { return undefined; }
 }
 
 /** Save: back into the same file when the format can be written and the file is writable; otherwise Save As. */

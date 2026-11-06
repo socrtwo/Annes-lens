@@ -103,7 +103,7 @@
 - [x] Several AIs (master and Quaker consensus) for text commands, with Show AI Discussion.
 - [x] Generate Vector: the picture service draws in a flat vector style and the on-device tracer (Trace to Vector) turns it into SVG with AI provenance in its metadata.
 - [x] Keys in platform secure storage: the desktop OS credential store (safeStorage), the Android Keystore (EncryptedSharedPreferences), a passphrase-encrypted store on the web and iOS; never in settings exports, macros or AI History (iOS Keychain still to do).
-- [x] C2PA manifests on AI results saved as JPEG or PNG: assertions, claim and ES256 signature written by the app's own code, signed with a self-signed certificate made on the device (valid hashes and signature; untrusted signer, as it must be); manifests read back, verified and shown in the details.
+- [x] C2PA manifests on AI results saved as JPEG, PNG or WebP: assertions, claim and ES256 signature written by the app's own code, signed with a self-signed certificate made on the device (valid hashes and signature; untrusted signer, as it must be); edits carry their ingredient with a thumbnail and the original's own manifests; manifests read back, verified (ingredients too) and shown in the details.
 - [ ] On-device generation.
 
 ## M8 — Stretch goals

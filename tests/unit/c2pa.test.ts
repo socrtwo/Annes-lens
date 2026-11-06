@@ -6,7 +6,8 @@ import { makeSigner, loadSigner, embedManifest, readManifest, describeManifest, 
 
 const jpg = () => new Uint8Array(readFileSync('tests/fixtures/jpeg/base-420.jpg'));
 const png = () => new Uint8Array(readFileSync('tests/fixtures/png/gray1.png'));
-const input = (title: string, format: 'image/jpeg' | 'image/png') => ({ title, format, generator: { name: "Anne's Lens", version: '0.2.0' }, action: { action: 'c2pa.created' as const, when: '2026-11-05T12:00:00Z', softwareAgent: "Anne's Lens/0.2.0", digitalSourceType: 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia', description: 'ai.generate with Mock', parameters: { prompt: 'a bicycle', model: 'mock-image', service: 'Mock' } } });
+const webp = () => new Uint8Array(readFileSync('tests/fixtures/meta/tagged.webp'));
+const input = (title: string, format: 'image/jpeg' | 'image/png' | 'image/webp') => ({ title, format, generator: { name: "Anne's Lens", version: '0.2.0' }, action: { action: 'c2pa.created' as const, when: '2026-11-05T12:00:00Z', softwareAgent: "Anne's Lens/0.2.0", digitalSourceType: 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia', description: 'ai.generate with Mock', parameters: { prompt: 'a bicycle', model: 'mock-image', service: 'Mock' } } });
 
 describe('CBOR', () => {
   it('round-trips the values manifests use', () => {
@@ -65,6 +66,34 @@ describe('C2PA manifests', () => {
     const without = new Uint8Array([...signed.subarray(0, found.exclusions[0].start), ...signed.subarray(found.exclusions[0].start + found.exclusions[0].length)]);
     expect(Array.from(without)).toEqual(Array.from(jpg()));
   });
+  it('WebP: the C2PA chunk before the image data, the RIFF size kept right, valid when read back', async () => {
+    const signer = await loadSigner(await makeSigner('S'));
+    const signed = await embedManifest(webp(), input('p.webp', 'image/webp'), signer);
+    const m = (await readManifest(signed))!;
+    expect(m.checks).toEqual({ hash: true, assertions: true, signature: true });
+    const riff = (signed[4] | (signed[5] << 8) | (signed[6] << 16) | (signed[7] << 24)) >>> 0;
+    expect(riff).toBe(signed.length - 8);
+    expect(new TextDecoder().decode(signed.subarray(12, 16))).toBe('VP8X');
+    const found = findManifestStore(signed)!;
+    expect(new TextDecoder().decode(signed.subarray(found.exclusions[0].start, found.exclusions[0].start + 4))).toBe('C2PA');
+  }, 30000);
+  it('an edit records its ingredient: title, thumbnail, and the original\'s own credentials copied and verified', async () => {
+    const signer = await loadSigner(await makeSigner("Anne's Lens on this device", "Anne's Lens"));
+    const original = await embedManifest(jpg(), input('original.jpg', 'image/jpeg'), signer);
+    const thumb = jpg();
+    const edited = await embedManifest(png(), { ...input('edited.png', 'image/png'), action: { ...input('x', 'image/png').action, action: 'c2pa.edited', digitalSourceType: 'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia', description: 'ai.fill with Mock' }, ingredient: { title: 'original.jpg', format: 'image/jpeg', bytes: original, thumbnail: { bytes: thumb, mime: 'image/jpeg' } } }, signer);
+    const m = (await readManifest(edited))!;
+    expect(m.checks).toEqual({ hash: true, assertions: true, signature: true });
+    expect(m.actions.map((a) => a.action)).toEqual(['c2pa.opened', 'c2pa.edited']);
+    expect(m.ingredients.length).toBe(1);
+    const i = m.ingredients[0];
+    expect([i.title, i.format, i.relationship, i.thumbnail?.mime, i.thumbnail?.bytes.length, i.manifest?.found, i.manifest?.signature, i.manifest?.assertions, i.manifest?.signer]).toEqual(['original.jpg', 'image/jpeg', 'parentOf', 'image/jpeg', thumb.length, true, true, true, "Anne's Lens on this device"]);
+    expect(describeManifest(m)).toContain("from original.jpg (its own credentials valid, signed by Anne's Lens on this device)");
+    // without its own credentials, an ingredient is just named
+    const plain = await embedManifest(png(), { ...input('e2.png', 'image/png'), ingredient: { title: 'photo.jpg', format: 'image/jpeg', bytes: jpg() } }, signer);
+    const p = (await readManifest(plain))!;
+    expect(p.ingredients).toEqual([{ title: 'photo.jpg', format: 'image/jpeg', relationship: 'parentOf' }]);
+  }, 60000);
   it('detects a changed picture and a changed claim', async () => {
     const signer = await loadSigner(await makeSigner('S'));
     const signed = await embedManifest(png(), input('p', 'image/png'), signer);

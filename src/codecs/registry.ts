@@ -360,7 +360,7 @@ export async function decodePicture(u8: Uint8Array, entry: Entry): Promise<Pictu
   const pic = new Picture(entry, u8, fmt, decoded.pages, exif, decoded.info, decoded.warnings, decoded.decoder);
   if (exif?.dpi) for (const p of pic.pages) if (!p.dpi) p.dpi = exif.dpi;
   // EXIF orientation: the platform decodes with imageOrientation 'none', so the pixels are as stored.
-  if (fmt.id === 'jpeg' || fmt.id === 'png') { try { const { findManifestStore, readManifest, describeManifest } = await import('../meta/c2pa'); if (findManifestStore(u8)) { const m = await readManifest(u8); if (m) decoded.info['Content Credentials'] = describeManifest(m); } } catch (e) { decoded.info['Content Credentials'] = `present but unreadable (${(e as Error).message})`; } }
+  if (fmt.id === 'jpeg' || fmt.id === 'png' || fmt.id === 'webp') { try { const { findManifestStore, readManifest, describeManifest } = await import('../meta/c2pa'); if (findManifestStore(u8)) { const m = await readManifest(u8); if (m) decoded.info['Content Credentials'] = describeManifest(m); } } catch (e) { decoded.info['Content Credentials'] = `present but unreadable (${(e as Error).message})`; } }
   const ops = decodeOptions.autoRotate && fmt.id !== 'tiff' && fmt.id !== 'raw' ? orientationOps(pic.orientation) : [];
   if (ops.length && typeof document !== 'undefined') { pic.pages = pic.pages.map((pg) => ops.reduce((acc, op) => transformPage(acc, op), pg)); pic.orientationApplied = true; }
   return pic;
